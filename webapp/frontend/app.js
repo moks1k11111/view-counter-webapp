@@ -66,6 +66,25 @@ function calculateDaysRemaining(endDate) {
     return diffDays;
 }
 
+function formatLastUpdate(lastUpdateTime) {
+    if (!lastUpdateTime) {
+        // Default: 15 minutes ago as placeholder
+        return 'Обновлено 15 мин назад';
+    }
+
+    const now = new Date();
+    const lastUpdate = new Date(lastUpdateTime);
+    const diffMs = now - lastUpdate;
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+
+    if (diffMinutes < 60) {
+        return `Обновлено ${diffMinutes} мин назад`;
+    } else {
+        return `Обновлено ${diffHours}ч назад`;
+    }
+}
+
 // ==================== CHART FUNCTIONS ====================
 function createProgressChart(canvasId, progress) {
     const canvas = document.getElementById(canvasId);
@@ -263,6 +282,7 @@ async function renderProjects(projects) {
                             <div class="stat-value">${formatNumber(project.target_views)}</div>
                         </div>
                     </div>
+                    <div class="last-update-text">${formatLastUpdate(project.last_update)}</div>
                     <div class="project-platforms">
                         <div class="platform-icon tiktok" title="TikTok"><i class="fa-brands fa-tiktok"></i></div>
                         <div class="platform-icon instagram" title="Instagram"><i class="fa-brands fa-instagram"></i></div>
@@ -326,6 +346,7 @@ async function renderMyProjects(projects) {
                     <canvas id="chart-bar-${index}" height="120"></canvas>
                 </div>
                 <div class="chart-legend">Last 7 days activity</div>
+                <div class="last-update-text">${formatLastUpdate(project.last_update)}</div>
                 <div class="project-platforms">
                     <div class="platform-icon tiktok" title="TikTok"><i class="fa-brands fa-tiktok"></i></div>
                     <div class="platform-icon instagram" title="Instagram"><i class="fa-brands fa-instagram"></i></div>
