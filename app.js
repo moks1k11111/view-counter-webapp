@@ -53,6 +53,19 @@ function formatNumber(num) {
     return num.toString();
 }
 
+function calculateDaysRemaining(endDate) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const end = new Date(endDate);
+    end.setHours(0, 0, 0, 0);
+
+    const diffTime = end - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    return diffDays;
+}
+
 // ==================== CHART FUNCTIONS ====================
 function createProgressChart(canvasId, progress) {
     const canvas = document.getElementById(canvasId);
@@ -216,11 +229,21 @@ async function renderProjects(projects) {
 
     projectsList.innerHTML = projectsWithStats.map((project, index) => {
         const progress = project.target_views > 0 ? Math.round((project.total_views / project.target_views) * 100) : 0;
+        const daysRemaining = calculateDaysRemaining(project.end_date);
+        const daysText = daysRemaining === 1 ? 'day left' : daysRemaining < 0 ? 'Expired' : `${daysRemaining} days left`;
+        const daysClass = daysRemaining < 7 ? 'days-urgent' : daysRemaining < 14 ? 'days-warning' : 'days-normal';
+
         return `
             <div class="project-card" onclick="openProject('${project.id}')">
                 <div class="project-header">
-                    <h3 class="project-name">${project.name}</h3>
-                    <span class="project-geo">${project.geo || 'Global'}</span>
+                    <div class="project-header-left">
+                        <h3 class="project-name">${project.name}</h3>
+                        <span class="project-geo">${project.geo || 'Global'}</span>
+                    </div>
+                    <div class="project-days ${daysClass}">
+                        <span class="days-icon">⏱</span>
+                        <span class="days-text">${daysText}</span>
+                    </div>
                 </div>
                 <div class="project-body">
                     <div class="project-chart">
