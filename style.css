@@ -114,7 +114,7 @@ body {
     box-shadow: 2px 0 20px rgba(0, 0, 0, 0.5);
 }
 
-.sidebar.open {
+.sidebar.active {
     left: 0;
 }
 
