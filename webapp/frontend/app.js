@@ -1,4 +1,5 @@
 // ==================== CONFIGURATION ====================
+// Version: 1.1.0 - Updated 2025-11-26
 const API_BASE_URL = 'https://view-counter-api.onrender.com';
 let currentUser = null;
 let currentProjects = [];
