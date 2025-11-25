@@ -41,6 +41,13 @@ except Exception as e:
 
 project_manager = ProjectManager(db)
 
+# Инициализируем базу данных с тестовыми данными (при первом запуске)
+try:
+    from init_db import init_database
+    init_database()
+except Exception as e:
+    print(f"⚠️  Ошибка инициализации БД: {e}")
+
 # ============ Модели данных ============
 
 class UserAuth(BaseModel):
