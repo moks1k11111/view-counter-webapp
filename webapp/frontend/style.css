@@ -344,10 +344,20 @@ body {
 }
 
 /* My Projects page - Bar Chart */
-.project-chart-bar {
+.project-chart-bar-wrapper {
+    position: relative;
     margin-top: 20px;
+}
+
+.project-chart-bar {
     padding: 10px 0;
     height: 140px;
+}
+
+.project-chart-bar-wrapper .project-platforms {
+    position: absolute;
+    bottom: 0;
+    right: 0;
 }
 
 .chart-legend {

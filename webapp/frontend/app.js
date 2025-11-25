@@ -321,11 +321,19 @@ async function renderMyProjects(projects) {
                 <div class="total-views-value">${formatNumber(project.my_views)}</div>
             </div>
 
-            <div class="project-chart-bar">
-                <canvas id="chart-bar-${index}" height="120"></canvas>
+            <div class="project-chart-bar-wrapper">
+                <div class="project-chart-bar">
+                    <canvas id="chart-bar-${index}" height="120"></canvas>
+                </div>
+                <div class="chart-legend">Last 7 days activity</div>
+                <div class="project-platforms">
+                    <div class="platform-icon tiktok" title="TikTok"><i class="fa-brands fa-tiktok"></i></div>
+                    <div class="platform-icon instagram" title="Instagram"><i class="fa-brands fa-instagram"></i></div>
+                    <div class="platform-icon youtube" title="YouTube"><i class="fa-brands fa-youtube"></i></div>
+                    <div class="platform-icon facebook" title="Facebook"><i class="fa-brands fa-facebook"></i></div>
+                    <div class="platform-icon threads" title="Threads"><i class="fa-brands fa-threads"></i></div>
+                </div>
             </div>
-
-            <div class="chart-legend">Last 7 days activity</div>
         </div>
     `).join('');
 
