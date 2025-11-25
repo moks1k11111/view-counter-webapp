@@ -26,26 +26,26 @@ def init_database():
         db = SQLiteDatabase("tiktok_analytics.db")
         pm = ProjectManager(db)
 
-        # Проверяем, есть ли уже проекты
+        # Check if projects already exist
         all_projects = pm.get_all_projects(active_only=False)
 
         if len(all_projects) > 0:
-            logger.info(f"✅ База данных уже содержит {len(all_projects)} проектов")
+            logger.info(f"✅ Database already contains {len(all_projects)} projects")
             return True
 
-        logger.info("📝 Создаю тестовые проекты...")
+        logger.info("📝 Creating test projects...")
 
-        # ID тестового пользователя
+        # Test user ID
         test_user_id = "873564841"
 
-        # Создаем первый тестовый проект
+        # Create first test project
         project_data = {
-            "name": "Тестовый проект Украина",
+            "name": "Ukraine Campaign",
             "google_sheet_name": "Test Project Sheet",
             "start_date": (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d"),
             "end_date": (datetime.now() + timedelta(days=23)).strftime("%Y-%m-%d"),
             "target_views": 1000000,
-            "geo": "Украина"
+            "geo": "Ukraine"
         }
 
         project = pm.create_project(**project_data)
@@ -53,29 +53,29 @@ def init_database():
             project_id = project['id']
             pm.add_user_to_project(project_id, test_user_id)
             pm.set_user_current_project(test_user_id, project_id)
-            logger.info(f"✅ Проект 1 создан: {project_data['name']}")
+            logger.info(f"✅ Project 1 created: {project_data['name']}")
 
-        # Создаем второй тестовый проект
+        # Create second test project
         project_data2 = {
-            "name": "Проект Россия",
+            "name": "Russia Campaign",
             "google_sheet_name": "Russia Project Sheet",
             "start_date": (datetime.now() - timedelta(days=3)).strftime("%Y-%m-%d"),
             "end_date": (datetime.now() + timedelta(days=27)).strftime("%Y-%m-%d"),
             "target_views": 500000,
-            "geo": "Россия"
+            "geo": "Russia"
         }
 
         project2 = pm.create_project(**project_data2)
         if project2:
             project_id2 = project2['id']
             pm.add_user_to_project(project_id2, test_user_id)
-            logger.info(f"✅ Проект 2 создан: {project_data2['name']}")
+            logger.info(f"✅ Project 2 created: {project_data2['name']}")
 
-        logger.info("✅ База данных инициализирована с тестовыми данными")
+        logger.info("✅ Database initialized with test data")
         return True
 
     except Exception as e:
-        logger.error(f"❌ Ошибка инициализации базы данных: {e}")
+        logger.error(f"❌ Database initialization error: {e}")
         return False
 
 if __name__ == "__main__":

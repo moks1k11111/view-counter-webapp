@@ -35,18 +35,18 @@ db = SQLiteDatabase()
 try:
     sheets_db = SheetsDatabase(GOOGLE_SHEETS_CREDENTIALS, DEFAULT_GOOGLE_SHEETS_NAME, GOOGLE_SHEETS_CREDENTIALS_JSON)
 except Exception as e:
-    print(f"⚠️  Google Sheets не подключен: {e}")
-    print("✅ Приложение продолжает работу с SQLite базой данных")
+    print(f"⚠️  Google Sheets not connected: {e}")
+    print("✅ Application continues with SQLite database")
     sheets_db = None
 
 project_manager = ProjectManager(db)
 
-# Инициализируем базу данных с тестовыми данными (при первом запуске)
+# Initialize database with test data (on first startup)
 try:
     from init_db import init_database
     init_database()
 except Exception as e:
-    print(f"⚠️  Ошибка инициализации БД: {e}")
+    print(f"⚠️  Database initialization error: {e}")
 
 # ============ Модели данных ============
 
