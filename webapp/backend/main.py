@@ -178,10 +178,13 @@ async def get_project_analytics(
         raise HTTPException(status_code=404, detail="Project not found")
 
     # Получаем все профили проекта
-    all_profiles = sheets_db.get_all_profiles(
-        platform=platform,
-        project_name=project['name']
-    )
+    if sheets_db:
+        all_profiles = sheets_db.get_all_profiles(
+            platform=platform,
+            project_name=project['name']
+        )
+    else:
+        all_profiles = []
 
     # Группируем по пользователям
     users_stats = {}
@@ -247,7 +250,10 @@ async def get_my_analytics(
             project_name = project['name']
 
     # Получаем профили пользователя
-    profiles = sheets_db.get_user_profiles(telegram_user, project_name=project_name)
+    if sheets_db:
+        profiles = sheets_db.get_user_profiles(telegram_user, project_name=project_name)
+    else:
+        profiles = []
 
     # Статистика
     platform_stats = {"tiktok": 0, "instagram": 0, "facebook": 0, "youtube": 0}
