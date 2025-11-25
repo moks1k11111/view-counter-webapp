@@ -3,9 +3,12 @@ Telegram бот для запуска View Counter Mini App
 """
 
 import logging
+import os
 from telegram import Update, WebAppInfo, KeyboardButton, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, ContextTypes
-from config import TELEGRAM_TOKEN
+
+# Получаем токен из переменной окружения
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "8325383993:AAGl4tmstfnYIIFtEou2va7fnG37-ErC3Kk")
 
 # Настройка логирования
 logging.basicConfig(
@@ -14,8 +17,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# URL твоего Mini App (замени после деплоя)
-WEBAPP_URL = "https://shy-states-behave.loca.lt/index.html"  # Frontend URL через localtunnel
+# URL твоего Mini App
+WEBAPP_URL = "https://moks1k11111.github.io/view-counter-webapp/"  # Frontend URL на GitHub Pages
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
