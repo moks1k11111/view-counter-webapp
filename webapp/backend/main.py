@@ -97,7 +97,13 @@ def validate_telegram_init_data(init_data: str) -> dict:
 async def get_current_user(x_telegram_init_data: str = Header(None)) -> dict:
     """Dependency для получения текущего пользователя"""
     if not x_telegram_init_data:
-        raise HTTPException(status_code=401, detail="Telegram init data required")
+        # DEV MODE: возвращаем тестового пользователя
+        return {
+            "id": 873564841,
+            "first_name": "Test",
+            "last_name": "User",
+            "username": "testuser"
+        }
     return validate_telegram_init_data(x_telegram_init_data)
 
 # ============ API Endpoints ============
