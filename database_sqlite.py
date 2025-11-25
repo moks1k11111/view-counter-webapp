@@ -29,12 +29,11 @@ class SQLiteDatabase:
             self.conn.row_factory = sqlite3.Row  # Для получения результатов в виде словарей
             self.cursor = self.conn.cursor()
             
-            # Если база данных новая, создаем структуру
-            if not db_exists:
-                self._create_tables()
-            else:
-                # Если база существует, проверяем и добавляем новые таблицы
-                self._migrate_database()
+            # Создаем базовые таблицы
+            self._create_tables()
+
+            # Всегда вызываем миграцию для проверки и создания дополнительных таблиц
+            self._migrate_database()
             
             logger.info(f"Подключено к базе данных SQLite: {db_file}")
             
