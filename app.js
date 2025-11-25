@@ -1,5 +1,5 @@
 // ==================== CONFIGURATION ====================
-const API_BASE_URL = 'https://view-counter-webapp-production.up.railway.app'; // Backend URL на Railway
+const API_BASE_URL = 'https://view-counter-api.onrender.com'; // Backend URL на Render
 let currentUser = null;
 let currentProjectId = null;
 let platformChart = null;
