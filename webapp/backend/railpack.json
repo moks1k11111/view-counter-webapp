@@ -1,3 +1,5 @@
 {
-  "start": "python start.py"
+  "deploy": {
+    "startCommand": "python start.py"
+  }
 }
