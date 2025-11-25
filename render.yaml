@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: view-counter-api
+    env: python
+    region: frankfurt
+    plan: free
+    rootDir: webapp/backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: TELEGRAM_TOKEN
+        sync: false
+      - key: GOOGLE_SHEETS_CREDENTIALS_JSON
+        sync: false
+      - key: ADMIN_IDS
+        value: "[873564841]"
+      - key: DEFAULT_GOOGLE_SHEETS_NAME
+        value: "View Counter"
