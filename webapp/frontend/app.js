@@ -57,6 +57,10 @@ async function init() {
     try {
         initTelegramApp();
 
+        // Debug: показываем initData
+        console.log('Telegram initData:', tg.initData);
+        console.log('initData length:', tg.initData ? tg.initData.length : 0);
+
         // Получаем данные пользователя
         const data = await apiCall('/api/me');
         currentUser = data.user;
