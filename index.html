@@ -20,6 +20,10 @@
         </div>
         <nav class="sidebar-nav">
             <a href="#" class="sidebar-item active" onclick="showPage('home')">
+                <span class="icon">🏠</span>
+                <span>Главная</span>
+            </a>
+            <a href="#" class="sidebar-item" onclick="showPage('projects')">
                 <span class="icon">📊</span>
                 <span>Мои проекты</span>
             </a>
@@ -61,9 +65,29 @@
 
             <!-- Список проектов -->
             <div class="projects-container">
-                <h2 class="section-title">Мои проекты</h2>
+                <h2 class="section-title">Все проекты</h2>
                 <div id="projects-list" class="projects-list">
                     <!-- Проекты будут добавлены динамически -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Страница "Мои проекты" (личная статистика) -->
+        <div id="projects-page" class="page hidden">
+            <header class="header">
+                <button class="hamburger" onclick="openSidebar()">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+                <div class="header-title">
+                    <div class="greeting">Мои проекты</div>
+                </div>
+            </header>
+
+            <div class="projects-container">
+                <div id="my-projects-list" class="projects-list">
+                    <!-- Проекты с личной статистикой будут добавлены динамически -->
                 </div>
             </div>
         </div>

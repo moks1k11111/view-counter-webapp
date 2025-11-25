@@ -53,7 +53,8 @@ function formatNumber(num) {
     return num.toString();
 }
 
-function renderProjects(projects) {
+// Render projects with TOTAL stats (all participants)
+async function renderProjects(projects) {
     const projectsList = document.getElementById('projects-list');
 
     if (!projectsList) {
@@ -66,7 +67,66 @@ function renderProjects(projects) {
         return;
     }
 
-    projectsList.innerHTML = projects.map(project => `
+    // Fetch analytics for each project
+    const projectsWithStats = await Promise.all(projects.map(async (project) => {
+        try {
+            const analytics = await apiCall(`/api/projects/${project.id}/analytics`);
+            return { ...project, total_views: analytics.total_views || 0 };
+        } catch (error) {
+            console.error(`Failed to load analytics for project ${project.id}:`, error);
+            return { ...project, total_views: 0 };
+        }
+    }));
+
+    projectsList.innerHTML = projectsWithStats.map(project => {
+        const progress = project.target_views > 0 ? Math.round((project.total_views / project.target_views) * 100) : 0;
+        return `
+            <div class="project-card" onclick="openProject('${project.id}')">
+                <div class="project-header">
+                    <h3 class="project-name">${project.name}</h3>
+                    <span class="project-geo">${project.geo || 'Global'}</span>
+                </div>
+                <div class="project-stats">
+                    <div class="stat">
+                        <div class="stat-label">Total Views</div>
+                        <div class="stat-value">${formatNumber(project.total_views)} / ${formatNumber(project.target_views)}</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-label">Progress</div>
+                        <div class="stat-value">${progress}%</div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// Render projects with MY PERSONAL stats
+async function renderMyProjects(projects) {
+    const myProjectsList = document.getElementById('my-projects-list');
+
+    if (!myProjectsList) {
+        console.error('my-projects-list element not found');
+        return;
+    }
+
+    if (projects.length === 0) {
+        myProjectsList.innerHTML = '<div class="no-projects">No projects yet</div>';
+        return;
+    }
+
+    // Fetch MY analytics for each project
+    const projectsWithMyStats = await Promise.all(projects.map(async (project) => {
+        try {
+            const myAnalytics = await apiCall(`/api/my-analytics?project_id=${project.id}`);
+            return { ...project, my_views: myAnalytics.total_views || 0 };
+        } catch (error) {
+            console.error(`Failed to load my analytics for project ${project.id}:`, error);
+            return { ...project, my_views: 0 };
+        }
+    }));
+
+    myProjectsList.innerHTML = projectsWithMyStats.map(project => `
         <div class="project-card" onclick="openProject('${project.id}')">
             <div class="project-header">
                 <h3 class="project-name">${project.name}</h3>
@@ -74,12 +134,12 @@ function renderProjects(projects) {
             </div>
             <div class="project-stats">
                 <div class="stat">
-                    <div class="stat-label">Target</div>
-                    <div class="stat-value">${formatNumber(project.target_views)}</div>
+                    <div class="stat-label">My Views</div>
+                    <div class="stat-value">${formatNumber(project.my_views)}</div>
                 </div>
                 <div class="stat">
-                    <div class="stat-label">Period</div>
-                    <div class="stat-value">${project.start_date} - ${project.end_date}</div>
+                    <div class="stat-label">Target</div>
+                    <div class="stat-value">${formatNumber(project.target_views)}</div>
                 </div>
             </div>
         </div>
@@ -133,6 +193,11 @@ function showPage(pageName) {
     const activeItem = document.querySelector(`[onclick="showPage('${pageName}')"]`);
     if (activeItem) {
         activeItem.classList.add('active');
+    }
+
+    // Load data for specific pages
+    if (pageName === 'projects' && currentProjects.length > 0) {
+        renderMyProjects(currentProjects);
     }
 
     closeSidebar();
