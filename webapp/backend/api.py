@@ -30,8 +30,15 @@ app.add_middleware(
 
 # Инициализация баз данных
 db = SQLiteDatabase()
+
 # Используем GOOGLE_SHEETS_CREDENTIALS_JSON если доступна (Railway), иначе файл (локально)
-sheets_db = SheetsDatabase(GOOGLE_SHEETS_CREDENTIALS, DEFAULT_GOOGLE_SHEETS_NAME, GOOGLE_SHEETS_CREDENTIALS_JSON)
+try:
+    sheets_db = SheetsDatabase(GOOGLE_SHEETS_CREDENTIALS, DEFAULT_GOOGLE_SHEETS_NAME, GOOGLE_SHEETS_CREDENTIALS_JSON)
+except Exception as e:
+    print(f"⚠️  Google Sheets не подключен: {e}")
+    print("✅ Приложение продолжает работу с SQLite базой данных")
+    sheets_db = None
+
 project_manager = ProjectManager(db)
 
 # ============ Модели данных ============

@@ -32,6 +32,8 @@ class SheetsDatabase:
         try:
             # Пробуем использовать JSON-строку (Railway)
             if credentials_json:
+                # Заменяем экранированные переносы строк на обычные
+                credentials_json = credentials_json.replace('\\n', '\n')
                 creds_dict = json.loads(credentials_json)
                 credentials = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, self.scope)
             # Иначе используем файл (локальная разработка)
