@@ -282,7 +282,8 @@ body {
 }
 
 /* ==================== PROJECT CARD ==================== */
-.project-card {
+.project-card,
+.project-card-detailed {
     background: var(--card-bg);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
@@ -295,7 +296,8 @@ body {
     overflow: hidden;
 }
 
-.project-card::before {
+.project-card::before,
+.project-card-detailed::before {
     content: '';
     position: absolute;
     top: 0;
@@ -307,14 +309,52 @@ body {
     transition: opacity 0.3s;
 }
 
-.project-card:hover {
+.project-card:hover,
+.project-card-detailed:hover {
     transform: translateY(-5px);
     box-shadow: 0 10px 30px rgba(102, 126, 234, 0.2);
     border-color: rgba(102, 126, 234, 0.5);
 }
 
-.project-card:hover::before {
+.project-card:hover::before,
+.project-card-detailed:hover::before {
     opacity: 1;
+}
+
+/* My Projects page - Total Views Display */
+.project-total-views {
+    text-align: center;
+    padding: 15px 0;
+    margin-top: 10px;
+}
+
+.total-views-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 5px;
+}
+
+.total-views-value {
+    font-size: 32px;
+    font-weight: 700;
+    background: var(--accent-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* My Projects page - Bar Chart */
+.project-chart-bar {
+    margin-top: 20px;
+    padding: 10px 0;
+    height: 140px;
+}
+
+.chart-legend {
+    text-align: center;
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-top: 10px;
 }
 
 .project-header {

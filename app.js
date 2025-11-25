@@ -91,6 +91,104 @@ function createProgressChart(canvasId, progress) {
     });
 }
 
+function createBarChart(canvasId, daysData) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+
+    // Calculate difference from previous day for each day
+    const differences = daysData.map((day, index) => {
+        if (index === 0) return 0;
+        return day.views - daysData[index - 1].views;
+    });
+
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: daysData.map(d => d.date),
+            datasets: [{
+                label: 'Views',
+                data: daysData.map(d => d.views),
+                backgroundColor: daysData.map((d, index) => {
+                    if (index === 0) return 'rgba(102, 126, 234, 0.6)';
+                    const diff = differences[index];
+                    if (diff > 0) return 'rgba(76, 175, 80, 0.6)';  // Green for increase
+                    if (diff < 0) return 'rgba(244, 67, 54, 0.6)';  // Red for decrease
+                    return 'rgba(102, 126, 234, 0.6)';  // Purple for no change
+                }),
+                borderColor: daysData.map((d, index) => {
+                    if (index === 0) return 'rgba(102, 126, 234, 1)';
+                    const diff = differences[index];
+                    if (diff > 0) return 'rgba(76, 175, 80, 1)';
+                    if (diff < 0) return 'rgba(244, 67, 54, 1)';
+                    return 'rgba(102, 126, 234, 1)';
+                }),
+                borderWidth: 2,
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    padding: 12,
+                    titleColor: '#fff',
+                    bodyColor: '#fff',
+                    callbacks: {
+                        label: function(context) {
+                            const index = context.dataIndex;
+                            const value = context.parsed.y;
+                            const diff = differences[index];
+
+                            if (index === 0) {
+                                return `Views: ${value.toLocaleString()}`;
+                            }
+
+                            const sign = diff > 0 ? '+' : '';
+                            return [
+                                `Views: ${value.toLocaleString()}`,
+                                `${sign}${diff.toLocaleString()} from previous day`
+                            ];
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        color: 'rgba(255, 255, 255, 0.7)',
+                        font: {
+                            size: 10
+                        }
+                    },
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.1)',
+                        drawBorder: false
+                    }
+                },
+                x: {
+                    ticks: {
+                        color: 'rgba(255, 255, 255, 0.7)',
+                        font: {
+                            size: 10
+                        }
+                    },
+                    grid: {
+                        display: false
+                    }
+                }
+            }
+        }
+    });
+}
+
 // Render projects with TOTAL stats (all participants)
 async function renderProjects(projects) {
     const projectsList = document.getElementById('projects-list');
@@ -182,41 +280,58 @@ async function renderMyProjects(projects) {
     }));
 
     myProjectsList.innerHTML = projectsWithMyStats.map((project, index) => `
-        <div class="project-card" onclick="openProject('${project.id}')">
+        <div class="project-card-detailed" onclick="openProject('${project.id}')">
             <div class="project-header">
                 <h3 class="project-name">${project.name}</h3>
                 <span class="project-geo">${project.geo || 'Global'}</span>
             </div>
-            <div class="project-body">
-                <div class="project-chart">
-                    <canvas id="chart-my-${index}" width="100" height="100"></canvas>
-                    <div class="chart-center-text">
-                        <div class="chart-percentage">${formatNumber(project.my_views)}</div>
-                        <div class="chart-label">Views</div>
-                    </div>
-                </div>
-                <div class="project-stats-vertical">
-                    <div class="stat">
-                        <div class="stat-label">My Views</div>
-                        <div class="stat-value">${formatNumber(project.my_views)}</div>
-                    </div>
-                    <div class="stat">
-                        <div class="stat-label">Target</div>
-                        <div class="stat-value">${formatNumber(project.target_views)}</div>
-                    </div>
-                </div>
+
+            <div class="project-total-views">
+                <div class="total-views-label">My Total Views</div>
+                <div class="total-views-value">${formatNumber(project.my_views)}</div>
             </div>
+
+            <div class="project-chart-bar">
+                <canvas id="chart-bar-${index}" height="120"></canvas>
+            </div>
+
+            <div class="chart-legend">Last 7 days activity</div>
         </div>
     `).join('');
 
-    // Render charts after DOM update
+    // Render bar charts after DOM update
     setTimeout(() => {
         projectsWithMyStats.forEach((project, index) => {
-            // For "My Projects" show a simple donut chart (placeholder)
-            const myProgress = project.target_views > 0 ? Math.round((project.my_views / project.target_views) * 100) : 0;
-            createProgressChart(`chart-my-${index}`, myProgress);
+            // Generate mock data for last 7 days (placeholder)
+            const last7Days = generateMockLast7Days(project.my_views);
+            createBarChart(`chart-bar-${index}`, last7Days);
         });
     }, 0);
+}
+
+// Generate mock data for last 7 days (placeholder until we have real data)
+function generateMockLast7Days(totalViews) {
+    const days = [];
+    const today = new Date();
+
+    // Generate roughly realistic daily views
+    const avgDaily = Math.floor(totalViews / 30); // Assume data is for ~30 days
+
+    for (let i = 6; i >= 0; i--) {
+        const date = new Date(today);
+        date.setDate(date.getDate() - i);
+
+        // Add some randomness (±30%)
+        const randomFactor = 0.7 + Math.random() * 0.6;
+        const views = Math.floor(avgDaily * randomFactor);
+
+        days.push({
+            date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+            views: views
+        });
+    }
+
+    return days;
 }
 
 function openProject(projectId) {
