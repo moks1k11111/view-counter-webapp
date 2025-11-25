@@ -546,15 +546,41 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 12px;
-    background: var(--secondary-bg);
+    font-size: 11px;
+    font-weight: bold;
+    color: white;
     transition: transform 0.2s;
-    opacity: 0.8;
+    opacity: 0.9;
 }
 
 .platform-icon:hover {
     transform: scale(1.15);
     opacity: 1;
+}
+
+/* TikTok - черный с градиентом cyan/pink */
+.platform-icon.tiktok {
+    background: linear-gradient(135deg, #00f2ea 0%, #ff0050 100%);
+}
+
+/* Instagram - градиент от фиолетового к оранжевому */
+.platform-icon.instagram {
+    background: linear-gradient(135deg, #833ab4 0%, #fd1d1d 50%, #fcb045 100%);
+}
+
+/* YouTube - красный */
+.platform-icon.youtube {
+    background: #ff0000;
+}
+
+/* Facebook - синий */
+.platform-icon.facebook {
+    background: #1877f2;
+}
+
+/* Threads - черный */
+.platform-icon.threads {
+    background: #000000;
 }
 
 /* ==================== PROFILE PAGE ==================== */

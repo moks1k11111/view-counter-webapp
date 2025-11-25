@@ -440,7 +440,7 @@ async function init() {
         // Update UI
         const usernameElement = document.getElementById('username');
         if (usernameElement) {
-            usernameElement.textContent = `@${currentUser.username || currentUser.first_name}`;
+            usernameElement.textContent = currentUser.first_name || 'User';
         }
 
         // Render projects
