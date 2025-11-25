@@ -5,6 +5,8 @@ import logging
 import time
 import traceback
 import asyncio
+import json
+import os
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
@@ -13,16 +15,31 @@ logger = logging.getLogger(__name__)
 
 class SheetsDatabase:
     """Класс для работы с Google Sheets в качестве базы данных"""
-    
-    def __init__(self, credentials_file, spreadsheet_name):
-        """Инициализация подключения к Google Sheets"""
+
+    def __init__(self, credentials_file, spreadsheet_name, credentials_json=""):
+        """Инициализация подключения к Google Sheets
+
+        Args:
+            credentials_file: путь к файлу credentials (для локальной разработки)
+            spreadsheet_name: название Google Sheets
+            credentials_json: JSON-строка с credentials (для Railway)
+        """
         self.scope = [
             'https://spreadsheets.google.com/feeds',
             'https://www.googleapis.com/auth/drive'
         ]
-        
+
         try:
-            credentials = ServiceAccountCredentials.from_json_keyfile_name(credentials_file, self.scope)
+            # Пробуем использовать JSON-строку (Railway)
+            if credentials_json:
+                creds_dict = json.loads(credentials_json)
+                credentials = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, self.scope)
+            # Иначе используем файл (локальная разработка)
+            elif os.path.exists(credentials_file):
+                credentials = ServiceAccountCredentials.from_json_keyfile_name(credentials_file, self.scope)
+            else:
+                raise FileNotFoundError(f"No credentials found: neither JSON string nor file {credentials_file}")
+
             self.client = gspread.authorize(credentials)
             
             try:
