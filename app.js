@@ -263,13 +263,13 @@ async function renderProjects(projects) {
                             <div class="stat-value">${formatNumber(project.target_views)}</div>
                         </div>
                     </div>
-                </div>
-                <div class="project-platforms">
-                    <div class="platform-icon tiktok" title="TikTok">🎵</div>
-                    <div class="platform-icon instagram" title="Instagram">📷</div>
-                    <div class="platform-icon youtube" title="YouTube">▶️</div>
-                    <div class="platform-icon facebook" title="Facebook">👥</div>
-                    <div class="platform-icon threads" title="Threads">🧵</div>
+                    <div class="project-platforms">
+                        <div class="platform-icon tiktok" title="TikTok">♪</div>
+                        <div class="platform-icon instagram" title="Instagram">◉</div>
+                        <div class="platform-icon youtube" title="YouTube">▶</div>
+                        <div class="platform-icon facebook" title="Facebook">f</div>
+                        <div class="platform-icon threads" title="Threads">@</div>
+                    </div>
                 </div>
             </div>
         `;
