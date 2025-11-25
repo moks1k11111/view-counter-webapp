@@ -360,6 +360,14 @@ body {
     right: 0;
 }
 
+/* Уменьшить иконки в "Мои проекты" */
+.project-chart-bar-wrapper .platform-icon {
+    width: 12px;
+    height: 12px;
+    font-size: 7px;
+    border-radius: 3px;
+}
+
 .chart-legend {
     text-align: center;
     font-size: 8px;
@@ -473,6 +481,12 @@ body {
     gap: 20px;
     margin-top: 15px;
     position: relative;
+    padding-bottom: 10px;
+}
+
+/* Опустить текст обновления в главной странице */
+.project-body .last-update-text {
+    bottom: -5px;
 }
 
 .project-chart {
