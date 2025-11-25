@@ -66,29 +66,39 @@ async function init() {
         currentUser = data.user;
 
         // Устанавливаем информацию о пользователе
-        document.getElementById('user-name').textContent =
-            currentUser.first_name + (currentUser.last_name ? ' ' + currentUser.last_name : '');
+        const username = currentUser.username ? `@${currentUser.username}` : currentUser.first_name;
+        document.getElementById('username').textContent = username;
+
+        // Профиль
+        if (document.getElementById('profile-name')) {
+            document.getElementById('profile-name').textContent =
+                currentUser.first_name + (currentUser.last_name ? ' ' + currentUser.last_name : '');
+        }
+
+        if (document.getElementById('profile-username')) {
+            document.getElementById('profile-username').textContent = username;
+        }
 
         // Аватар с первой буквой имени
-        const avatar = document.getElementById('user-avatar');
-        avatar.textContent = currentUser.first_name[0].toUpperCase();
+        if (document.getElementById('profile-avatar')) {
+            document.getElementById('profile-avatar').textContent = currentUser.first_name[0].toUpperCase();
+        }
 
         // Загружаем проекты
         await loadProjects(data.projects);
 
-        // Устанавливаем текущий проект если есть
-        if (data.current_project_id) {
-            currentProjectId = data.current_project_id;
-            document.getElementById('project-select').value = currentProjectId;
-            await loadProjectAnalytics(currentProjectId);
+        // Загружаем статистику для профиля
+        const statsData = await apiCall('/api/my-analytics');
+        if (document.getElementById('total-views')) {
+            document.getElementById('total-views').textContent = statsData.total_views || 0;
         }
-
-        // Загружаем личную статистику
-        await loadMyAnalytics();
+        if (document.getElementById('total-projects')) {
+            document.getElementById('total-projects').textContent = data.projects.length;
+        }
 
         // Скрываем загрузку, показываем контент
         document.getElementById('loading').classList.add('hidden');
-        document.getElementById('main-page').classList.remove('hidden');
+        document.getElementById('home-page').classList.remove('hidden');
 
     } catch (error) {
         console.error('Initialization failed:', error);
@@ -98,11 +108,9 @@ async function init() {
 
 // ==================== PROJECTS ====================
 async function loadProjects(projects) {
-    const projectSelect = document.getElementById('project-select');
     const projectsList = document.getElementById('projects-list');
 
     // Очищаем
-    projectSelect.innerHTML = '<option value="">Выберите проект...</option>';
     projectsList.innerHTML = '';
 
     if (projects.length === 0) {
@@ -115,41 +123,79 @@ async function loadProjects(projects) {
         return;
     }
 
-    projects.forEach(project => {
-        // Добавляем в select
-        const option = document.createElement('option');
-        option.value = project.id;
-        option.textContent = project.name;
-        projectSelect.appendChild(option);
+    // Загружаем аналитику для каждого проекта
+    for (const project of projects) {
+        try {
+            const analytics = await apiCall(`/api/projects/${project.id}/analytics`);
 
-        // Добавляем в список проектов
-        const projectItem = document.createElement('div');
-        projectItem.className = 'project-item';
-        projectItem.innerHTML = `
-            <div class="project-name">${project.name}</div>
-            <div class="project-meta">
-                <div class="project-meta-item">
-                    <span>🎯</span>
-                    <span>${formatNumber(project.target_views)} просмотров</span>
+            // Создаем карточку проекта
+            const projectCard = document.createElement('div');
+            projectCard.className = 'project-card';
+
+            const progressPercent = analytics.progress_percent || 0;
+            const totalViews = analytics.total_views || 0;
+            const targetViews = project.target_views || 0;
+
+            // Считаем вклад пользователя
+            const userStats = analytics.users_stats[currentUser.username ? `@${currentUser.username}` : currentUser.first_name] || { total_views: 0 };
+            const myViews = userStats.total_views || 0;
+
+            // Считаем количество тематик
+            const topicsCount = Object.keys(analytics.topic_stats || {}).length;
+
+            // Определяем активные платформы
+            const platforms = analytics.platform_stats || {};
+            const activePlatforms = Object.entries(platforms)
+                .filter(([_, views]) => views > 0)
+                .map(([platform]) => {
+                    const icons = {
+                        tiktok: '🎵',
+                        instagram: '📷',
+                        facebook: '📘',
+                        youtube: '▶️'
+                    };
+                    return `<span class="platform-icon" title="${platform}">${icons[platform] || '📱'}</span>`;
+                })
+                .join('');
+
+            projectCard.innerHTML = `
+                <div class="project-header">
+                    <div>
+                        <div class="project-name">${project.name}</div>
+                        <div class="project-geo">🌍 ${project.geo || 'Не указано'}</div>
+                    </div>
+                    <div class="project-progress-chart">
+                        <div class="progress-text-center">
+                            <div class="progress-percent">${progressPercent.toFixed(0)}%</div>
+                            <div class="progress-label">команда</div>
+                        </div>
+                    </div>
                 </div>
-                <div class="project-meta-item">
-                    <span>🌍</span>
-                    <span>${project.geo || 'Не указано'}</span>
+                <div class="project-stats">
+                    <div class="stat-item">
+                        <div class="stat-label">Мой вклад</div>
+                        <div class="stat-value">${formatNumber(myViews)}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Тематики</div>
+                        <div class="stat-value">${topicsCount}</div>
+                    </div>
                 </div>
-                <div class="project-meta-item">
-                    <span>📅</span>
-                    <span>${formatDate(project.start_date)} — ${formatDate(project.end_date)}</span>
+                <div class="project-platforms">
+                    ${activePlatforms || '<span style="color: var(--text-secondary); font-size: 12px;">Нет данных</span>'}
                 </div>
-            </div>
-        `;
-        projectItem.onclick = () => {
-            currentProjectId = project.id;
-            document.getElementById('project-select').value = project.id;
-            loadProjectAnalytics(project.id);
-            switchTab('stats');
-        };
-        projectsList.appendChild(projectItem);
-    });
+            `;
+
+            projectCard.onclick = () => {
+                // TODO: Открыть детальную страницу проекта
+                tg.showAlert(`Проект: ${project.name}\nПрогресс: ${progressPercent.toFixed(1)}%\nВаш вклад: ${formatNumber(myViews)}`);
+            };
+
+            projectsList.appendChild(projectCard);
+        } catch (error) {
+            console.error(`Failed to load analytics for project ${project.id}:`, error);
+        }
+    }
 }
 
 // ==================== PROJECT ANALYTICS ====================
@@ -529,3 +575,48 @@ document.addEventListener('click', (e) => {
         hapticFeedback();
     }
 });
+
+// ==================== MENU FUNCTIONS ====================
+function openSidebar() {
+    document.getElementById('sidebar').classList.add('open');
+    document.getElementById('overlay').classList.add('active');
+    hapticFeedback();
+}
+
+function closeSidebar() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('overlay').classList.remove('active');
+    hapticFeedback();
+}
+
+function showPage(pageName) {
+    // Hide all pages
+    document.querySelectorAll('.page').forEach(page => {
+        page.classList.add('hidden');
+    });
+
+    // Show selected page
+    document.getElementById(`${pageName}-page`).classList.remove('hidden');
+
+    // Update active menu item
+    document.querySelectorAll('.sidebar-item').forEach(item => {
+        item.classList.remove('active');
+    });
+    event.target.closest('.sidebar-item').classList.add('active');
+
+    // Close sidebar
+    closeSidebar();
+    hapticFeedback();
+}
+
+function downloadVideo() {
+    const url = document.getElementById('video-url').value.trim();
+    if (!url) {
+        showError('Пожалуйста, введите ссылку на видео');
+        return;
+    }
+
+    // TODO: Implement video download functionality
+    tg.showAlert('Функция скачивания видео будет реализована позже');
+    hapticFeedback();
+}

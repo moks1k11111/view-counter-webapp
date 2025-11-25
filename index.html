@@ -2,14 +2,43 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
     <title>View Counter Analytics</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div id="app">
+    <!-- Космический фон -->
+    <div class="stars-bg"></div>
+
+    <!-- Боковое меню -->
+    <div id="sidebar" class="sidebar">
+        <div class="sidebar-header">
+            <h2>Меню</h2>
+            <button class="close-btn" onclick="closeSidebar()">&times;</button>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="#" class="sidebar-item active" onclick="showPage('home')">
+                <span class="icon">📊</span>
+                <span>Мои проекты</span>
+            </a>
+            <a href="#" class="sidebar-item" onclick="showPage('profile')">
+                <span class="icon">👤</span>
+                <span>Мой профиль</span>
+            </a>
+            <a href="#" class="sidebar-item" onclick="showPage('download')">
+                <span class="icon">⬇️</span>
+                <span>Скачать видео</span>
+            </a>
+        </nav>
+    </div>
+
+    <!-- Overlay для закрытия меню -->
+    <div id="overlay" class="overlay" onclick="closeSidebar()"></div>
+
+    <!-- Основной контент -->
+    <div id="app" class="app-container">
         <!-- Загрузка -->
         <div id="loading" class="loading">
             <div class="spinner"></div>
@@ -17,126 +46,79 @@
         </div>
 
         <!-- Главная страница -->
-        <div id="main-page" class="page hidden">
+        <div id="home-page" class="page hidden">
             <!-- Хедер -->
             <header class="header">
-                <div class="user-info">
-                    <div class="avatar" id="user-avatar"></div>
-                    <div>
-                        <div class="user-name" id="user-name">Загрузка...</div>
-                        <div class="user-role" id="user-role">Участник</div>
-                    </div>
+                <button class="hamburger" onclick="openSidebar()">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+                <div class="header-title">
+                    <div class="greeting">Привет, <span id="username">@user</span>!</div>
                 </div>
             </header>
 
-            <!-- Навигация -->
-            <nav class="nav-tabs">
-                <button class="nav-tab active" data-tab="stats">
-                    📊 Статистика
-                </button>
-                <button class="nav-tab" data-tab="projects">
-                    📂 Проекты
-                </button>
-                <button class="nav-tab" data-tab="profile">
-                    👤 Профиль
-                </button>
-            </nav>
+            <!-- Список проектов -->
+            <div class="projects-container">
+                <h2 class="section-title">Мои проекты</h2>
+                <div id="projects-list" class="projects-list">
+                    <!-- Проекты будут добавлены динамически -->
+                </div>
+            </div>
+        </div>
 
-            <!-- Вкладка Статистика -->
-            <div id="stats-tab" class="tab-content active">
-                <!-- Выбор проекта -->
-                <div class="card">
-                    <h3>Текущий проект</h3>
-                    <select id="project-select" class="select-input">
-                        <option value="">Выберите проект...</option>
-                    </select>
+        <!-- Страница профиля -->
+        <div id="profile-page" class="page hidden">
+            <header class="header">
+                <button class="hamburger" onclick="openSidebar()">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+                <div class="header-title">
+                    <div class="greeting">Профиль</div>
+                </div>
+            </header>
+
+            <div class="profile-container">
+                <div class="profile-card">
+                    <div class="profile-avatar" id="profile-avatar">T</div>
+                    <h2 id="profile-name">Test User</h2>
+                    <p id="profile-username">@testuser</p>
                 </div>
 
-                <!-- Общая статистика -->
-                <div class="stats-grid" id="stats-grid">
+                <div class="stats-grid">
                     <div class="stat-card">
-                        <div class="stat-icon">👁</div>
                         <div class="stat-value" id="total-views">0</div>
                         <div class="stat-label">Всего просмотров</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-icon">🎯</div>
-                        <div class="stat-value" id="progress">0%</div>
-                        <div class="stat-label">Прогресс</div>
+                        <div class="stat-value" id="total-projects">0</div>
+                        <div class="stat-label">Проектов</div>
                     </div>
-                    <div class="stat-card">
-                        <div class="stat-icon">📈</div>
-                        <div class="stat-value" id="target-views">0</div>
-                        <div class="stat-label">Цель</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon">💰</div>
-                        <div class="stat-value" id="bonuses">0₽</div>
-                        <div class="stat-label">Бонусы</div>
-                    </div>
-                </div>
-
-                <!-- Прогресс бар -->
-                <div class="card">
-                    <h3>Прогресс проекта</h3>
-                    <div class="progress-bar">
-                        <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
-                    </div>
-                    <p class="progress-text" id="progress-text">0 из 0</p>
-                </div>
-
-                <!-- Графики -->
-                <div class="card">
-                    <h3>По платформам</h3>
-                    <canvas id="platformChart"></canvas>
-                </div>
-
-                <div class="card">
-                    <h3>По тематикам</h3>
-                    <canvas id="topicChart"></canvas>
-                </div>
-
-                <!-- Топ участников -->
-                <div class="card">
-                    <h3>🏆 Топ участников</h3>
-                    <div id="leaderboard"></div>
                 </div>
             </div>
+        </div>
 
-            <!-- Вкладка Проекты -->
-            <div id="projects-tab" class="tab-content">
-                <div class="card">
-                    <h3>Мои проекты</h3>
-                    <div id="projects-list"></div>
+        <!-- Страница скачивания -->
+        <div id="download-page" class="page hidden">
+            <header class="header">
+                <button class="hamburger" onclick="openSidebar()">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+                <div class="header-title">
+                    <div class="greeting">Скачать видео</div>
                 </div>
-            </div>
+            </header>
 
-            <!-- Вкладка Профиль -->
-            <div id="profile-tab" class="tab-content">
-                <div class="card">
-                    <h3>Моя статистика</h3>
-                    <div class="stats-grid">
-                        <div class="stat-card">
-                            <div class="stat-icon">👁</div>
-                            <div class="stat-value" id="my-total-views">0</div>
-                            <div class="stat-label">Мои просмотры</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-icon">📱</div>
-                            <div class="stat-value" id="my-profiles">0</div>
-                            <div class="stat-label">Профилей</div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="card">
-                    <h3>Мои платформы</h3>
-                    <canvas id="myPlatformChart"></canvas>
-                </div>
-
-                <div class="card">
-                    <h3>Мои тематики</h3>
-                    <canvas id="myTopicChart"></canvas>
+            <div class="download-container">
+                <div class="download-card">
+                    <h3>Скачать видео из TikTok</h3>
+                    <input type="text" id="video-url" placeholder="Вставьте ссылку на видео" class="input">
+                    <button class="btn-primary" onclick="downloadVideo()">Скачать</button>
                 </div>
             </div>
         </div>
