@@ -53,6 +53,44 @@ function formatNumber(num) {
     return num.toString();
 }
 
+// ==================== CHART FUNCTIONS ====================
+function createProgressChart(canvasId, progress) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+
+    // Clamp progress between 0 and 100
+    progress = Math.max(0, Math.min(100, progress));
+
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            datasets: [{
+                data: [progress, 100 - progress],
+                backgroundColor: [
+                    'rgba(102, 126, 234, 0.8)',  // Accent color for completed
+                    'rgba(255, 255, 255, 0.1)'   // Light gray for remaining
+                ],
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            cutout: '75%',
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    enabled: false
+                }
+            }
+        }
+    });
+}
+
 // Render projects with TOTAL stats (all participants)
 async function renderProjects(projects) {
     const projectsList = document.getElementById('projects-list');
@@ -78,7 +116,7 @@ async function renderProjects(projects) {
         }
     }));
 
-    projectsList.innerHTML = projectsWithStats.map(project => {
+    projectsList.innerHTML = projectsWithStats.map((project, index) => {
         const progress = project.target_views > 0 ? Math.round((project.total_views / project.target_views) * 100) : 0;
         return `
             <div class="project-card" onclick="openProject('${project.id}')">
@@ -86,19 +124,36 @@ async function renderProjects(projects) {
                     <h3 class="project-name">${project.name}</h3>
                     <span class="project-geo">${project.geo || 'Global'}</span>
                 </div>
-                <div class="project-stats">
-                    <div class="stat">
-                        <div class="stat-label">Total Views</div>
-                        <div class="stat-value">${formatNumber(project.total_views)} / ${formatNumber(project.target_views)}</div>
+                <div class="project-body">
+                    <div class="project-chart">
+                        <canvas id="chart-total-${index}" width="100" height="100"></canvas>
+                        <div class="chart-center-text">
+                            <div class="chart-percentage">${progress}%</div>
+                            <div class="chart-label">Progress</div>
+                        </div>
                     </div>
-                    <div class="stat">
-                        <div class="stat-label">Progress</div>
-                        <div class="stat-value">${progress}%</div>
+                    <div class="project-stats-vertical">
+                        <div class="stat">
+                            <div class="stat-label">Total Views</div>
+                            <div class="stat-value">${formatNumber(project.total_views)}</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-label">Target</div>
+                            <div class="stat-value">${formatNumber(project.target_views)}</div>
+                        </div>
                     </div>
                 </div>
             </div>
         `;
     }).join('');
+
+    // Render charts after DOM update
+    setTimeout(() => {
+        projectsWithStats.forEach((project, index) => {
+            const progress = project.target_views > 0 ? Math.round((project.total_views / project.target_views) * 100) : 0;
+            createProgressChart(`chart-total-${index}`, progress);
+        });
+    }, 0);
 }
 
 // Render projects with MY PERSONAL stats
@@ -126,24 +181,42 @@ async function renderMyProjects(projects) {
         }
     }));
 
-    myProjectsList.innerHTML = projectsWithMyStats.map(project => `
+    myProjectsList.innerHTML = projectsWithMyStats.map((project, index) => `
         <div class="project-card" onclick="openProject('${project.id}')">
             <div class="project-header">
                 <h3 class="project-name">${project.name}</h3>
                 <span class="project-geo">${project.geo || 'Global'}</span>
             </div>
-            <div class="project-stats">
-                <div class="stat">
-                    <div class="stat-label">My Views</div>
-                    <div class="stat-value">${formatNumber(project.my_views)}</div>
+            <div class="project-body">
+                <div class="project-chart">
+                    <canvas id="chart-my-${index}" width="100" height="100"></canvas>
+                    <div class="chart-center-text">
+                        <div class="chart-percentage">${formatNumber(project.my_views)}</div>
+                        <div class="chart-label">Views</div>
+                    </div>
                 </div>
-                <div class="stat">
-                    <div class="stat-label">Target</div>
-                    <div class="stat-value">${formatNumber(project.target_views)}</div>
+                <div class="project-stats-vertical">
+                    <div class="stat">
+                        <div class="stat-label">My Views</div>
+                        <div class="stat-value">${formatNumber(project.my_views)}</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-label">Target</div>
+                        <div class="stat-value">${formatNumber(project.target_views)}</div>
+                    </div>
                 </div>
             </div>
         </div>
     `).join('');
+
+    // Render charts after DOM update
+    setTimeout(() => {
+        projectsWithMyStats.forEach((project, index) => {
+            // For "My Projects" show a simple donut chart (placeholder)
+            const myProgress = project.target_views > 0 ? Math.round((project.my_views / project.target_views) * 100) : 0;
+            createProgressChart(`chart-my-${index}`, myProgress);
+        });
+    }, 0);
 }
 
 function openProject(projectId) {
