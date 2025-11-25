@@ -1,5 +1,5 @@
 // ==================== CONFIGURATION ====================
-const API_BASE_URL = 'https://lovely-toys-lick.loca.lt'; // Backend URL через localtunnel
+const API_BASE_URL = 'https://view-counter-webapp-production.up.railway.app'; // Backend URL на Railway
 let currentUser = null;
 let currentProjectId = null;
 let platformChart = null;
