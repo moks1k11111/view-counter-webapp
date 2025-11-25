@@ -87,14 +87,15 @@ async function init() {
         // Загружаем проекты
         await loadProjects(data.projects);
 
-        // Загружаем статистику для профиля
-        const statsData = await apiCall('/api/my-analytics');
-        if (document.getElementById('total-views')) {
-            document.getElementById('total-views').textContent = statsData.total_views || 0;
-        }
-        if (document.getElementById('total-projects')) {
-            document.getElementById('total-projects').textContent = data.projects.length;
-        }
+        // Загружаем статистику для профиля (в фоне, не блокируем загрузку)
+        apiCall('/api/my-analytics').then(statsData => {
+            if (document.getElementById('total-views')) {
+                document.getElementById('total-views').textContent = statsData.total_views || 0;
+            }
+            if (document.getElementById('total-projects')) {
+                document.getElementById('total-projects').textContent = data.projects.length;
+            }
+        }).catch(err => console.error('Failed to load analytics:', err));
 
         // Скрываем загрузку, показываем контент
         document.getElementById('loading').classList.add('hidden');
@@ -102,7 +103,9 @@ async function init() {
 
     } catch (error) {
         console.error('Initialization failed:', error);
-        showError('Ошибка загрузки данных');
+        document.getElementById('loading').classList.add('hidden');
+        document.getElementById('home-page').classList.remove('hidden');
+        showError('Ошибка загрузки данных: ' + error.message);
     }
 }
 
