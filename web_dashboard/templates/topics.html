@@ -1,0 +1,570 @@
+{% extends "base.html" %}
+
+{% block title %}Аналитика тематик - Analytics{% endblock %}
+
+{% block content %}
+<style>
+/* Анимации появления */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+
+.animated-card {
+    animation: fadeInUp 0.6s ease-out forwards;
+    opacity: 0;
+}
+
+.animated-card:nth-child(1) { animation-delay: 0.1s; }
+.animated-card:nth-child(2) { animation-delay: 0.2s; }
+.animated-card:nth-child(3) { animation-delay: 0.3s; }
+
+/* Улучшенные карточки */
+.stat-card {
+    border: none;
+    border-radius: 1.25rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    transition: all 0.3s ease;
+    overflow: hidden;
+    position: relative;
+}
+
+.stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+}
+
+.stat-card:hover::before {
+    opacity: 1;
+}
+
+.icon-wrapper {
+    width: 70px;
+    height: 70px;
+    border-radius: 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    color: white;
+    position: relative;
+    overflow: hidden;
+}
+
+.icon-wrapper::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255,255,255,0.3) 0%, transparent 70%);
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.stat-card:hover .icon-wrapper::before {
+    opacity: 1;
+}
+
+/* Тематические иконки */
+.topic-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 0.75rem;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.topic-badge::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    transition: left 0.5s;
+}
+
+.topic-badge:hover::before {
+    left: 100%;
+}
+
+/* Графики */
+.chart-card {
+    border: none;
+    border-radius: 1.25rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    transition: all 0.3s;
+}
+
+.chart-card:hover {
+    box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+}
+
+.chart-card .card-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 1.25rem 1.25rem 0 0;
+    padding: 1.25rem;
+}
+
+/* Таблица */
+.table-card {
+    border: none;
+    border-radius: 1.25rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    overflow: hidden;
+}
+
+.table-card .card-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 1.25rem;
+}
+
+tbody tr {
+    transition: all 0.2s;
+}
+
+tbody tr:hover {
+    background: linear-gradient(90deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
+    transform: scale(1.01);
+}
+
+/* Progress bar */
+.progress-bar-animated {
+    position: relative;
+    overflow: hidden;
+}
+
+.progress-bar-animated::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent);
+    animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+    100% { left: 100%; }
+}
+
+/* Кнопка обновить */
+.btn-refresh {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    color: white;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.75rem;
+    font-weight: 600;
+    transition: all 0.3s;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.btn-refresh:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.btn-refresh:active {
+    transform: translateY(0);
+}
+</style>
+
+<!-- Header -->
+<div class="page-header d-flex justify-content-between align-items-center mb-4 animated-card" style="animation-delay: 0s;">
+    <div>
+        <h2><i class="fas fa-tags text-primary me-2"></i>Аналитика тематик</h2>
+        <p class="subtitle mb-0">Статистика по контенту разных тематик</p>
+    </div>
+    <button class="btn btn-refresh" onclick="location.reload()"><i class="fas fa-sync-alt me-2"></i>Обновить</button>
+</div>
+
+<!-- Summary Cards -->
+<div class="row g-4 mb-4">
+    <div class="col-xl-4 col-md-6 animated-card">
+        <div class="card stat-card">
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="flex-grow-1">
+                        <div style="font-size: 0.85rem; color: #6c757d; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Всего тематик</div>
+                        <div style="font-size: 2.5rem; font-weight: 700; color: #1a1d2e; margin: 0.5rem 0;">{{ topics|length }}</div>
+                        <div style="font-size: 0.875rem; color: #10b981;">
+                            <i class="fas fa-arrow-up me-1"></i>Активные категории
+                        </div>
+                    </div>
+                    <div class="icon-wrapper" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+                        <i class="fas fa-tags"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-4 col-md-6 animated-card">
+        <div class="card stat-card">
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="flex-grow-1">
+                        <div style="font-size: 0.85rem; color: #6c757d; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Всего профилей</div>
+                        <div style="font-size: 2.5rem; font-weight: 700; color: #1a1d2e; margin: 0.5rem 0;">{{ total_profiles }}</div>
+                        <div style="font-size: 0.875rem; color: #10b981;">
+                            <i class="fas fa-check-circle me-1"></i>По всем тематикам
+                        </div>
+                    </div>
+                    <div class="icon-wrapper" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                        <i class="fas fa-user-circle"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-4 col-md-6 animated-card">
+        <div class="card stat-card">
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="flex-grow-1">
+                        <div style="font-size: 0.85rem; color: #6c757d; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Всего просмотров</div>
+                        <div style="font-size: 2.5rem; font-weight: 700; color: #1a1d2e; margin: 0.5rem 0;">{{ "{:,}".format(total_views).replace(',', ' ') }}</div>
+                        <div style="font-size: 0.875rem; color: #10b981;">
+                            <i class="fas fa-fire me-1"></i>Суммарный охват
+                        </div>
+                    </div>
+                    <div class="icon-wrapper" style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);">
+                        <i class="fas fa-eye"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="row g-4 mb-4">
+    <div class="col-xl-6 animated-card" style="animation-delay: 0.4s;">
+        <div class="card chart-card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Распределение профилей по тематикам</h5>
+            </div>
+            <div class="card-body p-4">
+                <canvas id="topicsProfilesChart" style="max-height: 320px;"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-6 animated-card" style="animation-delay: 0.5s;">
+        <div class="card chart-card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Просмотры по тематикам</h5>
+            </div>
+            <div class="card-body p-4">
+                <canvas id="topicsViewsChart" style="max-height: 320px;"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Topics Table -->
+<div class="card table-card animated-card" style="animation-delay: 0.6s;">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="fas fa-table me-2"></i>Детальная статистика по тематикам</h5>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead style="background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%); border-bottom: 2px solid #667eea;">
+                    <tr>
+                        <th style="padding: 1.25rem; font-weight: 700; color: #1a1d2e;">#</th>
+                        <th style="padding: 1.25rem; font-weight: 700; color: #1a1d2e;">Тематика</th>
+                        <th style="padding: 1.25rem; font-weight: 700; color: #1a1d2e; text-align: center;">Профилей</th>
+                        <th style="padding: 1.25rem; font-weight: 700; color: #1a1d2e; text-align: right;">Подписчиков</th>
+                        <th style="padding: 1.25rem; font-weight: 700; color: #1a1d2e; text-align: right;">Просмотров</th>
+                        <th style="padding: 1.25rem; font-weight: 700; color: #1a1d2e; text-align: right;">Контента</th>
+                        <th style="padding: 1.25rem; font-weight: 700; color: #1a1d2e; text-align: center;">Доля просмотров</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for topic in topics %}
+                    <tr style="border-bottom: 1px solid #e9ecef;">
+                        <td style="padding: 1.25rem; color: #6c757d; font-weight: 600;">{{ loop.index }}</td>
+                        <td style="padding: 1.25rem;">
+                            {% set topic_colors = {
+                                'телешоу': '#f59e0b, #d97706',
+                                'сериалы/фильмы': '#ec4899, #be185d',
+                                'сериалы': '#ec4899, #be185d',
+                                'познавательное': '#3b82f6, #2563eb',
+                                'киберспорт': '#8b5cf6, #7c3aed',
+                                'ai': '#06b6d4, #0891b2',
+                                'юмор': '#eab308, #ca8a04',
+                                'танцы': '#f97316, #ea580c',
+                                'клипы': '#ec4899, #db2777',
+                                'спорт': '#10b981, #059669',
+                                'гемблинг': '#ef4444, #dc2626',
+                                'без тематики': '#6b7280, #4b5563'
+                            } %}
+                            {% set topic_icons = {
+                                'телешоу': '📺',
+                                'сериалы/фильмы': '🎬',
+                                'сериалы': '🎬',
+                                'познавательное': '🧠',
+                                'киберспорт': '🎮',
+                                'ai': '🤖',
+                                'юмор': '😂',
+                                'танцы': '💃',
+                                'клипы': '🎵',
+                                'спорт': '⚽',
+                                'гемблинг': '🎰',
+                                'без тематики': '🏷️'
+                            } %}
+                            {% set random_colors = [
+                                '#f59e0b, #d97706',
+                                '#ec4899, #be185d',
+                                '#3b82f6, #2563eb',
+                                '#8b5cf6, #7c3aed',
+                                '#06b6d4, #0891b2',
+                                '#eab308, #ca8a04',
+                                '#f97316, #ea580c',
+                                '#10b981, #059669',
+                                '#ef4444, #dc2626',
+                                '#14b8a6, #0d9488'
+                            ] %}
+                            {% set topic_lower = topic.topic|lower %}
+                            {% set topic_color = topic_colors.get(topic_lower, random_colors[loop.index % 10]) %}
+                            {% set topic_icon = topic_icons.get(topic_lower, '🎯') %}
+                            
+                            <span class="topic-badge" style="background: linear-gradient(135deg, {{ topic_color }}); color: white;">
+                                {{ topic_icon }} {{ topic.topic }}
+                            </span>
+                        </td>
+                        <td style="padding: 1.25rem; text-align: center;">
+                            <span style="background: #f0f9ff; color: #0369a1; padding: 0.25rem 0.75rem; border-radius: 0.5rem; font-weight: 700;">
+                                {{ topic.profiles }}
+                            </span>
+                        </td>
+                        <td style="padding: 1.25rem; text-align: right; font-weight: 600; color: #6b7280;">
+                            {{ "{:,}".format(topic.followers).replace(',', ' ') }}
+                        </td>
+                        <td style="padding: 1.25rem; text-align: right; font-weight: 700; color: #3b82f6; font-size: 1.05rem;">
+                            {{ "{:,}".format(topic.views).replace(',', ' ') }}
+                        </td>
+                        <td style="padding: 1.25rem; text-align: right; font-weight: 600; color: #6b7280;">
+                            {{ "{:,}".format(topic.videos).replace(',', ' ') }}
+                        </td>
+                        <td style="padding: 1.25rem; text-align: center;">
+                            <div style="display: flex; align-items: center; justify-content: center; gap: 0.75rem;">
+                                <div style="flex: 1; background: #f3f4f6; height: 10px; border-radius: 5px; overflow: hidden; max-width: 120px;" class="progress-bar-animated">
+                                    <div style="
+                                        background: linear-gradient(90deg, #3b82f6, #2563eb); 
+                                        height: 100%; 
+                                        width: {{ (topic.views / total_views * 100)|round(1) }}%;
+                                        transition: width 1s ease-in-out;
+                                    "></div>
+                                </div>
+                                <span style="font-size: 0.95rem; font-weight: 700; color: #3b82f6; min-width: 50px;">
+                                    {{ (topic.views / total_views * 100)|round(1) }}%
+                                </span>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+// Подготовка данных
+const topicsData = {{ topics|tojson }};
+const totalViews = {{ total_views }};
+
+// Улучшенная палитра цветов
+const colorPalette = [
+    { bg: 'rgba(102, 126, 234, 0.8)', border: 'rgb(102, 126, 234)' },
+    { bg: 'rgba(236, 72, 153, 0.8)', border: 'rgb(236, 72, 153)' },
+    { bg: 'rgba(245, 158, 11, 0.8)', border: 'rgb(245, 158, 11)' },
+    { bg: 'rgba(16, 185, 129, 0.8)', border: 'rgb(16, 185, 129)' },
+    { bg: 'rgba(59, 130, 246, 0.8)', border: 'rgb(59, 130, 246)' },
+    { bg: 'rgba(239, 68, 68, 0.8)', border: 'rgb(239, 68, 68)' },
+    { bg: 'rgba(139, 92, 246, 0.8)', border: 'rgb(139, 92, 246)' },
+    { bg: 'rgba(6, 182, 212, 0.8)', border: 'rgb(6, 182, 212)' },
+    { bg: 'rgba(249, 115, 22, 0.8)', border: 'rgb(249, 115, 22)' },
+    { bg: 'rgba(168, 85, 247, 0.8)', border: 'rgb(168, 85, 247)' }
+];
+
+// График распределения профилей
+const profilesCtx = document.getElementById('topicsProfilesChart').getContext('2d');
+new Chart(profilesCtx, {
+    type: 'doughnut',
+    data: {
+        labels: topicsData.map(t => t.topic),
+        datasets: [{
+            data: topicsData.map(t => t.profiles),
+            backgroundColor: colorPalette.map(c => c.bg),
+            borderColor: colorPalette.map(c => c.border),
+            borderWidth: 3,
+            hoverOffset: 10
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+            legend: {
+                position: 'bottom',
+                labels: {
+                    padding: 20,
+                    font: {
+                        size: 13,
+                        weight: '600'
+                    },
+                    usePointStyle: true,
+                    pointStyle: 'circle'
+                }
+            },
+            tooltip: {
+                backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                titleColor: '#1a1d2e',
+                bodyColor: '#1a1d2e',
+                borderColor: 'rgba(102, 126, 234, 0.3)',
+                borderWidth: 2,
+                padding: 12,
+                displayColors: true,
+                callbacks: {
+                    label: function(context) {
+                        const label = context.label || '';
+                        const value = context.parsed;
+                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                        const percentage = ((value / total) * 100).toFixed(1);
+                        return `${label}: ${value} профилей (${percentage}%)`;
+                    }
+                }
+            }
+        },
+        animation: {
+            animateScale: true,
+            animateRotate: true,
+            duration: 2000,
+            easing: 'easeInOutQuart'
+        }
+    }
+});
+
+// График просмотров
+const viewsCtx = document.getElementById('topicsViewsChart').getContext('2d');
+new Chart(viewsCtx, {
+    type: 'bar',
+    data: {
+        labels: topicsData.map(t => t.topic),
+        datasets: [{
+            label: 'Просмотры',
+            data: topicsData.map(t => t.views),
+            backgroundColor: colorPalette.map(c => c.bg),
+            borderColor: colorPalette.map(c => c.border),
+            borderWidth: 2,
+            borderRadius: 10,
+            hoverBackgroundColor: colorPalette.map(c => c.border)
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        scales: {
+            y: {
+                beginAtZero: true,
+                grid: {
+                    color: 'rgba(0, 0, 0, 0.05)',
+                    drawBorder: false
+                },
+                ticks: {
+                    font: {
+                        size: 12,
+                        weight: '600'
+                    },
+                    callback: function(value) {
+                        if (value >= 1000000) {
+                            return (value / 1000000).toFixed(1) + 'M';
+                        } else if (value >= 1000) {
+                            return (value / 1000).toFixed(0) + 'K';
+                        }
+                        return value;
+                    }
+                }
+            },
+            x: {
+                grid: {
+                    display: false
+                },
+                ticks: {
+                    font: {
+                        size: 12,
+                        weight: '600'
+                    }
+                }
+            }
+        },
+        plugins: {
+            legend: {
+                display: false
+            },
+            tooltip: {
+                backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                titleColor: '#1a1d2e',
+                bodyColor: '#1a1d2e',
+                borderColor: 'rgba(102, 126, 234, 0.3)',
+                borderWidth: 2,
+                padding: 12,
+                callbacks: {
+                    label: function(context) {
+                        const value = context.parsed.y;
+                        return 'Просмотры: ' + value.toLocaleString('ru-RU');
+                    }
+                }
+            }
+        },
+        animation: {
+            duration: 2000,
+            easing: 'easeInOutQuart'
+        }
+    }
+});
+</script>
+
+{% endblock %}

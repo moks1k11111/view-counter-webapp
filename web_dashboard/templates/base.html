@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Analytics Dashboard{% endblock %}</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    
+    <!-- ▼▼▼ ДОБАВЛЕНА ЭТА СТРОКА ▼▼▼ -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+    
+    <!-- Custom CSS (стили остаются без изменений) -->
+    <style>
+        :root {
+            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --sidebar-bg: #1a1d2e;
+            --card-shadow: 0 2px 10px rgba(0,0,0,0.08);
+            --card-shadow-hover: 0 8px 30px rgba(0,0,0,0.12);
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background: #f8f9fa; }
+        .sidebar { min-height: 100vh; background: var(--sidebar-bg); box-shadow: 2px 0 20px rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 1000; }
+        .sidebar-header { padding: 2rem 1.5rem; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .sidebar-header h4 { color: white; font-weight: 700; }
+        .sidebar-header .username { color: rgba(255,255,255,0.6); font-size: 0.85rem; }
+        .sidebar .nav-link { color: rgba(255, 255, 255, 0.7); padding: 1rem 1.5rem; margin: 0.25rem 1rem; border-radius: 0.75rem; transition: all 0.3s; display: flex; align-items: center; font-weight: 500; }
+        .sidebar .nav-link i { margin-right: 0.75rem; width: 20px; text-align: center; }
+        .sidebar .nav-link:hover { color: white; background: rgba(255, 255, 255, 0.1); transform: translateX(5px); }
+        .sidebar .nav-link.active { color: white; background: var(--primary-gradient); box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4); }
+        .main-content { padding: 2rem; min-height: 100vh; }
+        .page-header { margin-bottom: 2rem; }
+        .page-header h2 { font-weight: 700; color: #1a1d2e; }
+        .stat-card { border: none; border-radius: 1rem; box-shadow: var(--card-shadow); transition: all 0.3s; background: white; }
+        .stat-card:hover { transform: translateY(-5px); box-shadow: var(--card-shadow-hover); }
+        
+        /* Стили для графиков */
+        .chart-container { 
+            background: white; 
+            border-radius: 1rem; 
+            padding: 1.5rem; 
+            box-shadow: var(--card-shadow);
+            margin-bottom: 1.5rem;
+        }
+        .chart-wrapper { 
+            position: relative; 
+            height: 350px; /* Увеличенная высота графика */
+        }
+        .chart-container h5 {
+            margin-bottom: 1.5rem;
+            font-weight: 600;
+            color: #1a1d2e;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <nav class="col-md-2 d-md-block sidebar px-0">
+                <div class="sidebar-header">
+                    <h4><i class="fas fa-chart-line me-2"></i>Analytics</h4>
+                    <div class="username"><i class="fas fa-user-circle me-1"></i>{{ username }}</div>
+                </div>
+                <ul class="nav flex-column mt-3">
+                    <li class="nav-item"><a class="nav-link {% if request.url.path == '/' %}active{% endif %}" href="/"><i class="fas fa-home"></i>Dashboard</a></li>
+                    <li class="nav-item"><a class="nav-link {% if request.url.path == '/profiles' %}active{% endif %}" href="/profiles"><i class="fas fa-users"></i>Профили</a></li>
+                    <li class="nav-item"><a class="nav-link {% if request.url.path == '/topics' %}active{% endif %}" href="/topics"><i class="fas fa-tags"></i>Тематики</a></li>
+                    <li class="nav-item"><a class="nav-link {% if request.url.path == '/analytics' %}active{% endif %}" href="/analytics"><i class="fas fa-chart-bar"></i>Аналитика</a></li>
+                </ul>
+                <div class="mt-auto p-3">
+                    <hr style="border-color: rgba(255,255,255,0.1);">
+                    <a class="nav-link" href="https://t.me/ViewCountPro_bot" target="_blank"><i class="fab fa-telegram"></i>Открыть бота</a>
+                </div>
+            </nav>
+            <!-- Main content -->
+            <main class="col-md-10 main-content">
+                {% block content %}{% endblock %}
+            </main>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

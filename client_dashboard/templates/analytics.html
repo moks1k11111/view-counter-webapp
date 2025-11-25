@@ -1,0 +1,383 @@
+{% extends "base.html" %}
+
+{% block title %}Аналитика - Analytics{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="page-header">
+    <h2>
+        <i class="fas fa-chart-bar text-primary me-2"></i>
+        Детальная аналитика
+    </h2>
+    <p class="subtitle mb-0">Глубокий анализ данных</p>
+</div>
+
+<!-- Top Profiles Section -->
+<div class="row g-4 mb-4">
+    <div class="col-lg-4">
+        <div class="chart-container h-100">
+            <h5>
+                <i class="fas fa-trophy text-warning me-2"></i>
+                ТОП-10 по просмотрам
+            </h5>
+            <div class="table-responsive">
+                <table class="table table-sm table-hover" id="topViewsTable">
+                    <thead>
+                        <tr>
+                            <th style="width: 40px;">#</th>
+                            <th>Профиль</th>
+                            <th class="text-end" style="width: 100px;">Просмотры</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="3" class="text-center py-5">
+                                <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                    <span class="visually-hidden">Загрузка...</span>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="chart-container h-100">
+            <h5>
+                <i class="fas fa-trophy text-success me-2"></i>
+                ТОП-10 по подписчикам
+            </h5>
+            <div class="table-responsive">
+                <table class="table table-sm table-hover" id="topFollowersTable">
+                    <thead>
+                        <tr>
+                            <th style="width: 40px;">#</th>
+                            <th>Профиль</th>
+                            <th class="text-end" style="width: 100px;">Подписчики</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="3" class="text-center py-5">
+                                <div class="spinner-border spinner-border-sm text-success" role="status">
+                                    <span class="visually-hidden">Загрузка...</span>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="chart-container h-100">
+            <h5>
+                <i class="fas fa-trophy text-info me-2"></i>
+                ТОП-10 по контенту
+            </h5>
+            <div class="table-responsive">
+                <table class="table table-sm table-hover" id="topContentTable">
+                    <thead>
+                        <tr>
+                            <th style="width: 40px;">#</th>
+                            <th>Пользователь</th>
+                            <th class="text-end" style="width: 100px;">Видео</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="3" class="text-center py-5">
+                                <div class="spinner-border spinner-border-sm text-info" role="status">
+                                    <span class="visually-hidden">Загрузка...</span>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Platform Analytics -->
+<div class="row g-4 mb-4">
+    <div class="col-12">
+        <div class="chart-container">
+            <h5>
+                <i class="fas fa-chart-line text-primary me-2"></i>
+                Сравнение платформ
+            </h5>
+            <div class="chart-wrapper">
+                <canvas id="platformComparisonChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Загрузка данных при загрузке страницы
+document.addEventListener('DOMContentLoaded', function() {
+    loadTopProfiles('views');
+    loadTopProfiles('followers');
+    loadTopContentByUser();
+    loadPlatformComparison();
+});
+
+// Функция получения отображаемого текста профиля
+function getProfileDisplayText(profile) {
+    if (profile.platform === 'tiktok' || profile.platform === 'instagram') {
+        return `@${profile.username || 'unknown'}`;
+    } else {
+        return profile.url || 'No URL';
+    }
+}
+
+// Функция получения иконки и стиля платформы
+function getPlatformStyle(platform) {
+    const styles = {
+        tiktok: {
+            bg: 'background: #000; box-shadow: 0 2px 8px rgba(0,0,0,0.15);',
+            icon: 'fab fa-tiktok'
+        },
+        instagram: {
+            bg: 'background: linear-gradient(45deg, #f09433 0%,#e6683c 25%,#dc2743 50%,#cc2366 75%,#bc1888 100%); box-shadow: 0 2px 8px rgba(225,48,108,0.3);',
+            icon: 'fab fa-instagram'
+        },
+        facebook: {
+            bg: 'background: #1877f2; box-shadow: 0 2px 8px rgba(24,119,242,0.3);',
+            icon: 'fab fa-facebook-f'
+        },
+        youtube: {
+            bg: 'background: #ff0000; box-shadow: 0 2px 8px rgba(255,0,0,0.3);',
+            icon: 'fab fa-youtube'
+        }
+    };
+    return styles[platform] || styles.tiktok;
+}
+
+// Загрузка ТОП профилей
+async function loadTopProfiles(sortBy) {
+    try {
+        const response = await fetch(`/api/profiles/top?limit=10&sort_by=${sortBy}`);
+        const result = await response.json();
+        
+        if (!result.success) {
+            throw new Error(result.error || 'Ошибка загрузки данных');
+        }
+        
+        const profiles = result.data || [];
+        const tableId = sortBy === 'views' ? 'topViewsTable' : 'topFollowersTable';
+        const tbody = document.querySelector(`#${tableId} tbody`);
+        tbody.innerHTML = '';
+        
+        if (profiles.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="3" class="text-center text-muted py-4">Нет данных</td></tr>`;
+            return;
+        }
+        
+        profiles.forEach((profile, index) => {
+            const style = getPlatformStyle(profile.platform);
+            const displayText = getProfileDisplayText(profile);
+            const value = sortBy === 'views' ? (profile.views || 0) : (profile.followers || 0);
+            
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td class="fw-bold text-muted">${index + 1}</td>
+                <td>
+                    <div class="d-flex align-items-center">
+                        <div class="me-2" style="width: 36px; height: 36px; min-width: 36px; border-radius: 50%; ${style.bg} display: flex; align-items: center; justify-content: center; color: white; font-size: 1rem;">
+                            <i class="${style.icon}"></i>
+                        </div>
+                        <div style="flex: 1; min-width: 0;">
+                            <a href="${profile.url || '#'}" target="_blank" class="text-decoration-none text-dark fw-medium d-block text-truncate" style="font-size: 0.875rem;">
+                                ${displayText}
+                            </a>
+                            <div class="text-truncate" style="font-size: 0.7rem; color: #6c757d; margin-top: 2px;">
+                                <i class="fab fa-telegram" style="font-size: 0.65rem; margin-right: 2px;"></i>${profile.telegram_user || 'N/A'}
+                            </div>
+                        </div>
+                    </div>
+                </td>
+                <td class="text-end fw-bold">${value.toLocaleString('ru-RU')}</td>
+            `;
+            tbody.appendChild(row);
+        });
+        
+    } catch (error) {
+        console.error(`Ошибка загрузки топ профилей (${sortBy}):`, error);
+        const tableId = sortBy === 'views' ? 'topViewsTable' : 'topFollowersTable';
+        document.querySelector(`#${tableId} tbody`).innerHTML = `<tr><td colspan="3" class="text-center text-danger py-4">Ошибка</td></tr>`;
+    }
+}
+
+// Загрузка ТОП по контенту
+async function loadTopContentByUser() {
+    try {
+        const response = await fetch('/api/profiles/top?limit=1000&sort_by=views');
+        const result = await response.json();
+        
+        if (!result.success) throw new Error(result.error);
+        
+        const profiles = result.data || [];
+        const userContentMap = {};
+        
+        profiles.forEach(profile => {
+            const user = profile.telegram_user || 'Unknown';
+            const content = profile.videos || 0;
+            userContentMap[user] = (userContentMap[user] || 0) + content;
+        });
+        
+        const userContentArray = Object.entries(userContentMap)
+            .map(([user, count]) => ({ user, count }))
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 10);
+        
+        const tbody = document.querySelector('#topContentTable tbody');
+        tbody.innerHTML = '';
+        
+        if (userContentArray.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="3" class="text-center text-muted py-4">Нет данных</td></tr>`;
+            return;
+        }
+        
+        userContentArray.forEach((item, index) => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td class="fw-bold text-muted">${index + 1}</td>
+                <td>
+                    <div class="d-flex align-items-center">
+                        <div class="me-2" style="width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: white; font-size: 1rem; box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);">
+                            <i class="fab fa-telegram"></i>
+                        </div>
+                        <div style="flex: 1; min-width: 0;">
+                            <div class="text-dark fw-medium text-truncate" style="font-size: 0.875rem;">${item.user}</div>
+                        </div>
+                    </div>
+                </td>
+                <td class="text-end fw-bold">${item.count.toLocaleString('ru-RU')}</td>
+            `;
+            tbody.appendChild(row);
+        });
+        
+    } catch (error) {
+        console.error('Ошибка загрузки топ по контенту:', error);
+        document.querySelector('#topContentTable tbody').innerHTML = `<tr><td colspan="3" class="text-center text-danger py-4">Ошибка</td></tr>`;
+    }
+}
+
+// График сравнения платформ
+async function loadPlatformComparison() {
+    try {
+        const response = await fetch('/api/profiles/top?limit=1000&sort_by=views');
+        const result = await response.json();
+        
+        if (!result.success) throw new Error(result.error);
+        
+        const profiles = result.data || [];
+        const platformStats = {
+            tiktok: { views: 0, followers: 0, content: 0 },
+            instagram: { views: 0, followers: 0, content: 0 },
+            facebook: { views: 0, followers: 0, content: 0 },
+            youtube: { views: 0, followers: 0, content: 0 }
+        };
+        
+        profiles.forEach(profile => {
+            const p = profile.platform;
+            if (platformStats[p]) {
+                platformStats[p].views += profile.views || 0;
+                platformStats[p].followers += profile.followers || 0;
+                platformStats[p].content += profile.videos || 0;
+            }
+        });
+        
+        const ctx = document.getElementById('platformComparisonChart').getContext('2d');
+        
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['TikTok', 'Instagram', 'Facebook', 'YouTube'],
+                datasets: [
+                    {
+                        label: 'Просмотры',
+                        data: [platformStats.tiktok.views, platformStats.instagram.views, platformStats.facebook.views, platformStats.youtube.views],
+                        backgroundColor: 'rgba(102, 126, 234, 0.8)',
+                        borderColor: 'rgb(102, 126, 234)',
+                        borderWidth: 2,
+                        borderRadius: 8,
+                        barThickness: 40
+                    },
+                    {
+                        label: 'Подписчики',
+                        data: [platformStats.tiktok.followers, platformStats.instagram.followers, platformStats.facebook.followers, platformStats.youtube.followers],
+                        backgroundColor: 'rgba(16, 185, 129, 0.8)',
+                        borderColor: 'rgb(16, 185, 129)',
+                        borderWidth: 2,
+                        borderRadius: 8,
+                        barThickness: 40
+                    },
+                    {
+                        label: 'Контент',
+                        data: [platformStats.tiktok.content, platformStats.instagram.content, platformStats.facebook.content, platformStats.youtube.content],
+                        backgroundColor: 'rgba(239, 68, 68, 0.8)',
+                        borderColor: 'rgb(239, 68, 68)',
+                        borderWidth: 2,
+                        borderRadius: 8,
+                        barThickness: 40
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { 
+                        position: 'top',
+                        labels: {
+                            font: { size: 13, weight: 'bold' },
+                            padding: 15,
+                            usePointStyle: true,
+                            pointStyle: 'rectRounded'
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.85)',
+                        padding: 12,
+                        titleFont: { size: 14, weight: 'bold' },
+                        bodyFont: { size: 13 },
+                        callbacks: {
+                            label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y.toLocaleString('ru-RU')}`
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(0, 0, 0, 0.06)' },
+                        ticks: {
+                            font: { size: 12, weight: '600' },
+                            callback: (val) => {
+                                if (val >= 1000000) return `${(val / 1000000).toFixed(1)}M`;
+                                if (val >= 1000) return `${(val / 1000).toFixed(0)}K`;
+                                return val;
+                            }
+                        }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { font: { size: 12, weight: '600' } }
+                    }
+                }
+            }
+        });
+        
+    } catch (error) {
+        console.error('Ошибка графика сравнения:', error);
+    }
+}
+</script>
+{% endblock %}

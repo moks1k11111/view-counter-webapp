@@ -1,0 +1,669 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Analytics{% endblock %}
+
+{% block content %}
+<style>
+/* Анимации для карточек */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes countUp {
+    from {
+        opacity: 0;
+        transform: scale(0.8);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* Анимация для карточек при загрузке */
+.stat-card {
+    animation: fadeInUp 0.6s ease-out forwards;
+    opacity: 0;
+}
+
+.col-xl-3:nth-child(1) .stat-card { animation-delay: 0.1s; }
+.col-xl-3:nth-child(2) .stat-card { animation-delay: 0.2s; }
+.col-xl-3:nth-child(3) .stat-card { animation-delay: 0.3s; }
+.col-xl-3:nth-child(4) .stat-card { animation-delay: 0.4s; }
+
+/* Улучшенные карточки */
+.stat-card {
+    border: none;
+    border-radius: 1rem;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.stat-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+}
+
+.stat-card:hover::before {
+    opacity: 1;
+}
+
+/* Анимация цифр */
+.stat-number {
+    animation: countUp 0.8s ease-out forwards;
+}
+
+/* Градиенты для иконок с эффектом */
+.icon-wrapper {
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.3s ease;
+}
+
+.icon-wrapper::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255,255,255,0.3) 0%, transparent 70%);
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.stat-card:hover .icon-wrapper {
+    transform: rotate(-5deg) scale(1.05);
+}
+
+.stat-card:hover .icon-wrapper::before {
+    opacity: 1;
+}
+
+/* Кнопка обновить */
+.btn-refresh {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    color: white;
+    padding: 0.65rem 1.5rem;
+    border-radius: 0.75rem;
+    font-weight: 600;
+    font-size: 0.875rem;
+    transition: all 0.3s;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.25);
+}
+
+.btn-refresh:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.35);
+    color: white;
+}
+
+/* Графики */
+.chart-container {
+    animation: fadeInUp 0.8s ease-out forwards;
+    opacity: 0;
+    animation-delay: 0.5s;
+}
+</style>
+
+<!-- Header -->
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h2><i class="fas fa-chart-line text-primary me-2"></i>Dashboard</h2>
+        <p class="subtitle mb-0"><i class="far fa-calendar me-1"></i>{{ current_date }}<span class="mx-2">•</span><i class="far fa-clock me-1"></i>{{ current_time }}</p>
+    </div>
+    <button class="btn btn-refresh" onclick="location.reload()"><i class="fas fa-sync-alt me-2"></i>Обновить</button>
+</div>
+
+<!-- Stats Cards Row 1 -->
+<div class="row g-4 mb-4">
+    <div class="col-xl-3 col-md-6">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="flex-grow-1">
+                        <div style="font-size: 0.75rem; color: #6c757d; font-weight: 500;">Пользователей</div>
+                        <div class="stat-number" style="font-size: 1.75rem; font-weight: 700; color: #1a1d2e; margin: 0.35rem 0;">{{ total_users }}</div>
+                    </div>
+                    <div class="icon-wrapper" style="width: 55px; height: 55px; border-radius: 0.9rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; font-size: 1.4rem; color: white;">
+                        <i class="fas fa-users"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="flex-grow-1">
+                        <div style="font-size: 0.75rem; color: #6c757d; font-weight: 500;">Профилей</div>
+                        <div class="stat-number" style="font-size: 1.75rem; font-weight: 700; color: #1a1d2e; margin: 0.35rem 0;">{{ total_profiles }}</div>
+                    </div>
+                    <div class="icon-wrapper" style="width: 55px; height: 55px; border-radius: 0.9rem; background: linear-gradient(135deg, #10b981 0%, #059669 100%); display: flex; align-items: center; justify-content: center; font-size: 1.4rem; color: white;">
+                        <i class="fas fa-user-circle"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="flex-grow-1">
+                        <div style="font-size: 0.75rem; color: #6c757d; font-weight: 500;">Тематик</div>
+                        <div class="stat-number" style="font-size: 1.75rem; font-weight: 700; color: #1a1d2e; margin: 0.35rem 0;">{{ total_topics }}</div>
+                    </div>
+                    <div class="icon-wrapper" style="width: 55px; height: 55px; border-radius: 0.9rem; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); display: flex; align-items: center; justify-content: center; font-size: 1.4rem; color: white;">
+                        <i class="fas fa-tags"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="flex-grow-1">
+                        <div style="font-size: 0.75rem; color: #6c757d; font-weight: 500;">Просмотров</div>
+                        <div class="stat-number" style="font-size: 1.75rem; font-weight: 700; color: #1a1d2e; margin: 0.35rem 0;">{{ "{:,}".format(total_views).replace(',', ' ') }}</div>
+                    </div>
+                    <div class="icon-wrapper" style="width: 55px; height: 55px; border-radius: 0.9rem; background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%); display: flex; align-items: center; justify-content: center; font-size: 1.4rem; color: white;">
+                        <i class="fas fa-eye"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Stats Cards Row 2 -->
+<div class="row g-4 mb-4">
+    <div class="col-xl-3 col-md-6">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="flex-grow-1">
+                        <div style="font-size: 0.75rem; color: #6c757d; font-weight: 500;">Контента</div>
+                        <div class="stat-number" style="font-size: 1.75rem; font-weight: 700; color: #1a1d2e; margin: 0.35rem 0;">{{ "{:,}".format(total_content).replace(',', ' ') }}</div>
+                    </div>
+                    <div class="icon-wrapper" style="width: 55px; height: 55px; border-radius: 0.9rem; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); display: flex; align-items: center; justify-content: center; font-size: 1.4rem; color: white;">
+                        <i class="fas fa-film"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="row g-4 mb-4">
+    <div class="col-lg-8">
+        <div class="chart-container">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="mb-0" style="font-weight: 600;"><i class="fas fa-chart-area text-primary me-2"></i>Прирост просмотров за 7 дней</h6>
+                <div class="d-flex gap-2 align-items-center">
+                    <input type="date" id="startDate" class="form-control form-control-sm" style="width: 135px; font-size: 0.8rem;">
+                    <span style="color: #9ca3af;">—</span>
+                    <input type="date" id="endDate" class="form-control form-control-sm" style="width: 135px; font-size: 0.8rem;">
+                    <button class="btn btn-sm btn-primary" onclick="loadHistoryData()" style="font-size: 0.8rem; padding: 0.4rem 0.9rem;">
+                        <i class="fas fa-sync-alt me-1"></i>Обновить
+                    </button>
+                </div>
+            </div>
+            <div id="periodInfo" class="text-muted" style="font-size: 0.8rem; margin-bottom: 0.5rem;"></div>
+            <div class="chart-wrapper"><canvas id="growthChart"></canvas></div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="chart-container">
+            <h6 class="mb-3" style="font-weight: 600;"><i class="fas fa-chart-pie text-primary me-2"></i>Распределение по платформам</h6>
+            <div class="text-center mb-3">
+                <div class="btn-group" role="group">
+                    <button type="button" class="btn btn-sm btn-primary active" id="btnViews" onclick="switchPlatformMetric('views')" style="font-size: 0.8rem;">
+                        <i class="fas fa-eye me-1"></i>Просмотры
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="btnContent" onclick="switchPlatformMetric('content')" style="font-size: 0.8rem;">
+                        <i class="fas fa-film me-1"></i>Контент
+                    </button>
+                </div>
+            </div>
+            <div class="chart-wrapper"><canvas id="platformChart"></canvas></div>
+        </div>
+    </div>
+</div>
+
+<!-- TOP Users Section -->
+<div class="row g-4 mb-4">
+    <div class="col-12">
+        <div class="chart-container">
+            <h6 style="font-weight: 600;"><i class="fas fa-trophy text-warning me-2"></i>ТОП-10 Заливщиков</h6>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle" id="topUsersTable">
+                    <thead>
+                        <tr>
+                            <th style="width: 80px;" class="text-center">#</th>
+                            <th>Пользователь</th>
+                            <th class="text-end">Сумма просмотров</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="3" class="text-center py-4">
+                                <div class="spinner-border spinner-border-sm text-primary"></div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+Chart.register(ChartDataLabels);
+
+let platformChartInstance = null;
+let platformDataGlobal = null;
+let currentMetric = 'views';
+
+document.addEventListener('DOMContentLoaded', function() {
+    initializeDatePicker().then(() => {
+        loadGrowthChart();
+    });
+    loadPlatformChart();
+    loadTopUsers();
+});
+
+function switchPlatformMetric(metric) {
+    if (currentMetric === metric || !platformDataGlobal || !platformChartInstance) return;
+    
+    currentMetric = metric;
+    const btnViews = document.getElementById('btnViews');
+    const btnContent = document.getElementById('btnContent');
+    
+    if (metric === 'views') {
+        btnViews.classList.remove('btn-outline-primary');
+        btnViews.classList.add('btn-primary', 'active');
+        btnContent.classList.remove('btn-primary', 'active');
+        btnContent.classList.add('btn-outline-primary');
+    } else {
+        btnContent.classList.remove('btn-outline-primary');
+        btnContent.classList.add('btn-primary', 'active');
+        btnViews.classList.remove('btn-primary', 'active');
+        btnViews.classList.add('btn-outline-primary');
+    }
+    
+    updatePlatformChartData();
+}
+
+function updatePlatformChartData() {
+    if (!platformDataGlobal || !platformChartInstance) return;
+    
+    let newData;
+    if (currentMetric === 'views') {
+        newData = [platformDataGlobal.tiktok, platformDataGlobal.instagram, platformDataGlobal.facebook, platformDataGlobal.youtube];
+    } else {
+        newData = [platformDataGlobal.tiktok_content, platformDataGlobal.instagram_content, platformDataGlobal.facebook_content, platformDataGlobal.youtube_content];
+    }
+    
+    platformChartInstance.data.datasets[0].data = newData;
+    platformChartInstance.update('active');
+}
+
+async function loadTopUsers() {
+    try {
+        const response = await fetch('/api/users/top_by_views?limit=10');
+        const result = await response.json();
+        
+        if (!result.success) throw new Error(result.error);
+        
+        const tbody = document.querySelector('#topUsersTable tbody');
+        tbody.innerHTML = '';
+        
+        if (!result.data || result.data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-4">Нет данных</td></tr>';
+            return;
+        }
+        
+        result.data.forEach((user, index) => {
+            const rank = index + 1;
+            let rankDisplay, rowClass = '';
+            
+            if (rank === 1) {
+                rankDisplay = '<span style="font-size: 2.5rem;">🥇</span>';
+                rowClass = 'table-warning';
+            } else if (rank === 2) {
+                rankDisplay = '<span style="font-size: 2.5rem;">🥈</span>';
+                rowClass = 'table-secondary';
+            } else if (rank === 3) {
+                rankDisplay = '<span style="font-size: 2.5rem;">🥉</span>';
+                rowClass = 'table-danger';
+            } else {
+                rankDisplay = `<span class="fw-bold text-muted" style="font-size: 1.25rem;">${rank}</span>`;
+            }
+            
+            const row = document.createElement('tr');
+            row.className = rowClass;
+            row.innerHTML = `
+                <td class="text-center" style="vertical-align: middle;">${rankDisplay}</td>
+                <td style="vertical-align: middle;">
+                    <div class="d-flex align-items-center">
+                        <div class="me-3" style="width: 50px; height: 50px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.4rem; box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <div>
+                            <div class="fw-bold" style="font-size: 1.1rem; color: #1a1d2e;">${user.telegram_user || 'Unknown'}</div>
+                            <small class="text-muted"><i class="fas fa-user-circle me-1"></i>${user.profiles_count || 0} профилей</small>
+                        </div>
+                    </div>
+                </td>
+                <td class="text-end" style="vertical-align: middle;">
+                    <span class="fw-bold" style="font-size: 1.2rem; color: #667eea;">${(user.total_views || 0).toLocaleString('ru-RU')}</span>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+    } catch (error) {
+        console.error('Ошибка загрузки топ пользователей:', error);
+        document.querySelector('#topUsersTable tbody').innerHTML = '<tr><td colspan="3" class="text-center text-danger py-4">Ошибка</td></tr>';
+    }
+}
+
+let growthChartInstance = null;
+
+async function initializeDatePicker() {
+    try {
+        // Получаем доступный диапазон дат
+        const response = await fetch('/api/history/date_range');
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+            const startInput = document.getElementById('startDate');
+            const endInput = document.getElementById('endDate');
+            
+            startInput.min = result.data.min_date;
+            startInput.max = result.data.max_date;
+            endInput.min = result.data.min_date;
+            endInput.max = result.data.max_date;
+            
+            // Устанавливаем даты по умолчанию (последние 7 дней)
+            const endDate = new Date(result.data.max_date);
+            const startDate = new Date(endDate);
+            startDate.setDate(startDate.getDate() - 6);
+            
+            startInput.value = startDate.toISOString().split('T')[0];
+            endInput.value = endDate.toISOString().split('T')[0];
+        }
+    } catch (error) {
+        console.error('Ошибка инициализации дат:', error);
+        // Устанавливаем дефолтные даты
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - 6);
+        
+        document.getElementById('startDate').value = startDate.toISOString().split('T')[0];
+        document.getElementById('endDate').value = endDate.toISOString().split('T')[0];
+    }
+}
+
+async function loadHistoryData() {
+    const startDate = document.getElementById('startDate').value;
+    const endDate = document.getElementById('endDate').value;
+    
+    if (!startDate || !endDate) {
+        alert('Выберите даты');
+        return;
+    }
+    
+    if (startDate > endDate) {
+        alert('Начальная дата не может быть позже конечной');
+        return;
+    }
+    
+    await loadGrowthChart(startDate, endDate);
+}
+
+async function loadGrowthChart(startDate = null, endDate = null) {
+    try {
+        // Если даты не переданы, используем значения из инпутов
+        if (!startDate) startDate = document.getElementById('startDate').value;
+        if (!endDate) endDate = document.getElementById('endDate').value;
+        
+        const response = await fetch(`/api/history/period?start_date=${startDate}&end_date=${endDate}`);
+        const result = await response.json();
+        
+        if (!result.success) throw new Error(result.error);
+        
+        const data = result.data;
+        
+        // Обновляем информацию о периоде
+        const periodInfo = document.getElementById('periodInfo');
+        if (data.dates && data.dates.length > 0) {
+            const growth = data.growth.views;
+            const growthPercent = data.start.views > 0 ? ((growth / data.start.views) * 100).toFixed(1) : 0;
+            const growthColor = growth >= 0 ? 'text-success' : 'text-danger';
+            const growthIcon = growth >= 0 ? '↑' : '↓';
+            
+            periodInfo.innerHTML = `
+                Период: ${data.dates[0]} — ${data.dates[data.dates.length - 1]} 
+                <span class="${growthColor} fw-bold ms-2">
+                    ${growthIcon} ${Math.abs(growth).toLocaleString('ru-RU')} просмотров (${growthPercent}%)
+                </span>
+            `;
+        }
+        
+        const ctx = document.getElementById('growthChart').getContext('2d');
+        const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+        gradient.addColorStop(0, 'rgba(138, 101, 234, 0.5)');
+        gradient.addColorStop(1, 'rgba(138, 101, 234, 0)');
+        
+        // Уничтожаем старый график если есть
+        if (growthChartInstance) {
+            growthChartInstance.destroy();
+        }
+        
+        growthChartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: data.dates || [],
+                datasets: [{
+                    label: 'Просмотры',
+                    data: data.views || [],
+                    borderColor: 'rgb(138, 101, 234)',
+                    backgroundColor: gradient,
+                    borderWidth: 3,
+                    tension: 0.4,
+                    fill: true,
+                    pointRadius: 5,
+                    pointHoverRadius: 8,
+                    pointBackgroundColor: 'rgb(138, 101, 234)',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                        titleColor: '#1a1d2e',
+                        bodyColor: '#1a1d2e',
+                        borderColor: 'rgba(138, 101, 234, 0.3)',
+                        borderWidth: 1,
+                        padding: 12,
+                        displayColors: false,
+                        callbacks: {
+                            label: (ctx) => (ctx.parsed.y || 0).toLocaleString('ru-RU') + ' просмотров'
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        grid: { color: 'rgba(0, 0, 0, 0.05)', drawBorder: false },
+                        ticks: {
+                            font: { size: 11, weight: '500' },
+                            callback: (val) => {
+                                if (val >= 1000000) return (val / 1000000).toFixed(1) + 'M';
+                                if (val >= 1000) return (val / 1000).toFixed(1) + 'K';
+                                return val;
+                            }
+                        }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { font: { size: 11, weight: '500' } }
+                    }
+                }
+            }
+        });
+    } catch (error) {
+        console.error('Ошибка графика прироста:', error);
+        document.getElementById('periodInfo').innerHTML = 
+            '<span class="text-danger">Ошибка загрузки данных. Возможно, история ещё не собрана.</span>';
+    }
+}
+
+async function loadPlatformChart() {
+    try {
+        const response = await fetch('/api/profiles/top?limit=1000&sort_by=views');
+        const result = await response.json();
+        
+        if (!result.success) throw new Error(result.error);
+        
+        const profiles = result.data || [];
+        const platformStats = {
+            tiktok: 0, instagram: 0, facebook: 0, youtube: 0,
+            tiktok_content: 0, instagram_content: 0, facebook_content: 0, youtube_content: 0
+        };
+        
+        profiles.forEach(profile => {
+            const p = profile.platform;
+            const views = profile.views || 0;
+            const content = profile.videos || 0;
+            
+            if (p === 'tiktok') {
+                platformStats.tiktok += views;
+                platformStats.tiktok_content += content;
+            } else if (p === 'instagram') {
+                platformStats.instagram += views;
+                platformStats.instagram_content += content;
+            } else if (p === 'facebook') {
+                platformStats.facebook += views;
+                platformStats.facebook_content += content;
+            } else if (p === 'youtube') {
+                platformStats.youtube += views;
+                platformStats.youtube_content += content;
+            }
+        });
+        
+        platformDataGlobal = platformStats;
+        const ctx = document.getElementById('platformChart').getContext('2d');
+        
+        const tiktokGradient = ctx.createLinearGradient(0, 0, 0, 400);
+        tiktokGradient.addColorStop(0, 'rgba(0, 0, 0, 1)');
+        tiktokGradient.addColorStop(1, 'rgba(0, 0, 0, 0.7)');
+        
+        const instagramGradient = ctx.createLinearGradient(0, 0, 0, 400);
+        instagramGradient.addColorStop(0, 'rgb(225, 48, 108)');
+        instagramGradient.addColorStop(1, 'rgb(193, 53, 132)');
+        
+        const facebookGradient = ctx.createLinearGradient(0, 0, 0, 400);
+        facebookGradient.addColorStop(0, 'rgb(24, 119, 242)');
+        facebookGradient.addColorStop(1, 'rgb(0, 87, 183)');
+        
+        const youtubeGradient = ctx.createLinearGradient(0, 0, 0, 400);
+        youtubeGradient.addColorStop(0, 'rgb(255, 0, 0)');
+        youtubeGradient.addColorStop(1, 'rgb(204, 0, 0)');
+        
+        platformChartInstance = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['TikTok', 'Instagram', 'Facebook', 'YouTube'],
+                datasets: [{
+                    data: [platformStats.tiktok, platformStats.instagram, platformStats.facebook, platformStats.youtube],
+                    backgroundColor: [tiktokGradient, instagramGradient, facebookGradient, youtubeGradient],
+                    borderWidth: 4,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '65%',
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            usePointStyle: true,
+                            pointStyle: 'circle',
+                            padding: 15,
+                            font: { size: 12, weight: 'bold' }
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        padding: 12,
+                        callbacks: {
+                            label: function(ctx) {
+                                const total = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                                if (total === 0) return ctx.label + ': 0';
+                                const percentage = ((ctx.parsed / total) * 100).toFixed(1);
+                                const metricLabel = currentMetric === 'views' ? 'просмотров' : 'контента';
+                                return `${ctx.label}: ${ctx.parsed.toLocaleString('ru-RU')} ${metricLabel} (${percentage}%)`;
+                            }
+                        }
+                    },
+                    datalabels: {
+                        formatter: (val, ctx) => {
+                            const sum = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                            if (sum === 0) return '';
+                            const percentage = (val * 100 / sum);
+                            return percentage > 5 ? percentage.toFixed(1) + '%' : '';
+                        },
+                        color: '#fff',
+                        font: { weight: 'bold', size: 14 },
+                        textShadowColor: 'rgba(0, 0, 0, 0.5)',
+                        textShadowBlur: 4
+                    }
+                }
+            }
+        });
+    } catch (error) {
+        console.error('Ошибка графика платформ:', error);
+    }
+}
+</script>
+{% endblock %}

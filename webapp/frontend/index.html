@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>View Counter Analytics</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Загрузка -->
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <p>Загрузка...</p>
+        </div>
+
+        <!-- Главная страница -->
+        <div id="main-page" class="page hidden">
+            <!-- Хедер -->
+            <header class="header">
+                <div class="user-info">
+                    <div class="avatar" id="user-avatar"></div>
+                    <div>
+                        <div class="user-name" id="user-name">Загрузка...</div>
+                        <div class="user-role" id="user-role">Участник</div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Навигация -->
+            <nav class="nav-tabs">
+                <button class="nav-tab active" data-tab="stats">
+                    📊 Статистика
+                </button>
+                <button class="nav-tab" data-tab="projects">
+                    📂 Проекты
+                </button>
+                <button class="nav-tab" data-tab="profile">
+                    👤 Профиль
+                </button>
+            </nav>
+
+            <!-- Вкладка Статистика -->
+            <div id="stats-tab" class="tab-content active">
+                <!-- Выбор проекта -->
+                <div class="card">
+                    <h3>Текущий проект</h3>
+                    <select id="project-select" class="select-input">
+                        <option value="">Выберите проект...</option>
+                    </select>
+                </div>
+
+                <!-- Общая статистика -->
+                <div class="stats-grid" id="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">👁</div>
+                        <div class="stat-value" id="total-views">0</div>
+                        <div class="stat-label">Всего просмотров</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">🎯</div>
+                        <div class="stat-value" id="progress">0%</div>
+                        <div class="stat-label">Прогресс</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">📈</div>
+                        <div class="stat-value" id="target-views">0</div>
+                        <div class="stat-label">Цель</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">💰</div>
+                        <div class="stat-value" id="bonuses">0₽</div>
+                        <div class="stat-label">Бонусы</div>
+                    </div>
+                </div>
+
+                <!-- Прогресс бар -->
+                <div class="card">
+                    <h3>Прогресс проекта</h3>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+                    </div>
+                    <p class="progress-text" id="progress-text">0 из 0</p>
+                </div>
+
+                <!-- Графики -->
+                <div class="card">
+                    <h3>По платформам</h3>
+                    <canvas id="platformChart"></canvas>
+                </div>
+
+                <div class="card">
+                    <h3>По тематикам</h3>
+                    <canvas id="topicChart"></canvas>
+                </div>
+
+                <!-- Топ участников -->
+                <div class="card">
+                    <h3>🏆 Топ участников</h3>
+                    <div id="leaderboard"></div>
+                </div>
+            </div>
+
+            <!-- Вкладка Проекты -->
+            <div id="projects-tab" class="tab-content">
+                <div class="card">
+                    <h3>Мои проекты</h3>
+                    <div id="projects-list"></div>
+                </div>
+            </div>
+
+            <!-- Вкладка Профиль -->
+            <div id="profile-tab" class="tab-content">
+                <div class="card">
+                    <h3>Моя статистика</h3>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon">👁</div>
+                            <div class="stat-value" id="my-total-views">0</div>
+                            <div class="stat-label">Мои просмотры</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">📱</div>
+                            <div class="stat-value" id="my-profiles">0</div>
+                            <div class="stat-label">Профилей</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>Мои платформы</h3>
+                    <canvas id="myPlatformChart"></canvas>
+                </div>
+
+                <div class="card">
+                    <h3>Мои тематики</h3>
+                    <canvas id="myTopicChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
