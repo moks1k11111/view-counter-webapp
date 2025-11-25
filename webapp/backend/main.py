@@ -104,10 +104,10 @@ def validate_telegram_init_data(init_data: str) -> dict:
 async def get_current_user(x_telegram_init_data: str = Header(None)) -> dict:
     """Dependency для получения текущего пользователя"""
     if not x_telegram_init_data:
-        # DEV MODE: возвращаем пустые данные
+        # DEV MODE: возвращаем тестового пользователя с правильным ID
         return {
-            "id": 0,
-            "first_name": "",
+            "id": 873564841,
+            "first_name": "User",
             "last_name": "",
             "username": ""
         }
