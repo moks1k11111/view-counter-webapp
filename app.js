@@ -881,9 +881,12 @@ function showPage(pageName) {
         renderMyProjects(currentProjects);
     } else if (pageName === 'admin' && isAdmin) {
         // Даем DOM время на обновление перед загрузкой данных
-        setTimeout(() => {
-            loadAdminData();
-        }, 100);
+        // Используем requestAnimationFrame для гарантии что DOM отрисовался
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                loadAdminData();
+            });
+        });
     }
 
     closeSidebar();
@@ -1027,11 +1030,16 @@ async function loadAdminData() {
             }
         });
 
-        // Обновляем UI
-        document.getElementById('admin-total-users').textContent = totalUsers;
-        document.getElementById('admin-total-projects').textContent = totalProjects;
-        document.getElementById('admin-total-profiles').textContent = totalProfiles;
-        document.getElementById('admin-total-views').textContent = formatNumber(totalViews);
+        // Обновляем UI с проверками
+        const adminTotalUsersEl = document.getElementById('admin-total-users');
+        const adminTotalProjectsEl = document.getElementById('admin-total-projects');
+        const adminTotalProfilesEl = document.getElementById('admin-total-profiles');
+        const adminTotalViewsEl = document.getElementById('admin-total-views');
+
+        if (adminTotalUsersEl) adminTotalUsersEl.textContent = totalUsers;
+        if (adminTotalProjectsEl) adminTotalProjectsEl.textContent = totalProjects;
+        if (adminTotalProfilesEl) adminTotalProfilesEl.textContent = totalProfiles;
+        if (adminTotalViewsEl) adminTotalViewsEl.textContent = formatNumber(totalViews);
 
         console.log('Admin data loaded successfully');
 
