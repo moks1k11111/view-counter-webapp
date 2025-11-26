@@ -249,7 +249,9 @@
 
                 <div class="admin-card">
                     <h3>Управление пользователями</h3>
-                    <p class="admin-description">Функционал в разработке...</p>
+                    <div id="admin-users-list" class="admin-users-list">
+                        <!-- Список пользователей будет добавлен динамически -->
+                    </div>
                 </div>
 
                 <div class="admin-card">
@@ -275,6 +277,41 @@
                     placeholder="Например: https://www.tiktok.com/@username"
                 >
                 <button class="btn-primary" onclick="submitProfile()">Добавить</button>
+            </div>
+        </div>
+
+        <!-- Модальное окно деталей пользователя -->
+        <div id="user-details-modal" class="modal hidden">
+            <div class="modal-overlay" onclick="closeUserDetailsModal()"></div>
+            <div class="modal-content modal-content-large">
+                <button class="modal-close-btn" onclick="closeUserDetailsModal()">
+                    <i class="fa-solid fa-times"></i>
+                </button>
+                <h2 class="modal-title" id="user-details-title">@user</h2>
+                <div id="user-projects-list" class="user-projects-list">
+                    <!-- Проекты пользователя будут добавлены динамически -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Модальное окно для бонуса -->
+        <div id="bonus-modal" class="modal hidden">
+            <div class="modal-overlay" onclick="closeBonusModal()"></div>
+            <div class="modal-content">
+                <button class="modal-close-btn" onclick="closeBonusModal()">
+                    <i class="fa-solid fa-times"></i>
+                </button>
+                <h2 class="modal-title">Выдать бонус</h2>
+                <p class="modal-description">Укажите сумму бонуса для пользователя <span id="bonus-username"></span></p>
+                <input
+                    type="number"
+                    id="bonus-amount-input"
+                    class="input"
+                    placeholder="Введите сумму в $"
+                    min="0"
+                    step="0.01"
+                >
+                <button class="btn-primary" onclick="submitBonus()">Выдать</button>
             </div>
         </div>
     </div>
