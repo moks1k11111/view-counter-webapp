@@ -1148,6 +1148,10 @@ async function loadAdminData() {
         const adminTotalUsersDisplay = document.getElementById('admin-total-users-display');
         if (adminTotalUsersDisplay) adminTotalUsersDisplay.textContent = totalUsers;
 
+        // Обновляем количество проектов в кликабельной карточке
+        const adminTotalProjectsDisplay = document.getElementById('admin-total-projects-display');
+        if (adminTotalProjectsDisplay) adminTotalProjectsDisplay.textContent = totalProjects;
+
         console.log('Admin data loaded successfully');
 
         // Загружаем список пользователей
@@ -1913,6 +1917,241 @@ function filterUserManagementList() {
     renderUserManagementList(filteredUsers);
 }
 
+// ==================== PROJECT MANAGEMENT ====================
+
+let allProjectsList = [];
+let currentProjectDetailsData = null;
+
+function openProjectManagement() {
+    document.querySelectorAll('.page').forEach(page => page.classList.add('hidden'));
+    document.getElementById('project-management-page').classList.remove('hidden');
+    loadProjectManagementList();
+}
+
+function closeProjectManagement() {
+    document.getElementById('project-management-page').classList.add('hidden');
+    document.getElementById('admin-page').classList.remove('hidden');
+}
+
+async function loadProjectManagementList() {
+    try {
+        // Используем существующие данные из глобального состояния
+        const projects = allProjects || [];
+
+        allProjectsList = [];
+
+        // Загружаем аналитику для каждого проекта
+        for (const project of projects) {
+            const response = await fetch(`${API_BASE_URL}/api/projects/${project.id}/analytics`, {
+                headers: { 'X-Telegram-Init-Data': window.initData }
+            });
+
+            if (response.ok) {
+                const analytics = await response.json();
+                allProjectsList.push({
+                    id: project.id,
+                    name: project.name,
+                    targetViews: project.target_views,
+                    totalViews: analytics.total_views || 0,
+                    progress: analytics.progress_percent || 0,
+                    usersCount: Object.keys(analytics.users_stats || {}).length,
+                    profilesCount: Object.values(analytics.users_stats || {}).reduce((sum, user) => sum + (user.profiles_count || 0), 0)
+                });
+            }
+        }
+
+        renderProjectManagementList(allProjectsList);
+    } catch (error) {
+        console.error('Failed to load projects:', error);
+    }
+}
+
+function renderProjectManagementList(projects) {
+    const projectsList = document.getElementById('project-management-list');
+    const countElement = document.getElementById('project-management-shown');
+
+    if (!projects || projects.length === 0) {
+        projectsList.innerHTML = '<div class="empty-state">Нет проектов для отображения</div>';
+        if (countElement) countElement.textContent = '0';
+        return;
+    }
+
+    // Сортируем проекты по просмотрам (от большего к меньшему)
+    projects.sort((a, b) => b.totalViews - a.totalViews);
+
+    const projectsHTML = projects.map(project => {
+        return `
+            <div class="admin-user-item" onclick="openProjectDetailsFromAdmin('${project.id}')">
+                <div class="admin-user-info">
+                    <div class="admin-user-avatar project-icon">
+                        <i class="fa-solid fa-folder-open"></i>
+                    </div>
+                    <div class="admin-user-details">
+                        <div class="admin-user-name">${project.name}</div>
+                        <div class="admin-user-stats">
+                            ${formatNumber(project.totalViews)} просмотров • ${project.progress}% • ${project.usersCount} участников • ${project.profilesCount} профилей
+                        </div>
+                    </div>
+                </div>
+                <div class="admin-user-arrow">
+                    <i class="fa-solid fa-chevron-right"></i>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    projectsList.innerHTML = projectsHTML;
+
+    if (countElement) {
+        countElement.textContent = projects.length;
+    }
+}
+
+async function openProjectDetailsFromAdmin(projectId) {
+    document.querySelectorAll('.page').forEach(page => page.classList.add('hidden'));
+    document.getElementById('project-details-page').classList.remove('hidden');
+    await loadProjectDetailsForAdmin(projectId);
+}
+
+function closeProjectDetails() {
+    document.getElementById('project-details-page').classList.add('hidden');
+    document.getElementById('project-management-page').classList.remove('hidden');
+}
+
+async function loadProjectDetailsForAdmin(projectId) {
+    try {
+        // Загружаем детальную информацию о проекте
+        const analyticsResponse = await fetch(`${API_BASE_URL}/api/projects/${projectId}/analytics`, {
+            headers: { 'X-Telegram-Init-Data': window.initData }
+        });
+
+        if (!analyticsResponse.ok) {
+            throw new Error('Failed to load project analytics');
+        }
+
+        const analytics = await analyticsResponse.json();
+        currentProjectDetailsData = analytics;
+
+        // Обновляем название проекта
+        document.getElementById('project-details-name').textContent = analytics.project.name;
+
+        // Обновляем общую статистику
+        document.getElementById('pd-total-views').textContent = formatNumber(analytics.total_views);
+        document.getElementById('pd-target-views').textContent = formatNumber(analytics.target_views);
+        document.getElementById('pd-progress').textContent = `${analytics.progress_percent}%`;
+
+        const usersCount = Object.keys(analytics.users_stats || {}).length;
+        document.getElementById('pd-total-users').textContent = usersCount;
+
+        const totalProfiles = Object.values(analytics.users_stats || {}).reduce((sum, user) => sum + (user.profiles_count || 0), 0);
+        document.getElementById('pd-total-profiles').textContent = totalProfiles;
+
+        const avgPerUser = usersCount > 0 ? Math.round(analytics.total_views / usersCount) : 0;
+        document.getElementById('pd-avg-per-user').textContent = formatNumber(avgPerUser);
+
+        // Обновляем прогресс бар
+        document.getElementById('pd-progress-bar').style.width = `${Math.min(analytics.progress_percent, 100)}%`;
+
+        // Рендерим список участников
+        renderProjectUsersList(analytics.users_stats);
+
+    } catch (error) {
+        console.error('Failed to load project details:', error);
+        showError('Не удалось загрузить детали проекта');
+    }
+}
+
+function renderProjectUsersList(usersStats) {
+    const usersList = document.getElementById('project-users-list');
+
+    if (!usersStats || Object.keys(usersStats).length === 0) {
+        usersList.innerHTML = '<div class="empty-state">Нет участников в проекте</div>';
+        return;
+    }
+
+    // Преобразуем в массив и сортируем по просмотрам
+    const users = Object.entries(usersStats).map(([username, stats]) => ({
+        username: username,
+        totalViews: stats.total_views || 0,
+        profilesCount: stats.profiles_count || 0,
+        platforms: stats.platforms || {},
+        topics: stats.topics || {}
+    })).sort((a, b) => b.totalViews - a.totalViews);
+
+    const usersHTML = users.map((user, index) => {
+        // Определяем медаль для топ-3
+        let medal = '';
+        if (index === 0) medal = '<i class="fa-solid fa-trophy" style="color: #FFD700;"></i> ';
+        else if (index === 1) medal = '<i class="fa-solid fa-trophy" style="color: #C0C0C0;"></i> ';
+        else if (index === 2) medal = '<i class="fa-solid fa-trophy" style="color: #CD7F32;"></i> ';
+
+        return `
+            <div class="admin-user-item" onclick="openUserDetailsModal('${user.username}')">
+                <div class="admin-user-info">
+                    <div class="admin-user-avatar">
+                        <i class="fa-solid fa-user"></i>
+                    </div>
+                    <div class="admin-user-details">
+                        <div class="admin-user-name">${medal}${user.username}</div>
+                        <div class="admin-user-stats">
+                            ${formatNumber(user.totalViews)} просмотров • ${user.profilesCount} профилей
+                        </div>
+                    </div>
+                </div>
+                <div class="admin-user-arrow">
+                    <i class="fa-solid fa-chevron-right"></i>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    usersList.innerHTML = usersHTML;
+}
+
+// Модалка добавления проекта
+function openAddProjectModal() {
+    document.getElementById('add-project-modal').classList.remove('hidden');
+    document.getElementById('new-project-name-input').value = '';
+    document.getElementById('new-project-target-input').value = '';
+}
+
+function closeAddProjectModal() {
+    document.getElementById('add-project-modal').classList.add('hidden');
+}
+
+async function submitNewProject() {
+    const nameInput = document.getElementById('new-project-name-input');
+    const targetInput = document.getElementById('new-project-target-input');
+
+    const projectName = nameInput.value.trim();
+    const targetViews = parseInt(targetInput.value);
+
+    if (!projectName) {
+        showError('Пожалуйста, введите название проекта');
+        return;
+    }
+
+    if (!targetViews || targetViews <= 0) {
+        showError('Пожалуйста, введите корректную цель просмотров');
+        return;
+    }
+
+    try {
+        // TODO: Реализовать API для создания проекта
+        console.log('Создание проекта:', { name: projectName, target_views: targetViews });
+
+        closeAddProjectModal();
+        showSuccess(`Проект "${projectName}" создан успешно!`);
+
+        // Обновляем список проектов
+        await loadProjectManagementList();
+
+    } catch (error) {
+        console.error('Failed to create project:', error);
+        showError('Не удалось создать проект');
+    }
+}
+
 // ==================== START APP ====================
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
@@ -1945,3 +2184,10 @@ window.selectStatus = selectStatus;
 window.selectTopic = selectTopic;
 window.openCustomTopic = openCustomTopic;
 window.submitCustomTopic = submitCustomTopic;
+window.openProjectManagement = openProjectManagement;
+window.closeProjectManagement = closeProjectManagement;
+window.openProjectDetailsFromAdmin = openProjectDetailsFromAdmin;
+window.closeProjectDetails = closeProjectDetails;
+window.openAddProjectModal = openAddProjectModal;
+window.closeAddProjectModal = closeAddProjectModal;
+window.submitNewProject = submitNewProject;
