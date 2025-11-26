@@ -1032,9 +1032,238 @@ async function loadAdminData() {
 
         console.log('Admin data loaded successfully');
 
+        // Загружаем список пользователей
+        await loadAdminUsers();
+
     } catch (error) {
         console.error('Failed to load admin data:', error);
         showError('Не удалось загрузить данные админ панели');
+    }
+}
+
+// Переменные для управления пользователями
+let currentUserData = null;
+let currentBonusUser = null;
+
+async function loadAdminUsers() {
+    if (!isAdmin) {
+        return;
+    }
+
+    try {
+        console.log('Loading admin users...');
+
+        // Собираем всех уникальных пользователей из всех проектов
+        const usersMap = new Map();
+
+        const projectsStats = await Promise.all(
+            currentProjects.map(project =>
+                apiCall(`/api/projects/${project.id}/analytics`).catch(() => null)
+            )
+        );
+
+        projectsStats.forEach((stats, index) => {
+            if (stats && stats.users_stats) {
+                const project = currentProjects[index];
+
+                Object.entries(stats.users_stats).forEach(([userName, userStats]) => {
+                    if (!usersMap.has(userName)) {
+                        usersMap.set(userName, {
+                            username: userName,
+                            totalViews: 0,
+                            projects: []
+                        });
+                    }
+
+                    const user = usersMap.get(userName);
+                    user.totalViews += userStats.total_views || 0;
+                    user.projects.push({
+                        id: project.id,
+                        name: project.name,
+                        views: userStats.total_views || 0,
+                        videos: 0, // TODO: добавить подсчет видео
+                        platforms: userStats.platforms || {},
+                        topics: userStats.topics || {}
+                    });
+                });
+            }
+        });
+
+        // Отображаем пользователей
+        const usersList = document.getElementById('admin-users-list');
+        const users = Array.from(usersMap.values());
+
+        if (users.length === 0) {
+            usersList.innerHTML = '<p class="admin-description">Пользователи не найдены</p>';
+            return;
+        }
+
+        usersList.innerHTML = users.map(user => {
+            const firstLetter = user.username.charAt(user.username.startsWith('@') ? 1 : 0).toUpperCase();
+
+            return `
+                <div class="admin-user-item" onclick="openUserDetailsModal('${user.username}')">
+                    <div class="admin-user-info">
+                        <div class="admin-user-avatar">${firstLetter}</div>
+                        <div class="admin-user-details">
+                            <div class="admin-user-name">${user.username}</div>
+                            <div class="admin-user-stats">${user.projects.length} проектов · ${formatNumber(user.totalViews)} просмотров</div>
+                        </div>
+                    </div>
+                    <i class="fa-solid fa-chevron-right admin-user-arrow"></i>
+                </div>
+            `;
+        }).join('');
+
+        // Сохраняем данные пользователей
+        window.adminUsersData = usersMap;
+
+        console.log('Admin users loaded:', users.length);
+
+    } catch (error) {
+        console.error('Failed to load admin users:', error);
+        showError('Не удалось загрузить список пользователей');
+    }
+}
+
+async function openUserDetailsModal(username) {
+    if (!window.adminUsersData) {
+        console.error('No users data available');
+        return;
+    }
+
+    const user = window.adminUsersData.get(username);
+    if (!user) {
+        console.error('User not found:', username);
+        return;
+    }
+
+    currentUserData = user;
+
+    // Обновляем заголовок
+    document.getElementById('user-details-title').textContent = username;
+
+    // Отображаем проекты пользователя
+    const projectsList = document.getElementById('user-projects-list');
+
+    if (user.projects.length === 0) {
+        projectsList.innerHTML = '<div class="user-no-projects">Нет проектов</div>';
+    } else {
+        projectsList.innerHTML = user.projects.map(project => `
+            <div class="user-project-card">
+                <div class="user-project-header">
+                    <div class="user-project-name">${project.name}</div>
+                </div>
+
+                <div class="user-project-stats-grid">
+                    <div class="user-project-stat">
+                        <div class="user-project-stat-label">Просмотры</div>
+                        <div class="user-project-stat-value">${formatNumber(project.views)}</div>
+                    </div>
+                    <div class="user-project-stat">
+                        <div class="user-project-stat-label">Видео</div>
+                        <div class="user-project-stat-value">${project.videos}</div>
+                    </div>
+                </div>
+
+                <div class="user-project-actions">
+                    <button class="btn-danger" onclick="removeUserFromProject('${username}', '${project.id}', '${project.name}')">
+                        Удалить
+                    </button>
+                    <button class="btn-success" onclick="openBonusModal('${username}', '${project.id}', '${project.name}')">
+                        Бонус
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // Показываем модалку
+    document.getElementById('user-details-modal').classList.remove('hidden');
+}
+
+function closeUserDetailsModal() {
+    document.getElementById('user-details-modal').classList.add('hidden');
+    currentUserData = null;
+}
+
+function openBonusModal(username, projectId, projectName) {
+    currentBonusUser = { username, projectId, projectName };
+
+    document.getElementById('bonus-username').textContent = `${username} (${projectName})`;
+    document.getElementById('bonus-amount-input').value = '';
+    document.getElementById('bonus-modal').classList.remove('hidden');
+}
+
+function closeBonusModal() {
+    document.getElementById('bonus-modal').classList.add('hidden');
+    currentBonusUser = null;
+}
+
+async function submitBonus() {
+    const amount = parseFloat(document.getElementById('bonus-amount-input').value);
+
+    if (!amount || amount <= 0) {
+        showError('Пожалуйста, введите корректную сумму');
+        return;
+    }
+
+    if (!currentBonusUser) {
+        showError('Ошибка: пользователь не выбран');
+        return;
+    }
+
+    try {
+        console.log('Выдаем бонус:', {
+            user: currentBonusUser.username,
+            project: currentBonusUser.projectName,
+            amount: amount
+        });
+
+        // TODO: Отправить запрос на бэкенд
+        // await apiCall(`/api/admin/projects/${currentBonusUser.projectId}/bonus`, {
+        //     method: 'POST',
+        //     body: JSON.stringify({
+        //         username: currentBonusUser.username,
+        //         amount: amount
+        //     })
+        // });
+
+        closeBonusModal();
+        showSuccess(`Бонус $${amount} выдан пользователю ${currentBonusUser.username}!`);
+
+    } catch (error) {
+        console.error('Failed to submit bonus:', error);
+        showError('Не удалось выдать бонус');
+    }
+}
+
+async function removeUserFromProject(username, projectId, projectName) {
+    if (!confirm(`Вы уверены, что хотите удалить ${username} из проекта "${projectName}"?`)) {
+        return;
+    }
+
+    try {
+        console.log('Удаляем пользователя из проекта:', {
+            user: username,
+            project: projectName,
+            projectId: projectId
+        });
+
+        // TODO: Отправить запрос на бэкенд
+        // await apiCall(`/api/admin/projects/${projectId}/users/${username}`, {
+        //     method: 'DELETE'
+        // });
+
+        showSuccess(`Пользователь ${username} удален из проекта "${projectName}"`);
+
+        // Закрываем модалку и обновляем данные
+        closeUserDetailsModal();
+        await loadAdminData();
+
+    } catch (error) {
+        console.error('Failed to remove user from project:', error);
+        showError('Не удалось удалить пользователя');
     }
 }
 
@@ -1051,3 +1280,9 @@ window.closeSidebar = closeSidebar;
 window.showPage = showPage;
 window.openProject = openProject;
 window.downloadVideo = downloadVideo;
+window.openUserDetailsModal = openUserDetailsModal;
+window.closeUserDetailsModal = closeUserDetailsModal;
+window.openBonusModal = openBonusModal;
+window.closeBonusModal = closeBonusModal;
+window.submitBonus = submitBonus;
+window.removeUserFromProject = removeUserFromProject;
