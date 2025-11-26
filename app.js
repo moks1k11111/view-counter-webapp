@@ -1130,6 +1130,169 @@ async function loadAdminUsers() {
                         { id: 'test2', name: 'Instagram Stories', views: 52000, videos: 11 },
                         { id: 'test3', name: 'YouTube Shorts', views: 21200, videos: 7 }
                     ]
+                },
+                {
+                    username: '@ivan_content',
+                    totalViews: 189000,
+                    projects: [
+                        { id: 'test1', name: 'TikTok Promo Campaign', views: 110000, videos: 22 },
+                        { id: 'test2', name: 'Instagram Stories', views: 79000, videos: 14 }
+                    ]
+                },
+                {
+                    username: '@elena_vlog',
+                    totalViews: 67800,
+                    projects: [
+                        { id: 'test3', name: 'YouTube Shorts', views: 67800, videos: 20 }
+                    ]
+                },
+                {
+                    username: '@sergey_creative',
+                    totalViews: 142000,
+                    projects: [
+                        { id: 'test1', name: 'TikTok Promo Campaign', views: 88000, videos: 16 },
+                        { id: 'test3', name: 'YouTube Shorts', views: 54000, videos: 12 }
+                    ]
+                },
+                {
+                    username: '@olga_style',
+                    totalViews: 91500,
+                    projects: [
+                        { id: 'test2', name: 'Instagram Stories', views: 91500, videos: 19 }
+                    ]
+                },
+                {
+                    username: '@maxim_tech',
+                    totalViews: 176000,
+                    projects: [
+                        { id: 'test1', name: 'TikTok Promo Campaign', views: 105000, videos: 21 },
+                        { id: 'test2', name: 'Instagram Stories', views: 71000, videos: 13 }
+                    ]
+                },
+                {
+                    username: '@natasha_beauty',
+                    totalViews: 83400,
+                    projects: [
+                        { id: 'test2', name: 'Instagram Stories', views: 54000, videos: 10 },
+                        { id: 'test3', name: 'YouTube Shorts', views: 29400, videos: 8 }
+                    ]
+                },
+                {
+                    username: '@pavel_fitness',
+                    totalViews: 198000,
+                    projects: [
+                        { id: 'test1', name: 'TikTok Promo Campaign', views: 125000, videos: 25 },
+                        { id: 'test2', name: 'Instagram Stories', views: 73000, videos: 15 }
+                    ]
+                },
+                {
+                    username: '@katerina_food',
+                    totalViews: 112000,
+                    projects: [
+                        { id: 'test1', name: 'TikTok Promo Campaign', views: 68000, videos: 14 },
+                        { id: 'test2', name: 'Instagram Stories', views: 44000, videos: 11 }
+                    ]
+                },
+                {
+                    username: '@andrey_gaming',
+                    totalViews: 234000,
+                    projects: [
+                        { id: 'test1', name: 'TikTok Promo Campaign', views: 145000, videos: 28 },
+                        { id: 'test3', name: 'YouTube Shorts', views: 89000, videos: 24 }
+                    ]
+                },
+                {
+                    username: '@victoria_travel',
+                    totalViews: 95600,
+                    projects: [
+                        { id: 'test2', name: 'Instagram Stories', views: 95600, videos: 17 }
+                    ]
+                },
+                {
+                    username: '@roman_music',
+                    totalViews: 167000,
+                    projects: [
+                        { id: 'test1', name: 'TikTok Promo Campaign', views: 98000, videos: 19 },
+                        { id: 'test3', name: 'YouTube Shorts', views: 69000, videos: 16 }
+                    ]
+                },
+                {
+                    username: '@julia_art',
+                    totalViews: 78900,
+                    projects: [
+                        { id: 'test2', name: 'Instagram Stories', views: 78900, videos: 13 }
+                    ]
+                },
+                {
+                    username: '@denis_photo',
+                    totalViews: 123000,
+                    projects: [
+                        { id: 'test1', name: 'TikTok Promo Campaign', views: 72000, videos: 15 },
+                        { id: 'test2', name: 'Instagram Stories', views: 51000, videos: 12 }
+                    ]
+                },
+                {
+                    username: '@svetlana_dance',
+                    totalViews: 189000,
+                    projects: [
+                        { id: 'test1', name: 'TikTok Promo Campaign', views: 115000, videos: 23 },
+                        { id: 'test2', name: 'Instagram Stories', views: 74000, videos: 14 }
+                    ]
+                },
+                {
+                    username: '@igor_cars',
+                    totalViews: 145000,
+                    projects: [
+                        { id: 'test1', name: 'TikTok Promo Campaign', views: 87000, videos: 17 },
+                        { id: 'test3', name: 'YouTube Shorts', views: 58000, videos: 13 }
+                    ]
+                },
+                {
+                    username: '@marina_pets',
+                    totalViews: 102000,
+                    projects: [
+                        { id: 'test2', name: 'Instagram Stories', views: 102000, videos: 20 }
+                    ]
+                },
+                {
+                    username: '@artem_comedy',
+                    totalViews: 276000,
+                    projects: [
+                        { id: 'test1', name: 'TikTok Promo Campaign', views: 165000, videos: 30 },
+                        { id: 'test2', name: 'Instagram Stories', views: 111000, videos: 22 }
+                    ]
+                },
+                {
+                    username: '@daria_fashion',
+                    totalViews: 134000,
+                    projects: [
+                        { id: 'test2', name: 'Instagram Stories', views: 85000, videos: 16 },
+                        { id: 'test3', name: 'YouTube Shorts', views: 49000, videos: 11 }
+                    ]
+                },
+                {
+                    username: '@nikolay_sport',
+                    totalViews: 156000,
+                    projects: [
+                        { id: 'test1', name: 'TikTok Promo Campaign', views: 92000, videos: 18 },
+                        { id: 'test2', name: 'Instagram Stories', views: 64000, videos: 13 }
+                    ]
+                },
+                {
+                    username: '@alina_makeup',
+                    totalViews: 118000,
+                    projects: [
+                        { id: 'test2', name: 'Instagram Stories', views: 75000, videos: 15 },
+                        { id: 'test3', name: 'YouTube Shorts', views: 43000, videos: 10 }
+                    ]
+                },
+                {
+                    username: '@vladimir_review',
+                    totalViews: 203000,
+                    projects: [
+                        { id: 'test1', name: 'TikTok Promo Campaign', views: 118000, videos: 24 },
+                        { id: 'test3', name: 'YouTube Shorts', views: 85000, videos: 19 }
+                    ]
                 }
             ];
             console.log('Using test users data');
