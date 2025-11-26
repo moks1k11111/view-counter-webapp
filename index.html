@@ -147,6 +147,62 @@
                 </div>
             </div>
         </div>
+
+        <!-- Страница детальной аналитики проекта -->
+        <div id="project-details-page" class="page hidden">
+            <header class="header">
+                <button class="back-btn" onclick="closeProjectDetails()">
+                    <i class="fa-solid fa-arrow-left"></i>
+                </button>
+                <div class="header-title">
+                    <div class="greeting" id="project-details-name">Проект</div>
+                </div>
+                <button class="add-profile-btn" onclick="addProfile()">
+                    <i class="fa-solid fa-plus"></i>
+                </button>
+            </header>
+
+            <div class="project-details-container">
+                <!-- Суммарная статистика -->
+                <div class="summary-stats">
+                    <div class="summary-card">
+                        <div class="summary-label">Всего просмотров</div>
+                        <div class="summary-value" id="detail-total-views">0</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-label">Выполнено</div>
+                        <div class="summary-value" id="detail-progress">0%</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-label">Видео</div>
+                        <div class="summary-value" id="detail-total-videos">0</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-label">Профилей</div>
+                        <div class="summary-value" id="detail-total-profiles">0</div>
+                    </div>
+                </div>
+
+                <!-- Свайпаемые диаграммы -->
+                <div class="charts-swiper-container">
+                    <div class="charts-swiper" id="charts-swiper">
+                        <!-- Слайды с диаграммами будут добавлены динамически -->
+                    </div>
+                    <div class="swiper-dots" id="swiper-dots"></div>
+                </div>
+
+                <!-- Раскрывающийся список профилей -->
+                <div class="profiles-accordion">
+                    <div class="accordion-header" onclick="toggleProfiles()">
+                        <h3>Профили (<span id="profiles-count">0</span>)</h3>
+                        <i class="fa-solid fa-chevron-down" id="profiles-chevron"></i>
+                    </div>
+                    <div class="accordion-content" id="profiles-list">
+                        <!-- Список профилей будет добавлен динамически -->
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="app.js"></script>

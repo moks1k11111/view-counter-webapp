@@ -394,10 +394,370 @@ function generateMockLast7Days(totalViews) {
     return days;
 }
 
-function openProject(projectId) {
+// Глобальные переменные для детальной страницы
+let currentProjectData = null;
+let currentSwipeIndex = 0;
+let swipeStartX = 0;
+
+async function openProject(projectId) {
     console.log('Opening project:', projectId);
-    // TODO: Navigate to project details
-    showError('Project details coming soon!');
+
+    try {
+        // Загружаем данные проекта
+        const analytics = await apiCall(`/api/projects/${projectId}/analytics`);
+        currentProjectData = analytics;
+
+        // Показываем страницу детальной аналитики
+        document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
+        document.getElementById('project-details-page').classList.remove('hidden');
+
+        // Обновляем заголовок
+        document.getElementById('project-details-name').textContent = analytics.project.name;
+
+        // Отображаем суммарную статистику
+        displaySummaryStats(analytics);
+
+        // Создаем слайды с диаграммами
+        createChartSlides(analytics);
+
+        // Отображаем список профилей
+        displayProfiles(analytics);
+
+    } catch (error) {
+        console.error('Failed to load project details:', error);
+        showError('Не удалось загрузить детали проекта');
+    }
+}
+
+function closeProjectDetails() {
+    document.getElementById('project-details-page').classList.add('hidden');
+    document.getElementById('home-page').classList.remove('hidden');
+}
+
+function displaySummaryStats(analytics) {
+    const { project, total_views, users_stats } = analytics;
+
+    // Вычисляем количество профилей и видео
+    const profilesCount = Object.keys(users_stats || {}).length;
+    const totalVideos = 0; // TODO: добавить подсчет видео когда данные будут доступны
+
+    // Процент выполнения
+    const progress = project.target_views > 0
+        ? Math.round((total_views / project.target_views) * 100)
+        : 0;
+
+    document.getElementById('detail-total-views').textContent = formatNumber(total_views);
+    document.getElementById('detail-progress').textContent = `${progress}%`;
+    document.getElementById('detail-total-videos').textContent = totalVideos;
+    document.getElementById('detail-total-profiles').textContent = profilesCount;
+}
+
+function createChartSlides(analytics) {
+    const swiperContainer = document.getElementById('charts-swiper');
+    const dotsContainer = document.getElementById('swiper-dots');
+
+    // Очищаем предыдущие слайды
+    swiperContainer.innerHTML = '';
+    dotsContainer.innerHTML = '';
+
+    const slides = [];
+
+    // Слайд 1: Столбчатая диаграмма по неделям
+    slides.push(createWeeklyViewsSlide(analytics));
+
+    // Слайд 2: Круговая диаграмма тематик
+    slides.push(createTopicsSlide(analytics));
+
+    // Слайд 3: Круговая диаграмма платформ
+    slides.push(createPlatformsSlide(analytics));
+
+    // Слайд 4: Круговая диаграмма профилей
+    slides.push(createProfilesSlide(analytics));
+
+    // Добавляем слайды
+    swiperContainer.innerHTML = slides.join('');
+
+    // Создаем точки-индикаторы
+    for (let i = 0; i < slides.length; i++) {
+        const dot = document.createElement('div');
+        dot.className = `swiper-dot ${i === 0 ? 'active' : ''}`;
+        dot.onclick = () => goToSlide(i);
+        dotsContainer.appendChild(dot);
+    }
+
+    // Инициализируем свайпер
+    initSwiper();
+
+    // Рендерим диаграммы после добавления в DOM
+    setTimeout(() => renderAllCharts(analytics), 100);
+}
+
+function createWeeklyViewsSlide(analytics) {
+    return `
+        <div class="chart-slide">
+            <h4>Просмотры по неделям</h4>
+            <canvas id="weekly-chart" width="300" height="200"></canvas>
+        </div>
+    `;
+}
+
+function createTopicsSlide(analytics) {
+    return `
+        <div class="chart-slide">
+            <h4>Распределение по тематикам</h4>
+            <canvas id="topics-chart" width="300" height="200"></canvas>
+        </div>
+    `;
+}
+
+function createPlatformsSlide(analytics) {
+    return `
+        <div class="chart-slide">
+            <h4>Распределение по платформам</h4>
+            <canvas id="platforms-chart" width="300" height="200"></canvas>
+        </div>
+    `;
+}
+
+function createProfilesSlide(analytics) {
+    return `
+        <div class="chart-slide">
+            <h4>Топ профилей по просмотрам</h4>
+            <canvas id="profiles-chart" width="300" height="200"></canvas>
+        </div>
+    `;
+}
+
+function renderAllCharts(analytics) {
+    // Еженедельная статистика (заглушка)
+    const weeklyData = [
+        { week: 'Нед 1', views: Math.floor(analytics.total_views * 0.1) },
+        { week: 'Нед 2', views: Math.floor(analytics.total_views * 0.15) },
+        { week: 'Нед 3', views: Math.floor(analytics.total_views * 0.2) },
+        { week: 'Нед 4', views: Math.floor(analytics.total_views * 0.25) },
+    ];
+
+    createWeeklyChart(weeklyData);
+    createTopicsChart(analytics.topic_stats);
+    createPlatformsChart(analytics.platform_stats);
+    createProfilesChart(analytics.users_stats);
+}
+
+function createWeeklyChart(data) {
+    const canvas = document.getElementById('weekly-chart');
+    if (!canvas) return;
+
+    new Chart(canvas, {
+        type: 'bar',
+        data: {
+            labels: data.map(d => d.week),
+            datasets: [{
+                label: 'Просмотры',
+                data: data.map(d => d.views),
+                backgroundColor: 'rgba(102, 126, 234, 0.7)',
+                borderColor: 'rgba(102, 126, 234, 1)',
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true, ticks: { color: '#fff' }, grid: { color: 'rgba(255,255,255,0.1)' } },
+                x: { ticks: { color: '#fff' }, grid: { display: false } }
+            }
+        }
+    });
+}
+
+function createTopicsChart(topicStats) {
+    const canvas = document.getElementById('topics-chart');
+    if (!canvas) return;
+
+    const labels = Object.keys(topicStats);
+    const data = Object.values(topicStats);
+
+    new Chart(canvas, {
+        type: 'doughnut',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: data,
+                backgroundColor: [
+                    'rgba(255, 99, 132, 0.8)',
+                    'rgba(54, 162, 235, 0.8)',
+                    'rgba(255, 206, 86, 0.8)',
+                    'rgba(75, 192, 192, 0.8)',
+                    'rgba(153, 102, 255, 0.8)',
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { position: 'bottom', labels: { color: '#fff', font: { size: 10 } } }
+            }
+        }
+    });
+}
+
+function createPlatformsChart(platformStats) {
+    const canvas = document.getElementById('platforms-chart');
+    if (!canvas) return;
+
+    const labels = Object.keys(platformStats);
+    const data = Object.values(platformStats);
+
+    new Chart(canvas, {
+        type: 'doughnut',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: data,
+                backgroundColor: [
+                    'rgba(0, 242, 234, 0.8)',  // TikTok
+                    'rgba(131, 58, 180, 0.8)', // Instagram
+                    'rgba(255, 0, 0, 0.8)',    // YouTube
+                    'rgba(24, 119, 242, 0.8)', // Facebook
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { position: 'bottom', labels: { color: '#fff', font: { size: 10 } } }
+            }
+        }
+    });
+}
+
+function createProfilesChart(usersStats) {
+    const canvas = document.getElementById('profiles-chart');
+    if (!canvas) return;
+
+    const sortedUsers = Object.entries(usersStats)
+        .sort((a, b) => b[1].total_views - a[1].total_views)
+        .slice(0, 5);
+
+    const labels = sortedUsers.map(([name]) => name);
+    const data = sortedUsers.map(([, stats]) => stats.total_views);
+
+    new Chart(canvas, {
+        type: 'doughnut',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: data,
+                backgroundColor: [
+                    'rgba(102, 126, 234, 0.8)',
+                    'rgba(76, 175, 80, 0.8)',
+                    'rgba(244, 67, 54, 0.8)',
+                    'rgba(255, 193, 7, 0.8)',
+                    'rgba(156, 39, 176, 0.8)',
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { position: 'bottom', labels: { color: '#fff', font: { size: 9 } } }
+            }
+        }
+    });
+}
+
+// Свайпер
+function initSwiper() {
+    const swiper = document.getElementById('charts-swiper');
+    currentSwipeIndex = 0;
+
+    swiper.addEventListener('touchstart', (e) => {
+        swipeStartX = e.touches[0].clientX;
+    });
+
+    swiper.addEventListener('touchend', (e) => {
+        const swipeEndX = e.changedTouches[0].clientX;
+        const diff = swipeStartX - swipeEndX;
+
+        if (Math.abs(diff) > 50) {
+            if (diff > 0) {
+                nextSlide();
+            } else {
+                prevSlide();
+            }
+        }
+    });
+
+    updateSlidePosition();
+}
+
+function nextSlide() {
+    const slides = document.querySelectorAll('.chart-slide');
+    if (currentSwipeIndex < slides.length - 1) {
+        currentSwipeIndex++;
+        updateSlidePosition();
+    }
+}
+
+function prevSlide() {
+    if (currentSwipeIndex > 0) {
+        currentSwipeIndex--;
+        updateSlidePosition();
+    }
+}
+
+function goToSlide(index) {
+    currentSwipeIndex = index;
+    updateSlidePosition();
+}
+
+function updateSlidePosition() {
+    const swiper = document.getElementById('charts-swiper');
+    const offset = -currentSwipeIndex * 100;
+    swiper.style.transform = `translateX(${offset}%)`;
+
+    // Обновляем точки
+    document.querySelectorAll('.swiper-dot').forEach((dot, i) => {
+        dot.classList.toggle('active', i === currentSwipeIndex);
+    });
+}
+
+function displayProfiles(analytics) {
+    const profilesList = document.getElementById('profiles-list');
+    const profilesCount = document.getElementById('profiles-count');
+
+    const users = Object.entries(analytics.users_stats || {});
+    profilesCount.textContent = users.length;
+
+    if (users.length === 0) {
+        profilesList.innerHTML = '<p class="no-profiles">Нет профилей</p>';
+        return;
+    }
+
+    const profilesHTML = users.map(([userName, stats]) => `
+        <div class="profile-item">
+            <div class="profile-info">
+                <div class="profile-name">${userName}</div>
+                <div class="profile-stats">
+                    <span>Просмотры: ${formatNumber(stats.total_views)}</span>
+                </div>
+            </div>
+        </div>
+    `).join('');
+
+    profilesList.innerHTML = profilesHTML;
+}
+
+function toggleProfiles() {
+    const profilesList = document.getElementById('profiles-list');
+    const chevron = document.getElementById('profiles-chevron');
+
+    profilesList.classList.toggle('open');
+    chevron.classList.toggle('rotated');
+}
+
+function addProfile() {
+    showError('Функция добавления профиля скоро будет доступна!');
 }
 
 // ==================== SIDEBAR ====================
