@@ -1507,6 +1507,9 @@ async function openUserDetailsModal(username) {
     // Обновляем заголовок
     document.getElementById('user-details-title').textContent = username;
 
+    // Подсчитываем общее количество профилей (видео)
+    const totalProfiles = user.projects.reduce((sum, project) => sum + (project.videos || 0), 0);
+
     // Отображаем проекты пользователя
     const projectsList = document.getElementById('user-projects-list');
 
@@ -1525,7 +1528,7 @@ async function openUserDetailsModal(username) {
                         <div class="user-project-stat-value">${formatNumber(project.views)}</div>
                     </div>
                     <div class="user-project-stat">
-                        <div class="user-project-stat-label">Видео</div>
+                        <div class="user-project-stat-label">Профилей</div>
                         <div class="user-project-stat-value">${project.videos}</div>
                     </div>
                 </div>
