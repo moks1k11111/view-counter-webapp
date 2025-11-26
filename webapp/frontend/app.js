@@ -1025,12 +1025,11 @@ async function loadAdminData() {
             if (stats) {
                 totalViews += stats.total_views || 0;
 
-                // Добавляем уникальных пользователей
-                Object.keys(stats.users_stats || {}).forEach(userName => {
+                // Добавляем уникальных пользователей и считаем профили
+                Object.entries(stats.users_stats || {}).forEach(([userName, userStats]) => {
                     uniqueUsers.add(userName);
+                    totalProfiles += userStats.profiles_count || 0;
                 });
-
-                totalProfiles += Object.keys(stats.users_stats || {}).length;
             }
         });
 
@@ -1040,7 +1039,7 @@ async function loadAdminData() {
         if (totalUsers === 0) {
             console.log('No real data, using test data for admin stats');
             totalUsers = 25; // 25 тестовых пользователей
-            totalProfiles = 0; // Будет подсчитано из loadUserManagementList
+            totalProfiles = 427; // Сумма всех профилей тестовых пользователей
             totalViews = 3567800; // Сумма всех тестовых просмотров
         }
 
