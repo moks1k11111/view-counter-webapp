@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
     <title>View Counter Analytics</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -35,6 +38,10 @@
             <a href="#" class="sidebar-item" onclick="showPage('download')">
                 <span class="icon">⬇️</span>
                 <span>Скачать видео</span>
+            </a>
+            <a href="#" class="sidebar-item" id="admin-menu-item" style="display: none;" onclick="showPage('admin')">
+                <span class="icon">⚙️</span>
+                <span>Админ панель</span>
             </a>
         </nav>
     </div>
@@ -200,6 +207,54 @@
                     <div class="accordion-content" id="profiles-list">
                         <!-- Список профилей будет добавлен динамически -->
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Страница админ панели -->
+        <div id="admin-page" class="page hidden">
+            <header class="header">
+                <button class="hamburger" onclick="openSidebar()">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+                <div class="header-title">
+                    <div class="greeting">Админ панель</div>
+                </div>
+            </header>
+
+            <div class="admin-container">
+                <div class="admin-card">
+                    <h3>Статистика системы</h3>
+                    <div class="admin-stats">
+                        <div class="admin-stat-item">
+                            <div class="admin-stat-label">Всего пользователей</div>
+                            <div class="admin-stat-value" id="admin-total-users">0</div>
+                        </div>
+                        <div class="admin-stat-item">
+                            <div class="admin-stat-label">Всего проектов</div>
+                            <div class="admin-stat-value" id="admin-total-projects">0</div>
+                        </div>
+                        <div class="admin-stat-item">
+                            <div class="admin-stat-label">Всего профилей</div>
+                            <div class="admin-stat-value" id="admin-total-profiles">0</div>
+                        </div>
+                        <div class="admin-stat-item">
+                            <div class="admin-stat-label">Всего просмотров</div>
+                            <div class="admin-stat-value" id="admin-total-views">0</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="admin-card">
+                    <h3>Управление пользователями</h3>
+                    <p class="admin-description">Функционал в разработке...</p>
+                </div>
+
+                <div class="admin-card">
+                    <h3>Управление проектами</h3>
+                    <p class="admin-description">Функционал в разработке...</p>
                 </div>
             </div>
         </div>
