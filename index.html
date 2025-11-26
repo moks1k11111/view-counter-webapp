@@ -157,8 +157,8 @@
                 <div class="header-title">
                     <div class="greeting" id="project-details-name">Проект</div>
                 </div>
-                <button class="add-profile-btn" onclick="addProfile()">
-                    <i class="fa-solid fa-plus"></i>
+                <button class="add-profile-btn" onclick="openAddProfileModal()">
+                    Добавить профиль
                 </button>
             </header>
 
@@ -201,6 +201,25 @@
                         <!-- Список профилей будет добавлен динамически -->
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- Модальное окно добавления профиля -->
+        <div id="add-profile-modal" class="modal hidden">
+            <div class="modal-overlay" onclick="closeAddProfileModal()"></div>
+            <div class="modal-content">
+                <button class="modal-close-btn" onclick="closeAddProfileModal()">
+                    <i class="fa-solid fa-times"></i>
+                </button>
+                <h2 class="modal-title">Добавить профиль</h2>
+                <p class="modal-description">Вставьте ссылку на ваш профиль в социальной сети. Бот автоматически определит платформу.</p>
+                <input
+                    type="text"
+                    id="profile-url-input"
+                    class="input"
+                    placeholder="Например: https://www.tiktok.com/@username"
+                >
+                <button class="btn-primary" onclick="submitProfile()">Добавить</button>
             </div>
         </div>
     </div>

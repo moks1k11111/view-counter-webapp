@@ -756,8 +756,79 @@ function toggleProfiles() {
     chevron.classList.toggle('rotated');
 }
 
-function addProfile() {
-    showError('Функция добавления профиля скоро будет доступна!');
+// ==================== ADD PROFILE MODAL ====================
+
+function openAddProfileModal() {
+    const modal = document.getElementById('add-profile-modal');
+    modal.classList.remove('hidden');
+    // Очищаем поле ввода
+    document.getElementById('profile-url-input').value = '';
+}
+
+function closeAddProfileModal() {
+    const modal = document.getElementById('add-profile-modal');
+    modal.classList.add('hidden');
+}
+
+async function submitProfile() {
+    const urlInput = document.getElementById('profile-url-input');
+    const profileUrl = urlInput.value.trim();
+
+    if (!profileUrl) {
+        showError('Пожалуйста, введите ссылку на профиль');
+        return;
+    }
+
+    // Простая валидация URL
+    if (!profileUrl.startsWith('http://') && !profileUrl.startsWith('https://')) {
+        showError('Пожалуйста, введите корректную ссылку (начинается с http:// или https://)');
+        return;
+    }
+
+    try {
+        // TODO: Отправить запрос на бэкенд для добавления профиля
+        // Пока просто показываем успешное сообщение и закрываем модалку
+
+        console.log('Добавляем профиль:', profileUrl);
+
+        // Закрываем модалку
+        closeAddProfileModal();
+
+        // Показываем успешное сообщение
+        showSuccess('Профиль отправлен на обработку!');
+
+        // TODO: Обновить список профилей после добавления
+        // await loadProjectDetails(currentProjectData.project.id);
+
+    } catch (error) {
+        console.error('Failed to add profile:', error);
+        showError('Не удалось добавить профиль');
+    }
+}
+
+function showSuccess(message) {
+    // Создаем элемент уведомления
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 15px 25px;
+        border-radius: 12px;
+        z-index: 9999;
+        font-weight: 600;
+        box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+    `;
+    notification.textContent = message;
+    document.body.appendChild(notification);
+
+    // Удаляем через 3 секунды
+    setTimeout(() => {
+        notification.remove();
+    }, 3000);
 }
 
 // ==================== SIDEBAR ====================
