@@ -211,11 +211,13 @@ async def get_project_analytics(
         if telegram_user not in users_stats:
             users_stats[telegram_user] = {
                 "total_views": 0,
+                "profiles_count": 0,
                 "platforms": {"tiktok": 0, "instagram": 0, "facebook": 0, "youtube": 0},
                 "topics": {}
             }
 
         users_stats[telegram_user]["total_views"] += views
+        users_stats[telegram_user]["profiles_count"] += 1
         users_stats[telegram_user]["platforms"][plat] += views
 
         if topic:
