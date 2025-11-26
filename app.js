@@ -885,7 +885,9 @@ async function submitProfileWithData() {
         closeAddProfileModal();
 
         // Показываем успешное сообщение
-        showSuccess(`Вы добавили профиль ${platform} ${profileData.status}, тематика ${profileData.topic} в проект ${projectName}`);
+        const status = profileData.status || 'NEW';
+        const topic = profileData.topic || 'не указана';
+        showSuccess(`Вы добавили профиль ${platform} ${status}, тематика ${topic} в проект ${projectName}`);
 
         // TODO: Обновить список профилей после добавления
         // await loadProjectDetails(currentProjectData.project.id);
