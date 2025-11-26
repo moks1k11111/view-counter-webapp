@@ -849,10 +849,25 @@ function submitCustomTopic() {
     submitProfileWithData();
 }
 
+// Helper function to detect platform from URL
+function detectPlatform(url) {
+    if (url.includes('tiktok.com')) return 'TikTok';
+    if (url.includes('instagram.com')) return 'Instagram';
+    if (url.includes('facebook.com')) return 'Facebook';
+    if (url.includes('youtube.com') || url.includes('youtu.be')) return 'YouTube';
+    return 'Социальная сеть';
+}
+
 // Final submission
 async function submitProfileWithData() {
     try {
         console.log('Добавляем профиль:', profileData);
+
+        // Определяем платформу из URL
+        const platform = detectPlatform(profileData.url);
+
+        // Получаем название проекта
+        const projectName = currentProjectData?.project?.name || 'проект';
 
         // TODO: Отправить запрос на бэкенд для добавления профиля
         // const response = await fetch('/api/profiles', {
@@ -870,7 +885,7 @@ async function submitProfileWithData() {
         closeAddProfileModal();
 
         // Показываем успешное сообщение
-        showSuccess(`Профиль отправлен на обработку!\nТип: ${profileData.status}\nТематика: ${profileData.topic}`);
+        showSuccess(`Вы добавили профиль ${platform} ${profileData.status}, тематика ${profileData.topic} в проект ${projectName}`);
 
         // TODO: Обновить список профилей после добавления
         // await loadProjectDetails(currentProjectData.project.id);
