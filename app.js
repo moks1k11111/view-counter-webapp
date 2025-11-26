@@ -1044,6 +1044,9 @@ async function loadAdminData() {
 // Переменные для управления пользователями
 let currentUserData = null;
 let currentBonusUser = null;
+let allUsers = [];
+let displayedUsersCount = 0;
+const USERS_PER_PAGE = 20;
 
 async function loadAdminUsers() {
     if (!isAdmin) {
@@ -1089,8 +1092,7 @@ async function loadAdminUsers() {
             }
         });
 
-        // Отображаем пользователей
-        const usersList = document.getElementById('admin-users-list');
+        // Получаем пользователей
         let users = Array.from(usersMap.values());
 
         // Если нет пользователей, создаем тестовых
@@ -1133,22 +1135,8 @@ async function loadAdminUsers() {
             console.log('Using test users data');
         }
 
-        usersList.innerHTML = users.map(user => {
-            const firstLetter = user.username.charAt(user.username.startsWith('@') ? 1 : 0).toUpperCase();
-
-            return `
-                <div class="admin-user-item" onclick="openUserDetailsModal('${user.username}')">
-                    <div class="admin-user-info">
-                        <div class="admin-user-avatar">${firstLetter}</div>
-                        <div class="admin-user-details">
-                            <div class="admin-user-name">${user.username}</div>
-                            <div class="admin-user-stats">${user.projects.length} проектов · ${formatNumber(user.totalViews)} просмотров</div>
-                        </div>
-                    </div>
-                    <i class="fa-solid fa-chevron-right admin-user-arrow"></i>
-                </div>
-            `;
-        }).join('');
+        // Сохраняем всех пользователей
+        allUsers = users;
 
         // Сохраняем данные пользователей
         if (users.length > 0 && usersMap.size === 0) {
@@ -1161,12 +1149,133 @@ async function loadAdminUsers() {
             window.adminUsersData = usersMap;
         }
 
+        // Обновляем счетчик
+        document.getElementById('users-total-count').textContent = users.length;
+
+        // Отображаем первых USERS_PER_PAGE пользователей
+        displayedUsersCount = 0;
+        renderUsers(users.slice(0, USERS_PER_PAGE));
+
         console.log('Admin users loaded:', users.length);
 
     } catch (error) {
         console.error('Failed to load admin users:', error);
         showError('Не удалось загрузить список пользователей');
     }
+}
+
+function renderUsers(usersArray) {
+    const usersList = document.getElementById('admin-users-list');
+    if (!usersList) return;
+
+    // Создаем HTML для пользователей
+    const usersHTML = usersArray.map(user => {
+        const avatarLetter = user.username.substring(1, 2).toUpperCase(); // Берем первую букву после @
+
+        return `
+            <div class="admin-user-item" onclick="openUserDetailsModal('${user.username}')">
+                <div class="admin-user-info">
+                    <div class="admin-user-avatar">${avatarLetter}</div>
+                    <div class="admin-user-details">
+                        <div class="admin-user-name">${user.username}</div>
+                        <div class="admin-user-stats">
+                            ${formatNumber(user.totalViews)} просмотров • ${user.projects.length} ${user.projects.length === 1 ? 'проект' : 'проекта'}
+                        </div>
+                    </div>
+                </div>
+                <div class="admin-user-arrow">
+                    <i class="fa-solid fa-chevron-right"></i>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    // Если это первая загрузка, заменяем содержимое
+    if (displayedUsersCount === 0) {
+        usersList.innerHTML = usersHTML;
+    } else {
+        // Иначе добавляем к существующему
+        usersList.innerHTML += usersHTML;
+    }
+
+    // Обновляем счетчик отображаемых пользователей
+    displayedUsersCount += usersArray.length;
+    document.getElementById('users-shown-count').textContent = displayedUsersCount;
+
+    // Показываем/скрываем кнопку "Показать еще"
+    const loadMoreBtn = document.getElementById('load-more-users');
+    if (displayedUsersCount >= allUsers.length) {
+        loadMoreBtn.classList.add('hidden');
+    } else {
+        loadMoreBtn.classList.remove('hidden');
+    }
+}
+
+function loadMoreUsers() {
+    // Получаем следующую порцию пользователей
+    const nextUsers = allUsers.slice(displayedUsersCount, displayedUsersCount + USERS_PER_PAGE);
+
+    if (nextUsers.length > 0) {
+        renderUsers(nextUsers);
+    }
+}
+
+function filterUsers() {
+    const searchInput = document.getElementById('users-search');
+    const searchTerm = searchInput.value.toLowerCase().trim();
+
+    // Если поле поиска пустое, показываем всех пользователей
+    if (searchTerm === '') {
+        displayedUsersCount = 0;
+        renderUsers(allUsers.slice(0, USERS_PER_PAGE));
+        return;
+    }
+
+    // Фильтруем пользователей по имени
+    const filteredUsers = allUsers.filter(user =>
+        user.username.toLowerCase().includes(searchTerm)
+    );
+
+    // Отображаем отфильтрованных пользователей
+    const usersList = document.getElementById('admin-users-list');
+
+    if (filteredUsers.length === 0) {
+        usersList.innerHTML = '<div class="admin-no-users">Пользователи не найдены</div>';
+        document.getElementById('users-shown-count').textContent = '0';
+        document.getElementById('load-more-users').classList.add('hidden');
+        return;
+    }
+
+    // Сбрасываем счетчик и показываем первые результаты
+    displayedUsersCount = 0;
+
+    // Показываем все отфильтрованные результаты (без пагинации при поиске)
+    const usersHTML = filteredUsers.map(user => {
+        const avatarLetter = user.username.substring(1, 2).toUpperCase();
+
+        return `
+            <div class="admin-user-item" onclick="openUserDetailsModal('${user.username}')">
+                <div class="admin-user-info">
+                    <div class="admin-user-avatar">${avatarLetter}</div>
+                    <div class="admin-user-details">
+                        <div class="admin-user-name">${user.username}</div>
+                        <div class="admin-user-stats">
+                            ${formatNumber(user.totalViews)} просмотров • ${user.projects.length} ${user.projects.length === 1 ? 'проект' : 'проекта'}
+                        </div>
+                    </div>
+                </div>
+                <div class="admin-user-arrow">
+                    <i class="fa-solid fa-chevron-right"></i>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    usersList.innerHTML = usersHTML;
+    document.getElementById('users-shown-count').textContent = filteredUsers.length;
+
+    // Скрываем кнопку "Показать еще" при поиске
+    document.getElementById('load-more-users').classList.add('hidden');
 }
 
 async function openUserDetailsModal(username) {
@@ -1329,3 +1438,6 @@ window.openBonusModal = openBonusModal;
 window.closeBonusModal = closeBonusModal;
 window.submitBonus = submitBonus;
 window.removeUserFromProject = removeUserFromProject;
+window.renderUsers = renderUsers;
+window.loadMoreUsers = loadMoreUsers;
+window.filterUsers = filterUsers;
