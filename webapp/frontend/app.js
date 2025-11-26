@@ -1041,6 +1041,10 @@ async function loadAdminData() {
         if (adminTotalProfilesEl) adminTotalProfilesEl.textContent = totalProfiles;
         if (adminTotalViewsEl) adminTotalViewsEl.textContent = formatNumber(totalViews);
 
+        // Обновляем количество пользователей в кликабельной карточке
+        const adminTotalUsersDisplay = document.getElementById('admin-total-users-display');
+        if (adminTotalUsersDisplay) adminTotalUsersDisplay.textContent = totalUsers;
+
         console.log('Admin data loaded successfully');
 
         // Загружаем список пользователей
@@ -1613,6 +1617,196 @@ async function removeUserFromProject(username, projectId, projectName) {
     }
 }
 
+// ==================== USER MANAGEMENT PAGE ====================
+let allUsersList = [];
+
+function openUserManagement() {
+    console.log('Opening user management page...');
+
+    // Скрываем все страницы
+    document.querySelectorAll('.page').forEach(page => {
+        page.classList.add('hidden');
+    });
+
+    // Показываем страницу управления пользователями
+    document.getElementById('user-management-page').classList.remove('hidden');
+
+    // Загружаем и отображаем пользователей
+    loadUserManagementList();
+}
+
+function closeUserManagement() {
+    document.getElementById('user-management-page').classList.add('hidden');
+    document.getElementById('admin-page').classList.remove('hidden');
+}
+
+async function loadUserManagementList() {
+    if (!isAdmin) {
+        console.error('Access denied: user is not admin');
+        return;
+    }
+
+    try {
+        console.log('Loading user management list...');
+
+        // Собираем всех уникальных пользователей из всех проектов
+        const usersMap = new Map();
+
+        const projectsStats = await Promise.all(
+            currentProjects.map(project =>
+                apiCall(`/api/projects/${project.id}/analytics`).catch(() => null)
+            )
+        );
+
+        projectsStats.forEach((stats, index) => {
+            if (stats && stats.users_stats) {
+                const project = currentProjects[index];
+
+                Object.entries(stats.users_stats).forEach(([userName, userStats]) => {
+                    if (!usersMap.has(userName)) {
+                        usersMap.set(userName, {
+                            username: userName,
+                            totalViews: 0,
+                            projects: []
+                        });
+                    }
+
+                    const user = usersMap.get(userName);
+                    user.totalViews += userStats.total_views || 0;
+                    user.projects.push({
+                        id: project.id,
+                        name: project.name,
+                        views: userStats.total_views || 0,
+                        videos: 0,
+                        platforms: userStats.platforms || {},
+                        topics: userStats.topics || {}
+                    });
+                });
+            }
+        });
+
+        // Получаем пользователей
+        let users = Array.from(usersMap.values());
+
+        // Если нет пользователей, создаем тестовых (используем те же 25)
+        if (users.length === 0) {
+            console.log('Creating 25 test users...');
+            users = [
+                { username: '@alexander_pro', totalViews: 125000, projects: [{ id: 'test1', name: 'TikTok Promo Campaign', views: 85000, videos: 12 }, { id: 'test2', name: 'Instagram Stories', views: 40000, videos: 8 }] },
+                { username: '@maria_creator', totalViews: 98500, projects: [{ id: 'test1', name: 'TikTok Promo Campaign', views: 62000, videos: 10 }, { id: 'test3', name: 'YouTube Shorts', views: 36500, videos: 15 }] },
+                { username: '@dmitry_blogger', totalViews: 156000, projects: [{ id: 'test1', name: 'TikTok Promo Campaign', views: 95000, videos: 18 }, { id: 'test2', name: 'Instagram Stories', views: 43000, videos: 9 }, { id: 'test3', name: 'YouTube Shorts', views: 18000, videos: 6 }] },
+                { username: '@anna_influencer', totalViews: 73200, projects: [{ id: 'test2', name: 'Instagram Stories', views: 52000, videos: 11 }, { id: 'test3', name: 'YouTube Shorts', views: 21200, videos: 7 }] },
+                { username: '@ivan_content', totalViews: 189000, projects: [{ id: 'test1', name: 'TikTok Promo Campaign', views: 110000, videos: 22 }, { id: 'test2', name: 'Instagram Stories', views: 79000, videos: 14 }] },
+                { username: '@elena_vlog', totalViews: 67800, projects: [{ id: 'test3', name: 'YouTube Shorts', views: 67800, videos: 20 }] },
+                { username: '@sergey_creative', totalViews: 142000, projects: [{ id: 'test1', name: 'TikTok Promo Campaign', views: 88000, videos: 16 }, { id: 'test3', name: 'YouTube Shorts', views: 54000, videos: 12 }] },
+                { username: '@olga_style', totalViews: 91500, projects: [{ id: 'test2', name: 'Instagram Stories', views: 91500, videos: 19 }] },
+                { username: '@maxim_tech', totalViews: 176000, projects: [{ id: 'test1', name: 'TikTok Promo Campaign', views: 105000, videos: 21 }, { id: 'test2', name: 'Instagram Stories', views: 71000, videos: 13 }] },
+                { username: '@natasha_beauty', totalViews: 83400, projects: [{ id: 'test2', name: 'Instagram Stories', views: 54000, videos: 10 }, { id: 'test3', name: 'YouTube Shorts', views: 29400, videos: 8 }] },
+                { username: '@pavel_fitness', totalViews: 198000, projects: [{ id: 'test1', name: 'TikTok Promo Campaign', views: 125000, videos: 25 }, { id: 'test2', name: 'Instagram Stories', views: 73000, videos: 15 }] },
+                { username: '@katerina_food', totalViews: 112000, projects: [{ id: 'test1', name: 'TikTok Promo Campaign', views: 68000, videos: 14 }, { id: 'test2', name: 'Instagram Stories', views: 44000, videos: 11 }] },
+                { username: '@andrey_gaming', totalViews: 234000, projects: [{ id: 'test1', name: 'TikTok Promo Campaign', views: 145000, videos: 28 }, { id: 'test3', name: 'YouTube Shorts', views: 89000, videos: 24 }] },
+                { username: '@victoria_travel', totalViews: 95600, projects: [{ id: 'test2', name: 'Instagram Stories', views: 95600, videos: 17 }] },
+                { username: '@roman_music', totalViews: 167000, projects: [{ id: 'test1', name: 'TikTok Promo Campaign', views: 98000, videos: 19 }, { id: 'test3', name: 'YouTube Shorts', views: 69000, videos: 16 }] },
+                { username: '@julia_art', totalViews: 78900, projects: [{ id: 'test2', name: 'Instagram Stories', views: 78900, videos: 13 }] },
+                { username: '@denis_photo', totalViews: 123000, projects: [{ id: 'test1', name: 'TikTok Promo Campaign', views: 72000, videos: 15 }, { id: 'test2', name: 'Instagram Stories', views: 51000, videos: 12 }] },
+                { username: '@svetlana_dance', totalViews: 189000, projects: [{ id: 'test1', name: 'TikTok Promo Campaign', views: 115000, videos: 23 }, { id: 'test2', name: 'Instagram Stories', views: 74000, videos: 14 }] },
+                { username: '@igor_cars', totalViews: 145000, projects: [{ id: 'test1', name: 'TikTok Promo Campaign', views: 87000, videos: 17 }, { id: 'test3', name: 'YouTube Shorts', views: 58000, videos: 13 }] },
+                { username: '@marina_pets', totalViews: 102000, projects: [{ id: 'test2', name: 'Instagram Stories', views: 102000, videos: 20 }] },
+                { username: '@artem_comedy', totalViews: 276000, projects: [{ id: 'test1', name: 'TikTok Promo Campaign', views: 165000, videos: 30 }, { id: 'test2', name: 'Instagram Stories', views: 111000, videos: 22 }] },
+                { username: '@daria_fashion', totalViews: 134000, projects: [{ id: 'test2', name: 'Instagram Stories', views: 85000, videos: 16 }, { id: 'test3', name: 'YouTube Shorts', views: 49000, videos: 11 }] },
+                { username: '@nikolay_sport', totalViews: 156000, projects: [{ id: 'test1', name: 'TikTok Promo Campaign', views: 92000, videos: 18 }, { id: 'test2', name: 'Instagram Stories', views: 64000, videos: 13 }] },
+                { username: '@alina_makeup', totalViews: 118000, projects: [{ id: 'test2', name: 'Instagram Stories', views: 75000, videos: 15 }, { id: 'test3', name: 'YouTube Shorts', views: 43000, videos: 10 }] },
+                { username: '@vladimir_review', totalViews: 203000, projects: [{ id: 'test1', name: 'TikTok Promo Campaign', views: 118000, videos: 24 }, { id: 'test3', name: 'YouTube Shorts', views: 85000, videos: 19 }] }
+            ];
+
+            // Создаем Map для тестовых данных
+            window.adminUsersData = new Map();
+            users.forEach(user => {
+                window.adminUsersData.set(user.username, user);
+            });
+        } else {
+            window.adminUsersData = usersMap;
+        }
+
+        // Сортируем по просмотрам (от большего к меньшему)
+        users.sort((a, b) => b.totalViews - a.totalViews);
+
+        // Сохраняем всех пользователей
+        allUsersList = users;
+
+        // Отображаем всех пользователей
+        renderUserManagementList(users);
+
+        console.log('User management list loaded:', users.length);
+
+    } catch (error) {
+        console.error('Failed to load user management list:', error);
+        showError('Не удалось загрузить список пользователей');
+    }
+}
+
+function renderUserManagementList(users) {
+    const usersList = document.getElementById('user-management-list');
+    const countElement = document.getElementById('user-management-shown');
+
+    if (!usersList) {
+        console.error('user-management-list element not found!');
+        return;
+    }
+
+    if (users.length === 0) {
+        usersList.innerHTML = '<div class="admin-no-users">Пользователи не найдены</div>';
+        if (countElement) countElement.textContent = '0';
+        return;
+    }
+
+    // Создаем HTML для всех пользователей
+    const usersHTML = users.map(user => {
+        const avatarLetter = user.username.substring(1, 2).toUpperCase();
+
+        return `
+            <div class="admin-user-item" onclick="openUserDetailsModal('${user.username}')">
+                <div class="admin-user-info">
+                    <div class="admin-user-avatar">${avatarLetter}</div>
+                    <div class="admin-user-details">
+                        <div class="admin-user-name">${user.username}</div>
+                        <div class="admin-user-stats">
+                            ${formatNumber(user.totalViews)} просмотров • ${user.projects.length} ${user.projects.length === 1 ? 'проект' : 'проекта'}
+                        </div>
+                    </div>
+                </div>
+                <div class="admin-user-arrow">
+                    <i class="fa-solid fa-chevron-right"></i>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    usersList.innerHTML = usersHTML;
+
+    if (countElement) {
+        countElement.textContent = users.length;
+    }
+}
+
+function filterUserManagementList() {
+    const searchInput = document.getElementById('user-management-search');
+    const searchTerm = searchInput.value.toLowerCase().trim();
+
+    if (searchTerm === '') {
+        // Показываем всех пользователей
+        renderUserManagementList(allUsersList);
+        return;
+    }
+
+    // Фильтруем пользователей по имени
+    const filteredUsers = allUsersList.filter(user =>
+        user.username.toLowerCase().includes(searchTerm)
+    );
+
+    renderUserManagementList(filteredUsers);
+}
+
 // ==================== START APP ====================
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
@@ -1635,3 +1829,6 @@ window.removeUserFromProject = removeUserFromProject;
 window.renderUsers = renderUsers;
 window.loadMoreUsers = loadMoreUsers;
 window.filterUsers = filterUsers;
+window.openUserManagement = openUserManagement;
+window.closeUserManagement = closeUserManagement;
+window.filterUserManagementList = filterUserManagementList;
