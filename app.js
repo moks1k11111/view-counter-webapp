@@ -1694,7 +1694,7 @@ async function loadUserManagementList() {
                         id: project.id,
                         name: project.name,
                         views: userStats.total_views || 0,
-                        videos: 0,
+                        videos: userStats.profiles_count || 0,
                         platforms: userStats.platforms || {},
                         topics: userStats.topics || {}
                     });
