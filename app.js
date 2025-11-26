@@ -760,19 +760,40 @@ function toggleProfiles() {
 
 // ==================== ADD PROFILE MODAL ====================
 
+// Global variables for multi-step profile addition
+let profileData = {
+    url: '',
+    status: '',
+    topic: ''
+};
+
 function openAddProfileModal() {
     const modal = document.getElementById('add-profile-modal');
     modal.classList.remove('hidden');
-    // Очищаем поле ввода
+
+    // Reset to step 1
+    document.querySelectorAll('.profile-step').forEach(step => step.classList.add('hidden'));
+    document.getElementById('profile-step-1').classList.remove('hidden');
+
+    // Clear all inputs
     document.getElementById('profile-url-input').value = '';
+    profileData = { url: '', status: '', topic: '' };
 }
 
 function closeAddProfileModal() {
     const modal = document.getElementById('add-profile-modal');
     modal.classList.add('hidden');
+
+    // Reset to step 1
+    document.querySelectorAll('.profile-step').forEach(step => step.classList.add('hidden'));
+    document.getElementById('profile-step-1').classList.remove('hidden');
+
+    // Clear data
+    profileData = { url: '', status: '', topic: '' };
 }
 
-async function submitProfile() {
+// Step 1: Validate URL and move to status selection
+function nextToStatusStep() {
     const urlInput = document.getElementById('profile-url-input');
     const profileUrl = urlInput.value.trim();
 
@@ -787,17 +808,69 @@ async function submitProfile() {
         return;
     }
 
-    try {
-        // TODO: Отправить запрос на бэкенд для добавления профиля
-        // Пока просто показываем успешное сообщение и закрываем модалку
+    // Save URL and move to step 2
+    profileData.url = profileUrl;
 
-        console.log('Добавляем профиль:', profileUrl);
+    document.getElementById('profile-step-1').classList.add('hidden');
+    document.getElementById('profile-step-2').classList.remove('hidden');
+}
+
+// Step 2: Select status and move to topic selection
+function selectStatus(status) {
+    profileData.status = status;
+
+    document.getElementById('profile-step-2').classList.add('hidden');
+    document.getElementById('profile-step-3').classList.remove('hidden');
+}
+
+// Step 3: Select predefined topic and submit
+function selectTopic(topic) {
+    profileData.topic = topic;
+    submitProfileWithData();
+}
+
+// Step 3 -> 4: Open custom topic input
+function openCustomTopic() {
+    document.getElementById('profile-step-3').classList.add('hidden');
+    document.getElementById('profile-step-4').classList.remove('hidden');
+    document.getElementById('custom-topic-input').focus();
+}
+
+// Step 4: Submit with custom topic
+function submitCustomTopic() {
+    const customTopic = document.getElementById('custom-topic-input').value.trim();
+
+    if (!customTopic) {
+        showError('Пожалуйста, введите тематику');
+        return;
+    }
+
+    profileData.topic = customTopic;
+    submitProfileWithData();
+}
+
+// Final submission
+async function submitProfileWithData() {
+    try {
+        console.log('Добавляем профиль:', profileData);
+
+        // TODO: Отправить запрос на бэкенд для добавления профиля
+        // const response = await fetch('/api/profiles', {
+        //     method: 'POST',
+        //     headers: { 'Content-Type': 'application/json' },
+        //     body: JSON.stringify({
+        //         url: profileData.url,
+        //         status: profileData.status,
+        //         topic: profileData.topic,
+        //         project_id: currentProjectData.project.id
+        //     })
+        // });
 
         // Закрываем модалку
         closeAddProfileModal();
 
         // Показываем успешное сообщение
-        showSuccess('Профиль отправлен на обработку!');
+        showSuccess(`Профиль отправлен на обработку!\nТип: ${profileData.status}\nТематика: ${profileData.topic}`);
 
         // TODO: Обновить список профилей после добавления
         // await loadProjectDetails(currentProjectData.project.id);
@@ -1848,3 +1921,10 @@ window.filterUsers = filterUsers;
 window.openUserManagement = openUserManagement;
 window.closeUserManagement = closeUserManagement;
 window.filterUserManagementList = filterUserManagementList;
+window.openAddProfileModal = openAddProfileModal;
+window.closeAddProfileModal = closeAddProfileModal;
+window.nextToStatusStep = nextToStatusStep;
+window.selectStatus = selectStatus;
+window.selectTopic = selectTopic;
+window.openCustomTopic = openCustomTopic;
+window.submitCustomTopic = submitCustomTopic;

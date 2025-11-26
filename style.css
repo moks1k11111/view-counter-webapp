@@ -1701,3 +1701,91 @@ body {
         padding: 15px;
     }
 }
+
+/* ==================== PROFILE MODAL MULTI-STEP ==================== */
+.profile-step {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.profile-step.hidden {
+    display: none !important;
+}
+
+.status-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin-top: 10px;
+}
+
+.status-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 20px;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.status-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: var(--accent-color);
+    transform: translateY(-2px);
+}
+
+.status-icon {
+    font-size: 36px;
+}
+
+.status-label {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.status-desc {
+    font-size: 12px;
+    color: var(--text-secondary);
+    text-align: center;
+}
+
+.topic-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.topic-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    padding: 15px 10px;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-size: 14px;
+    color: var(--text-primary);
+    text-align: center;
+}
+
+.topic-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: var(--accent-color);
+    transform: translateY(-2px);
+}
+
+@media (max-width: 480px) {
+    .status-buttons {
+        grid-template-columns: 1fr;
+    }
+
+    .topic-grid {
+        grid-template-columns: 1fr;
+    }
+}

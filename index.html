@@ -273,15 +273,70 @@
                 <button class="modal-close-btn" onclick="closeAddProfileModal()">
                     <i class="fa-solid fa-times"></i>
                 </button>
-                <h2 class="modal-title">Добавить профиль</h2>
-                <p class="modal-description">Вставьте ссылку на ваш профиль в социальной сети. Бот автоматически определит платформу.</p>
-                <input
-                    type="text"
-                    id="profile-url-input"
-                    class="input"
-                    placeholder="Например: https://www.tiktok.com/@username"
-                >
-                <button class="btn-primary" onclick="submitProfile()">Добавить</button>
+
+                <!-- Шаг 1: Ввод URL -->
+                <div id="profile-step-1" class="profile-step">
+                    <h2 class="modal-title">Добавить профиль</h2>
+                    <p class="modal-description">Вставьте ссылку на ваш профиль в социальной сети</p>
+                    <input
+                        type="text"
+                        id="profile-url-input"
+                        class="input"
+                        placeholder="Например: https://www.tiktok.com/@username"
+                    >
+                    <button class="btn-primary" onclick="nextToStatusStep()">Далее</button>
+                </div>
+
+                <!-- Шаг 2: Выбор статуса -->
+                <div id="profile-step-2" class="profile-step hidden">
+                    <h2 class="modal-title">Тип аккаунта</h2>
+                    <p class="modal-description">Это новый или старый аккаунт?</p>
+                    <div class="status-buttons">
+                        <button class="status-btn" onclick="selectStatus('NEW')">
+                            <div class="status-icon">✅</div>
+                            <div class="status-label">Новый</div>
+                            <div class="status-desc">NEW - будет обновляться</div>
+                        </button>
+                        <button class="status-btn" onclick="selectStatus('OLD')">
+                            <div class="status-icon">⚠️</div>
+                            <div class="status-label">Старый</div>
+                            <div class="status-desc">OLD - не обновляется</div>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Шаг 3: Выбор тематики -->
+                <div id="profile-step-3" class="profile-step hidden">
+                    <h2 class="modal-title">Тематика контента</h2>
+                    <p class="modal-description">Выберите тематику вашего профиля</p>
+                    <div class="topic-grid">
+                        <button class="topic-btn" onclick="selectTopic('Юмор')">😂 Юмор</button>
+                        <button class="topic-btn" onclick="selectTopic('Спорт')">⚽ Спорт</button>
+                        <button class="topic-btn" onclick="selectTopic('Киберспорт')">🎮 Киберспорт</button>
+                        <button class="topic-btn" onclick="selectTopic('Сериалы/фильмы')">🎬 Сериалы/фильмы</button>
+                        <button class="topic-btn" onclick="selectTopic('Гемблинг')">🎰 Гемблинг</button>
+                        <button class="topic-btn" onclick="selectTopic('Телешоу')">📺 Телешоу</button>
+                        <button class="topic-btn" onclick="selectTopic('Познавательное')">🧠 Познавательное</button>
+                        <button class="topic-btn" onclick="selectTopic('AI')">🤖 AI</button>
+                        <button class="topic-btn" onclick="selectTopic('Танцы')">💃 Танцы</button>
+                        <button class="topic-btn" onclick="selectTopic('Клипы')">🎵 Клипы</button>
+                        <button class="topic-btn" onclick="openCustomTopic()">✏️ Своя тематика</button>
+                    </div>
+                </div>
+
+                <!-- Шаг 4: Своя тематика -->
+                <div id="profile-step-4" class="profile-step hidden">
+                    <h2 class="modal-title">Своя тематика</h2>
+                    <p class="modal-description">Напишите тематику вашего контента</p>
+                    <input
+                        type="text"
+                        id="custom-topic-input"
+                        class="input"
+                        placeholder="Например: Путешествия, Кулинария, Бизнес"
+                        maxlength="50"
+                    >
+                    <button class="btn-primary" onclick="submitCustomTopic()">Добавить профиль</button>
+                </div>
             </div>
         </div>
 
