@@ -1009,7 +1009,7 @@ async function loadAdminData() {
         // Пока используем существующие данные для демонстрации
 
         // Получаем статистику
-        let totalUsers = 0;
+        const uniqueUsers = new Set();
         let totalProjects = currentProjects.length;
         let totalProfiles = 0;
         let totalViews = 0;
@@ -1024,11 +1024,17 @@ async function loadAdminData() {
         projectsStats.forEach(stats => {
             if (stats) {
                 totalViews += stats.total_views || 0;
-                const usersCount = Object.keys(stats.users_stats || {}).length;
-                totalProfiles += usersCount;
-                totalUsers = Math.max(totalUsers, usersCount); // Приблизительная оценка
+
+                // Добавляем уникальных пользователей
+                Object.keys(stats.users_stats || {}).forEach(userName => {
+                    uniqueUsers.add(userName);
+                });
+
+                totalProfiles += Object.keys(stats.users_stats || {}).length;
             }
         });
+
+        const totalUsers = uniqueUsers.size;
 
         // Обновляем UI с проверками
         const adminTotalUsersEl = document.getElementById('admin-total-users');
