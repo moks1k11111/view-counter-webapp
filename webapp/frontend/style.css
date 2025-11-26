@@ -1498,6 +1498,47 @@ body {
     color: var(--accent-color);
 }
 
+.modal-content .input {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 12px 16px;
+    color: var(--text-primary);
+    font-size: 16px;
+    margin-bottom: 20px;
+    box-sizing: border-box;
+    transition: all 0.3s;
+}
+
+.modal-content .input:focus {
+    outline: none;
+    border-color: var(--accent-color);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.modal-content .btn-primary {
+    width: 100%;
+    background: var(--accent-gradient);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    padding: 14px 20px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.modal-content .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+}
+
+.modal-content .btn-primary:active {
+    transform: translateY(0);
+}
+
 @media (max-width: 480px) {
     .user-project-stats-grid {
         grid-template-columns: 1fr;
@@ -1509,5 +1550,27 @@ body {
 
     .modal-content-large {
         max-width: none;
+    }
+
+    .admin-card {
+        padding: 20px 15px;
+    }
+
+    .admin-user-item {
+        padding: 12px;
+    }
+
+    .admin-user-name {
+        font-size: 14px;
+    }
+
+    .admin-user-stats {
+        font-size: 11px;
+    }
+
+    .admin-user-avatar {
+        width: 36px;
+        height: 36px;
+        font-size: 14px;
     }
 }
