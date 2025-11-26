@@ -1095,8 +1095,11 @@ async function loadAdminUsers() {
         // Получаем пользователей
         let users = Array.from(usersMap.values());
 
+        console.log('Real users found:', users.length);
+
         // Если нет пользователей, создаем тестовых
         if (users.length === 0) {
+            console.log('Creating 25 test users...');
             users = [
                 {
                     username: '@alexander_pro',
@@ -1329,7 +1332,12 @@ async function loadAdminUsers() {
 
 function renderUsers(usersArray) {
     const usersList = document.getElementById('admin-users-list');
-    if (!usersList) return;
+    if (!usersList) {
+        console.error('admin-users-list element not found!');
+        return;
+    }
+
+    console.log('Rendering users:', usersArray.length, 'users');
 
     // Создаем HTML для пользователей
     const usersHTML = usersArray.map(user => {
@@ -1363,14 +1371,21 @@ function renderUsers(usersArray) {
 
     // Обновляем счетчик отображаемых пользователей
     displayedUsersCount += usersArray.length;
-    document.getElementById('users-shown-count').textContent = displayedUsersCount;
+    const shownCountElement = document.getElementById('users-shown-count');
+    if (shownCountElement) {
+        shownCountElement.textContent = displayedUsersCount;
+    }
+
+    console.log('Users rendered. Total displayed:', displayedUsersCount);
 
     // Показываем/скрываем кнопку "Показать еще"
     const loadMoreBtn = document.getElementById('load-more-users');
-    if (displayedUsersCount >= allUsers.length) {
-        loadMoreBtn.classList.add('hidden');
-    } else {
-        loadMoreBtn.classList.remove('hidden');
+    if (loadMoreBtn) {
+        if (displayedUsersCount >= allUsers.length) {
+            loadMoreBtn.classList.add('hidden');
+        } else {
+            loadMoreBtn.classList.remove('hidden');
+        }
     }
 }
 
