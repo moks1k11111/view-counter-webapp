@@ -1,8 +1,10 @@
 // ==================== CONFIGURATION ====================
-// Version: 1.1.0 - Updated 2025-11-26
+// Version: 1.2.0 - Updated 2025-11-26
 const API_BASE_URL = 'https://view-counter-api.onrender.com';
+const ADMIN_IDS = [873564841]; // ID администраторов
 let currentUser = null;
 let currentProjects = [];
+let isAdmin = false;
 
 // ==================== TELEGRAM WEBAPP INITIALIZATION ====================
 const tg = window.Telegram?.WebApp || { initData: '', ready: () => {}, expand: () => {} };
@@ -877,6 +879,8 @@ function showPage(pageName) {
     // Load data for specific pages
     if (pageName === 'projects' && currentProjects.length > 0) {
         renderMyProjects(currentProjects);
+    } else if (pageName === 'admin' && isAdmin) {
+        loadAdminData();
     }
 
     closeSidebar();
@@ -897,6 +901,16 @@ async function init() {
 
         console.log('User:', currentUser);
         console.log('Projects:', currentProjects);
+
+        // Check if user is admin
+        isAdmin = ADMIN_IDS.includes(currentUser.id);
+        console.log('Is admin:', isAdmin, 'User ID:', currentUser.id);
+
+        // Show/hide admin menu item
+        const adminMenuItem = document.getElementById('admin-menu-item');
+        if (adminMenuItem) {
+            adminMenuItem.style.display = isAdmin ? 'flex' : 'none';
+        }
 
         // Update UI
         const usernameElement = document.getElementById('username');
@@ -973,6 +987,55 @@ function downloadVideo() {
         return;
     }
     showError('Video download feature coming soon!');
+}
+
+// ==================== ADMIN PANEL ====================
+async function loadAdminData() {
+    if (!isAdmin) {
+        console.error('Access denied: user is not admin');
+        return;
+    }
+
+    try {
+        console.log('Loading admin data...');
+
+        // TODO: Создать API endpoint для админской статистики
+        // Пока используем существующие данные для демонстрации
+
+        // Получаем статистику
+        let totalUsers = 0;
+        let totalProjects = currentProjects.length;
+        let totalProfiles = 0;
+        let totalViews = 0;
+
+        // Получаем общую статистику по всем проектам
+        const projectsStats = await Promise.all(
+            currentProjects.map(project =>
+                apiCall(`/api/projects/${project.id}/analytics`).catch(() => null)
+            )
+        );
+
+        projectsStats.forEach(stats => {
+            if (stats) {
+                totalViews += stats.total_views || 0;
+                const usersCount = Object.keys(stats.users_stats || {}).length;
+                totalProfiles += usersCount;
+                totalUsers = Math.max(totalUsers, usersCount); // Приблизительная оценка
+            }
+        });
+
+        // Обновляем UI
+        document.getElementById('admin-total-users').textContent = totalUsers;
+        document.getElementById('admin-total-projects').textContent = totalProjects;
+        document.getElementById('admin-total-profiles').textContent = totalProfiles;
+        document.getElementById('admin-total-views').textContent = formatNumber(totalViews);
+
+        console.log('Admin data loaded successfully');
+
+    } catch (error) {
+        console.error('Failed to load admin data:', error);
+        showError('Не удалось загрузить данные админ панели');
+    }
 }
 
 // ==================== START APP ====================
