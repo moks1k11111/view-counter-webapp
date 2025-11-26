@@ -880,7 +880,10 @@ function showPage(pageName) {
     if (pageName === 'projects' && currentProjects.length > 0) {
         renderMyProjects(currentProjects);
     } else if (pageName === 'admin' && isAdmin) {
-        loadAdminData();
+        // Даем DOM время на обновление перед загрузкой данных
+        setTimeout(() => {
+            loadAdminData();
+        }, 100);
     }
 
     closeSidebar();
@@ -1316,7 +1319,12 @@ async function loadAdminUsers() {
         }
 
         // Обновляем счетчик
-        document.getElementById('users-total-count').textContent = users.length;
+        const totalCountElement = document.getElementById('users-total-count');
+        if (totalCountElement) {
+            totalCountElement.textContent = users.length;
+        } else {
+            console.error('users-total-count element not found!');
+        }
 
         // Отображаем первых USERS_PER_PAGE пользователей
         displayedUsersCount = 0;
