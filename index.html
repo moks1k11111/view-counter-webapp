@@ -247,10 +247,15 @@
                     </div>
                 </div>
 
-                <div class="admin-card">
-                    <h3>Управление пользователями</h3>
-                    <div id="admin-users-list" class="admin-users-list">
-                        <!-- Список пользователей будет добавлен динамически -->
+                <div class="admin-card admin-card-clickable" onclick="openUserManagement()">
+                    <div class="admin-card-header">
+                        <h3>Управление пользователями</h3>
+                        <div class="admin-users-count">
+                            <span id="admin-total-users-display">0</span> пользователей
+                        </div>
+                    </div>
+                    <div class="admin-card-arrow">
+                        <i class="fa-solid fa-chevron-right"></i>
                     </div>
                 </div>
 
@@ -290,6 +295,36 @@
                 <h2 class="modal-title" id="user-details-title">@user</h2>
                 <div id="user-projects-list" class="user-projects-list">
                     <!-- Проекты пользователя будут добавлены динамически -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Страница управления пользователями -->
+        <div id="user-management-page" class="page hidden">
+            <header class="header">
+                <button class="back-btn" onclick="closeUserManagement()">
+                    <i class="fa-solid fa-arrow-left"></i>
+                </button>
+                <div class="header-title">
+                    <div class="greeting">Управление пользователями</div>
+                </div>
+            </header>
+
+            <div class="user-management-container">
+                <input
+                    type="text"
+                    id="user-management-search"
+                    class="admin-search-input"
+                    placeholder="Поиск по имени пользователя..."
+                    onkeyup="filterUserManagementList()"
+                >
+
+                <div class="user-management-count">
+                    <span id="user-management-shown">0</span> пользователей
+                </div>
+
+                <div id="user-management-list" class="user-management-list">
+                    <!-- Список пользователей будет добавлен динамически -->
                 </div>
             </div>
         </div>

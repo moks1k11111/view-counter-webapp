@@ -1647,3 +1647,57 @@ body {
         font-size: 14px;
     }
 }
+
+/* ==================== USER MANAGEMENT PAGE ==================== */
+.admin-card-clickable {
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.admin-card-clickable:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: var(--accent-color);
+    transform: translateY(-2px);
+}
+
+.admin-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.admin-card-arrow {
+    font-size: 20px;
+    color: var(--accent-color);
+    transition: transform 0.3s;
+}
+
+.admin-card-clickable:hover .admin-card-arrow {
+    transform: translateX(5px);
+}
+
+.user-management-container {
+    padding: 20px;
+}
+
+.user-management-count {
+    text-align: center;
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-bottom: 15px;
+    padding: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+}
+
+.user-management-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+@media (max-width: 480px) {
+    .user-management-container {
+        padding: 15px;
+    }
+}
