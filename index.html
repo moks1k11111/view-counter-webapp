@@ -259,9 +259,16 @@
                     </div>
                 </div>
 
-                <div class="admin-card">
-                    <h3>Управление проектами</h3>
-                    <p class="admin-description">Функционал в разработке...</p>
+                <div class="admin-card admin-card-clickable" onclick="openProjectManagement()">
+                    <div class="admin-card-header">
+                        <h3>Управление проектами</h3>
+                        <div class="admin-users-count">
+                            <span id="admin-total-projects-display">0</span> проектов
+                        </div>
+                    </div>
+                    <div class="admin-card-arrow">
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </div>
                 </div>
             </div>
         </div>
@@ -381,6 +388,117 @@
                 <div id="user-management-list" class="user-management-list">
                     <!-- Список пользователей будет добавлен динамически -->
                 </div>
+            </div>
+        </div>
+
+        <!-- Страница управления проектами -->
+        <div id="project-management-page" class="page hidden">
+            <header class="header">
+                <button class="back-btn" onclick="closeProjectManagement()">
+                    <i class="fa-solid fa-arrow-left"></i>
+                </button>
+                <div class="header-title">
+                    <div class="greeting">Управление проектами</div>
+                </div>
+            </header>
+
+            <div class="user-management-container">
+                <button class="btn-primary" onclick="openAddProjectModal()" style="margin-bottom: 20px; width: 100%;">
+                    <i class="fa-solid fa-plus"></i> Добавить проект
+                </button>
+
+                <div class="user-management-count">
+                    <span id="project-management-shown">0</span> проектов
+                </div>
+
+                <div id="project-management-list" class="user-management-list">
+                    <!-- Список проектов будет добавлен динамически -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Страница детального просмотра проекта -->
+        <div id="project-details-page" class="page hidden">
+            <header class="header">
+                <button class="back-btn" onclick="closeProjectDetails()">
+                    <i class="fa-solid fa-arrow-left"></i>
+                </button>
+                <div class="header-title">
+                    <div class="greeting" id="project-details-name">Проект</div>
+                </div>
+            </header>
+
+            <div class="analytics-content">
+                <!-- Общая статистика проекта -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value" id="pd-total-views">0</div>
+                        <div class="stat-label">Всего просмотров</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="pd-target-views">0</div>
+                        <div class="stat-label">Цель просмотров</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="pd-progress">0%</div>
+                        <div class="stat-label">Прогресс</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="pd-total-users">0</div>
+                        <div class="stat-label">Участников</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="pd-total-profiles">0</div>
+                        <div class="stat-label">Профилей</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="pd-avg-per-user">0</div>
+                        <div class="stat-label">Среднее на участника</div>
+                    </div>
+                </div>
+
+                <!-- Прогресс бар -->
+                <div class="progress-section">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="pd-progress-bar" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <!-- Список участников проекта -->
+                <h3 style="margin: 20px 0 10px 0;">Участники проекта</h3>
+                <div id="project-users-list" class="user-management-list">
+                    <!-- Список участников будет добавлен динамически -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Модальное окно добавления проекта -->
+        <div id="add-project-modal" class="modal hidden">
+            <div class="modal-overlay" onclick="closeAddProjectModal()"></div>
+            <div class="modal-content">
+                <button class="modal-close-btn" onclick="closeAddProjectModal()">
+                    <i class="fa-solid fa-times"></i>
+                </button>
+                <h2 class="modal-title">Создать новый проект</h2>
+                <p class="modal-description">Введите название и цель просмотров для нового проекта</p>
+
+                <input
+                    type="text"
+                    id="new-project-name-input"
+                    class="input"
+                    placeholder="Название проекта"
+                    style="margin-bottom: 15px;"
+                >
+
+                <input
+                    type="number"
+                    id="new-project-target-input"
+                    class="input"
+                    placeholder="Цель просмотров (например: 1000000)"
+                    style="margin-bottom: 20px;"
+                >
+
+                <button class="btn-primary" onclick="submitNewProject()">Создать проект</button>
             </div>
         </div>
 
