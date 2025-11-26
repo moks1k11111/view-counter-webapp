@@ -1048,7 +1048,8 @@ body {
     top: 0;
     left: 0;
     width: 100%;
-    height: 100%;
+    height: 100vh;
+    height: 100dvh; /* Dynamic viewport height для мобильных */
     z-index: 2000;
     display: flex;
     align-items: center;
@@ -1056,6 +1057,8 @@ body {
     opacity: 1;
     visibility: visible;
     transition: all 0.3s ease;
+    padding: 20px;
+    box-sizing: border-box;
 }
 
 .modal.hidden {
@@ -1085,8 +1088,11 @@ body {
     padding: 30px;
     width: 90%;
     max-width: 400px;
+    max-height: 90vh;
+    overflow-y: auto;
     z-index: 2001;
     animation: modalSlideIn 0.3s ease-out;
+    box-sizing: border-box;
 }
 
 @keyframes modalSlideIn {
@@ -1181,5 +1187,36 @@ body {
 
     .chart-canvas-wrapper {
         height: 220px;
+    }
+
+    /* Modal adjustments for mobile */
+    .modal-content {
+        width: 95%;
+        padding: 25px 20px;
+        max-width: none;
+    }
+
+    .modal-title {
+        font-size: 20px;
+        margin-bottom: 10px;
+        padding-right: 30px;
+    }
+
+    .modal-description {
+        font-size: 13px;
+        margin-bottom: 20px;
+    }
+
+    .modal-close-btn {
+        top: 12px;
+        right: 12px;
+        width: 28px;
+        height: 28px;
+        font-size: 16px;
+    }
+
+    .add-profile-btn {
+        font-size: 12px;
+        padding: 8px 12px;
     }
 }
