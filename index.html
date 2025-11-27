@@ -473,6 +473,17 @@
                 <div id="project-users-list" class="user-management-list">
                     <!-- Список участников будет добавлен динамически -->
                 </div>
+
+                <!-- Список социальных аккаунтов -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin: 30px 0 10px 0;">
+                    <h3 style="margin: 0;">Социальные аккаунты</h3>
+                    <button class="btn-primary" onclick="openAddSocialAccountModal()" style="padding: 8px 16px; font-size: 14px;">
+                        <i class="fa-solid fa-plus"></i> Добавить аккаунт
+                    </button>
+                </div>
+                <div id="project-social-accounts-list" class="user-management-list">
+                    <!-- Список социальных аккаунтов будет добавлен динамически -->
+                </div>
             </div>
         </div>
 
@@ -584,6 +595,73 @@
                     step="0.01"
                 >
                 <button class="btn-primary" onclick="submitBonus()">Выдать</button>
+            </div>
+        </div>
+
+        <!-- Модальное окно добавления социального аккаунта -->
+        <div id="add-social-account-modal" class="modal hidden">
+            <div class="modal-overlay" onclick="closeAddSocialAccountModal()"></div>
+            <div class="modal-content">
+                <button class="modal-close-btn" onclick="closeAddSocialAccountModal()">
+                    <i class="fa-solid fa-times"></i>
+                </button>
+                <h2 class="modal-title">Добавить социальный аккаунт</h2>
+                <p class="modal-description">Заполните информацию об аккаунте</p>
+
+                <select id="social-account-platform" class="input" style="margin-bottom: 15px;">
+                    <option value="">Выберите платформу</option>
+                    <option value="tiktok">TikTok</option>
+                    <option value="instagram">Instagram</option>
+                    <option value="youtube">YouTube</option>
+                    <option value="facebook">Facebook</option>
+                </select>
+
+                <input
+                    type="text"
+                    id="social-account-username"
+                    class="input"
+                    placeholder="Username (например: @username)"
+                    style="margin-bottom: 15px;"
+                >
+
+                <input
+                    type="text"
+                    id="social-account-link"
+                    class="input"
+                    placeholder="Ссылка на профиль"
+                    style="margin-bottom: 15px;"
+                >
+
+                <select id="social-account-status" class="input" style="margin-bottom: 15px;">
+                    <option value="NEW">Новый (NEW)</option>
+                    <option value="OLD">Старый (OLD)</option>
+                    <option value="Ban">Забанен (Ban)</option>
+                </select>
+
+                <select id="social-account-topic" class="input" style="margin-bottom: 15px;">
+                    <option value="">Выберите тематику</option>
+                    <option value="Юмор">Юмор</option>
+                    <option value="Спорт">Спорт</option>
+                    <option value="Киберспорт">Киберспорт</option>
+                    <option value="Сериалы/фильмы">Сериалы/фильмы</option>
+                    <option value="Гемблинг">Гемблинг</option>
+                    <option value="Телешоу">Телешоу</option>
+                    <option value="Познавательное">Познавательное</option>
+                    <option value="AI">AI</option>
+                    <option value="Танцы">Танцы</option>
+                    <option value="Клипы">Клипы</option>
+                    <option value="custom">Своя тематика</option>
+                </select>
+
+                <input
+                    type="text"
+                    id="social-account-custom-topic"
+                    class="input hidden"
+                    placeholder="Введите свою тематику"
+                    style="margin-bottom: 15px;"
+                >
+
+                <button class="btn-primary" onclick="submitSocialAccount()">Добавить аккаунт</button>
             </div>
         </div>
     </div>

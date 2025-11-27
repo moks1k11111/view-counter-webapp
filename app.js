@@ -1228,221 +1228,11 @@ async function loadAdminUsers() {
 
         console.log('Real users found:', users.length);
 
-        // Если нет пользователей, создаем тестовых
-        if (users.length === 0) {
-            console.log('Creating 25 test users...');
-            users = [
-                {
-                    username: '@alexander_pro',
-                    totalViews: 125000,
-                    projects: [
-                        { id: 'test1', name: 'TikTok Promo Campaign', views: 85000, videos: 12 },
-                        { id: 'test2', name: 'Instagram Stories', views: 40000, videos: 8 }
-                    ]
-                },
-                {
-                    username: '@maria_creator',
-                    totalViews: 98500,
-                    projects: [
-                        { id: 'test1', name: 'TikTok Promo Campaign', views: 62000, videos: 10 },
-                        { id: 'test3', name: 'YouTube Shorts', views: 36500, videos: 15 }
-                    ]
-                },
-                {
-                    username: '@dmitry_blogger',
-                    totalViews: 156000,
-                    projects: [
-                        { id: 'test1', name: 'TikTok Promo Campaign', views: 95000, videos: 18 },
-                        { id: 'test2', name: 'Instagram Stories', views: 43000, videos: 9 },
-                        { id: 'test3', name: 'YouTube Shorts', views: 18000, videos: 6 }
-                    ]
-                },
-                {
-                    username: '@anna_influencer',
-                    totalViews: 73200,
-                    projects: [
-                        { id: 'test2', name: 'Instagram Stories', views: 52000, videos: 11 },
-                        { id: 'test3', name: 'YouTube Shorts', views: 21200, videos: 7 }
-                    ]
-                },
-                {
-                    username: '@ivan_content',
-                    totalViews: 189000,
-                    projects: [
-                        { id: 'test1', name: 'TikTok Promo Campaign', views: 110000, videos: 22 },
-                        { id: 'test2', name: 'Instagram Stories', views: 79000, videos: 14 }
-                    ]
-                },
-                {
-                    username: '@elena_vlog',
-                    totalViews: 67800,
-                    projects: [
-                        { id: 'test3', name: 'YouTube Shorts', views: 67800, videos: 20 }
-                    ]
-                },
-                {
-                    username: '@sergey_creative',
-                    totalViews: 142000,
-                    projects: [
-                        { id: 'test1', name: 'TikTok Promo Campaign', views: 88000, videos: 16 },
-                        { id: 'test3', name: 'YouTube Shorts', views: 54000, videos: 12 }
-                    ]
-                },
-                {
-                    username: '@olga_style',
-                    totalViews: 91500,
-                    projects: [
-                        { id: 'test2', name: 'Instagram Stories', views: 91500, videos: 19 }
-                    ]
-                },
-                {
-                    username: '@maxim_tech',
-                    totalViews: 176000,
-                    projects: [
-                        { id: 'test1', name: 'TikTok Promo Campaign', views: 105000, videos: 21 },
-                        { id: 'test2', name: 'Instagram Stories', views: 71000, videos: 13 }
-                    ]
-                },
-                {
-                    username: '@natasha_beauty',
-                    totalViews: 83400,
-                    projects: [
-                        { id: 'test2', name: 'Instagram Stories', views: 54000, videos: 10 },
-                        { id: 'test3', name: 'YouTube Shorts', views: 29400, videos: 8 }
-                    ]
-                },
-                {
-                    username: '@pavel_fitness',
-                    totalViews: 198000,
-                    projects: [
-                        { id: 'test1', name: 'TikTok Promo Campaign', views: 125000, videos: 25 },
-                        { id: 'test2', name: 'Instagram Stories', views: 73000, videos: 15 }
-                    ]
-                },
-                {
-                    username: '@katerina_food',
-                    totalViews: 112000,
-                    projects: [
-                        { id: 'test1', name: 'TikTok Promo Campaign', views: 68000, videos: 14 },
-                        { id: 'test2', name: 'Instagram Stories', views: 44000, videos: 11 }
-                    ]
-                },
-                {
-                    username: '@andrey_gaming',
-                    totalViews: 234000,
-                    projects: [
-                        { id: 'test1', name: 'TikTok Promo Campaign', views: 145000, videos: 28 },
-                        { id: 'test3', name: 'YouTube Shorts', views: 89000, videos: 24 }
-                    ]
-                },
-                {
-                    username: '@victoria_travel',
-                    totalViews: 95600,
-                    projects: [
-                        { id: 'test2', name: 'Instagram Stories', views: 95600, videos: 17 }
-                    ]
-                },
-                {
-                    username: '@roman_music',
-                    totalViews: 167000,
-                    projects: [
-                        { id: 'test1', name: 'TikTok Promo Campaign', views: 98000, videos: 19 },
-                        { id: 'test3', name: 'YouTube Shorts', views: 69000, videos: 16 }
-                    ]
-                },
-                {
-                    username: '@julia_art',
-                    totalViews: 78900,
-                    projects: [
-                        { id: 'test2', name: 'Instagram Stories', views: 78900, videos: 13 }
-                    ]
-                },
-                {
-                    username: '@denis_photo',
-                    totalViews: 123000,
-                    projects: [
-                        { id: 'test1', name: 'TikTok Promo Campaign', views: 72000, videos: 15 },
-                        { id: 'test2', name: 'Instagram Stories', views: 51000, videos: 12 }
-                    ]
-                },
-                {
-                    username: '@svetlana_dance',
-                    totalViews: 189000,
-                    projects: [
-                        { id: 'test1', name: 'TikTok Promo Campaign', views: 115000, videos: 23 },
-                        { id: 'test2', name: 'Instagram Stories', views: 74000, videos: 14 }
-                    ]
-                },
-                {
-                    username: '@igor_cars',
-                    totalViews: 145000,
-                    projects: [
-                        { id: 'test1', name: 'TikTok Promo Campaign', views: 87000, videos: 17 },
-                        { id: 'test3', name: 'YouTube Shorts', views: 58000, videos: 13 }
-                    ]
-                },
-                {
-                    username: '@marina_pets',
-                    totalViews: 102000,
-                    projects: [
-                        { id: 'test2', name: 'Instagram Stories', views: 102000, videos: 20 }
-                    ]
-                },
-                {
-                    username: '@artem_comedy',
-                    totalViews: 276000,
-                    projects: [
-                        { id: 'test1', name: 'TikTok Promo Campaign', views: 165000, videos: 30 },
-                        { id: 'test2', name: 'Instagram Stories', views: 111000, videos: 22 }
-                    ]
-                },
-                {
-                    username: '@daria_fashion',
-                    totalViews: 134000,
-                    projects: [
-                        { id: 'test2', name: 'Instagram Stories', views: 85000, videos: 16 },
-                        { id: 'test3', name: 'YouTube Shorts', views: 49000, videos: 11 }
-                    ]
-                },
-                {
-                    username: '@nikolay_sport',
-                    totalViews: 156000,
-                    projects: [
-                        { id: 'test1', name: 'TikTok Promo Campaign', views: 92000, videos: 18 },
-                        { id: 'test2', name: 'Instagram Stories', views: 64000, videos: 13 }
-                    ]
-                },
-                {
-                    username: '@alina_makeup',
-                    totalViews: 118000,
-                    projects: [
-                        { id: 'test2', name: 'Instagram Stories', views: 75000, videos: 15 },
-                        { id: 'test3', name: 'YouTube Shorts', views: 43000, videos: 10 }
-                    ]
-                },
-                {
-                    username: '@vladimir_review',
-                    totalViews: 203000,
-                    projects: [
-                        { id: 'test1', name: 'TikTok Promo Campaign', views: 118000, videos: 24 },
-                        { id: 'test3', name: 'YouTube Shorts', views: 85000, videos: 19 }
-                    ]
-                }
-            ];
-            console.log('Using test users data');
-        }
-
         // Сохраняем всех пользователей
         allUsers = users;
 
         // Сохраняем данные пользователей
-        if (users.length > 0 && usersMap.size === 0) {
-            // Если используем тестовые данные, создаем Map
-            window.adminUsersData = new Map();
-            users.forEach(user => {
-                window.adminUsersData.set(user.username, user);
-            });
-        } else {
+        if (usersMap.size > 0) {
             window.adminUsersData = usersMap;
         }
 
@@ -2030,6 +1820,9 @@ function closeProjectDetails() {
 
 async function loadProjectDetailsForAdmin(projectId) {
     try {
+        // Сохраняем ID текущего проекта
+        currentProjectId = projectId;
+
         // Загружаем детальную информацию о проекте
         const analyticsResponse = await fetch(`${API_BASE_URL}/api/projects/${projectId}/analytics`, {
             headers: { 'X-Telegram-Init-Data': window.initData }
@@ -2065,6 +1858,9 @@ async function loadProjectDetailsForAdmin(projectId) {
 
         // Рендерим список участников
         renderProjectUsersList(analytics.users_stats);
+
+        // Загружаем социальные аккаунты
+        await loadProjectSocialAccounts(projectId);
 
     } catch (error) {
         console.error('Failed to load project details:', error);
@@ -2186,14 +1982,21 @@ async function submitNewProject() {
     };
 
     try {
-        // TODO: Реализовать API для создания проекта
-        console.log('Создание проекта:', projectData);
+        // Создаём проект через API
+        const response = await apiCall('/api/admin/projects', {
+            method: 'POST',
+            body: JSON.stringify(projectData)
+        });
 
-        closeAddProjectModal();
-        showSuccess(`Проект "${projectName}" создан успешно!`);
+        if (response.success) {
+            closeAddProjectModal();
+            showSuccess(`Проект "${projectName}" создан успешно!`);
 
-        // Обновляем список проектов
-        await loadProjectManagementList();
+            // Обновляем список проектов
+            await loadProjectManagementList();
+        } else {
+            showError('Не удалось создать проект');
+        }
 
     } catch (error) {
         console.error('Failed to create project:', error);
@@ -2227,6 +2030,216 @@ window.openUserManagement = openUserManagement;
 window.closeUserManagement = closeUserManagement;
 window.filterUserManagementList = filterUserManagementList;
 window.openAddProfileModal = openAddProfileModal;
+// ==================== SOCIAL ACCOUNTS MANAGEMENT ====================
+let currentProjectId = null;
+
+function openAddSocialAccountModal() {
+    document.getElementById('add-social-account-modal').classList.remove('hidden');
+
+    // Очищаем поля
+    document.getElementById('social-account-platform').value = '';
+    document.getElementById('social-account-username').value = '';
+    document.getElementById('social-account-link').value = '';
+    document.getElementById('social-account-status').value = 'NEW';
+    document.getElementById('social-account-topic').value = '';
+    document.getElementById('social-account-custom-topic').classList.add('hidden');
+}
+
+function closeAddSocialAccountModal() {
+    document.getElementById('add-social-account-modal').classList.add('hidden');
+}
+
+async function submitSocialAccount() {
+    const platform = document.getElementById('social-account-platform').value;
+    const username = document.getElementById('social-account-username').value.trim();
+    const profileLink = document.getElementById('social-account-link').value.trim();
+    const status = document.getElementById('social-account-status').value;
+    let topic = document.getElementById('social-account-topic').value;
+
+    // Если выбрана своя тематика
+    if (topic === 'custom') {
+        topic = document.getElementById('social-account-custom-topic').value.trim();
+    }
+
+    // Валидация
+    if (!platform) {
+        showError('Пожалуйста, выберите платформу');
+        return;
+    }
+
+    if (!username) {
+        showError('Пожалуйста, введите username');
+        return;
+    }
+
+    if (!profileLink) {
+        showError('Пожалуйста, введите ссылку на профиль');
+        return;
+    }
+
+    try {
+        const response = await apiCall(`/api/projects/${currentProjectId}/accounts`, {
+            method: 'POST',
+            body: JSON.stringify({
+                platform,
+                username,
+                profile_link: profileLink,
+                status,
+                topic: topic || ''
+            })
+        });
+
+        if (response.success) {
+            showSuccess('Аккаунт успешно добавлен');
+            closeAddSocialAccountModal();
+
+            // Обновляем список
+            await loadProjectSocialAccounts(currentProjectId);
+        } else {
+            showError('Не удалось добавить аккаунт');
+        }
+    } catch (error) {
+        console.error('Failed to add social account:', error);
+        showError('Ошибка при добавлении аккаунта');
+    }
+}
+
+async function loadProjectSocialAccounts(projectId) {
+    try {
+        const response = await apiCall(`/api/projects/${projectId}/accounts`);
+
+        if (response.success) {
+            renderProjectSocialAccountsList(response.accounts);
+        }
+    } catch (error) {
+        console.error('Failed to load social accounts:', error);
+    }
+}
+
+function renderProjectSocialAccountsList(accounts) {
+    const accountsList = document.getElementById('project-social-accounts-list');
+
+    if (!accounts || accounts.length === 0) {
+        accountsList.innerHTML = '<div class="empty-state">Нет социальных аккаунтов</div>';
+        return;
+    }
+
+    // Группируем по платформам
+    const groupedAccounts = {};
+    accounts.forEach(account => {
+        if (!groupedAccounts[account.platform]) {
+            groupedAccounts[account.platform] = [];
+        }
+        groupedAccounts[account.platform].push(account);
+    });
+
+    // Иконки платформ
+    const platformIcons = {
+        tiktok: '📱',
+        instagram: '📷',
+        youtube: '🎬',
+        facebook: '👤'
+    };
+
+    const platformNames = {
+        tiktok: 'TikTok',
+        instagram: 'Instagram',
+        youtube: 'YouTube',
+        facebook: 'Facebook'
+    };
+
+    // Цвета статусов
+    const statusColors = {
+        NEW: '#4CAF50',
+        OLD: '#FF9800',
+        Ban: '#F44336'
+    };
+
+    let html = '';
+
+    Object.keys(groupedAccounts).forEach(platform => {
+        const platformAccounts = groupedAccounts[platform];
+
+        html += `
+            <div style="margin-bottom: 20px;">
+                <h4 style="margin: 10px 0; color: rgba(255,255,255,0.9);">
+                    ${platformIcons[platform]} ${platformNames[platform]} (${platformAccounts.length})
+                </h4>
+        `;
+
+        platformAccounts.forEach(account => {
+            html += `
+                <div class="admin-user-item" style="margin-bottom: 10px;">
+                    <div class="admin-user-info">
+                        <div class="admin-user-details">
+                            <div class="admin-user-name">${account.username}</div>
+                            <div class="admin-user-stats" style="display: flex; gap: 10px; align-items: center;">
+                                <span style="background: ${statusColors[account.status]}; padding: 2px 8px; border-radius: 4px; font-size: 11px;">
+                                    ${account.status}
+                                </span>
+                                ${account.topic ? `<span style="color: rgba(255,255,255,0.6);">${account.topic}</span>` : ''}
+                                <a href="${account.profile_link}" target="_blank" style="color: #2196F3; text-decoration: none;">
+                                    <i class="fa-solid fa-external-link"></i>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    <button
+                        onclick="deleteSocialAccount('${account.id}')"
+                        style="background: #F44336; border: none; padding: 8px 12px; border-radius: 8px; color: white; cursor: pointer;"
+                    >
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+                </div>
+            `;
+        });
+
+        html += '</div>';
+    });
+
+    accountsList.innerHTML = html;
+}
+
+async function deleteSocialAccount(accountId) {
+    if (!confirm('Вы уверены, что хотите удалить этот аккаунт?')) {
+        return;
+    }
+
+    try {
+        const response = await apiCall(`/api/accounts/${accountId}`, {
+            method: 'DELETE'
+        });
+
+        if (response.success) {
+            showSuccess('Аккаунт успешно удален');
+
+            // Обновляем список
+            await loadProjectSocialAccounts(currentProjectId);
+        } else {
+            showError('Не удалось удалить аккаунт');
+        }
+    } catch (error) {
+        console.error('Failed to delete social account:', error);
+        showError('Ошибка при удалении аккаунта');
+    }
+}
+
+// Обработчик для показа custom topic поля
+document.addEventListener('DOMContentLoaded', () => {
+    const topicSelect = document.getElementById('social-account-topic');
+    const customTopicInput = document.getElementById('social-account-custom-topic');
+
+    if (topicSelect) {
+        topicSelect.addEventListener('change', (e) => {
+            if (e.target.value === 'custom') {
+                customTopicInput.classList.remove('hidden');
+            } else {
+                customTopicInput.classList.add('hidden');
+            }
+        });
+    }
+});
+
 window.closeAddProfileModal = closeAddProfileModal;
 window.nextToStatusStep = nextToStatusStep;
 window.selectStatus = selectStatus;
@@ -2240,3 +2253,7 @@ window.closeProjectDetails = closeProjectDetails;
 window.openAddProjectModal = openAddProjectModal;
 window.closeAddProjectModal = closeAddProjectModal;
 window.submitNewProject = submitNewProject;
+window.openAddSocialAccountModal = openAddSocialAccountModal;
+window.closeAddSocialAccountModal = closeAddSocialAccountModal;
+window.submitSocialAccount = submitSocialAccount;
+window.deleteSocialAccount = deleteSocialAccount;
