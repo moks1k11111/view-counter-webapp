@@ -440,6 +440,10 @@
                         <div class="stat-label">Цель просмотров</div>
                     </div>
                     <div class="stat-card">
+                        <div class="stat-value" id="pd-kpi-views">1,000</div>
+                        <div class="stat-label">KPI (мин. просмотров)</div>
+                    </div>
+                    <div class="stat-card">
                         <div class="stat-value" id="pd-progress">0%</div>
                         <div class="stat-label">Прогресс</div>
                     </div>
@@ -480,7 +484,7 @@
                     <i class="fa-solid fa-times"></i>
                 </button>
                 <h2 class="modal-title">Создать новый проект</h2>
-                <p class="modal-description">Введите название и цель просмотров для нового проекта</p>
+                <p class="modal-description">Заполните информацию о новом проекте</p>
 
                 <input
                     type="text"
@@ -495,8 +499,68 @@
                     id="new-project-target-input"
                     class="input"
                     placeholder="Цель просмотров (например: 1000000)"
-                    style="margin-bottom: 20px;"
+                    style="margin-bottom: 15px;"
                 >
+
+                <input
+                    type="number"
+                    id="new-project-kpi-input"
+                    class="input"
+                    placeholder="KPI: Минимум просмотров для учета видео (например: 1000)"
+                    style="margin-bottom: 15px;"
+                >
+
+                <input
+                    type="date"
+                    id="new-project-deadline-input"
+                    class="input"
+                    placeholder="Дата окончания"
+                    style="margin-bottom: 15px;"
+                >
+
+                <input
+                    type="text"
+                    id="new-project-geo-input"
+                    class="input"
+                    placeholder="Гео (например: Россия, Украина)"
+                    style="margin-bottom: 15px;"
+                >
+
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; color: rgba(255,255,255,0.7); margin-bottom: 10px; font-size: 14px;">Доступные социальные сети:</label>
+
+                    <div class="social-toggle-item">
+                        <span>📱 TikTok</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="toggle-tiktok" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="social-toggle-item">
+                        <span>📷 Instagram</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="toggle-instagram" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="social-toggle-item">
+                        <span>👤 Facebook</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="toggle-facebook" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="social-toggle-item">
+                        <span>🎬 YouTube</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="toggle-youtube" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
 
                 <button class="btn-primary" onclick="submitNewProject()">Создать проект</button>
             </div>
