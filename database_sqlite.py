@@ -85,6 +85,8 @@ class SQLiteDatabase:
                     start_date TEXT NOT NULL,
                     end_date TEXT NOT NULL,
                     target_views INTEGER DEFAULT 0,
+                    geo TEXT DEFAULT "",
+                    kpi_views INTEGER DEFAULT 1000,
                     created_at TEXT NOT NULL,
                     is_active BOOLEAN DEFAULT 1
                 )
@@ -148,6 +150,103 @@ class SQLiteDatabase:
                 self.cursor.execute('ALTER TABLE projects ADD COLUMN geo TEXT DEFAULT ""')
                 self.conn.commit()
                 logger.info("✅ Поле geo добавлено в таблицу projects")
+
+            # Проверяем наличие таблицы project_social_accounts
+            self.cursor.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='project_social_accounts'"
+            )
+
+            if not self.cursor.fetchone():
+                logger.info("Создаю таблицу project_social_accounts...")
+                self.cursor.execute('''
+                CREATE TABLE IF NOT EXISTS project_social_accounts (
+                    id TEXT PRIMARY KEY,
+                    project_id TEXT NOT NULL,
+                    platform TEXT NOT NULL,
+                    username TEXT NOT NULL,
+                    profile_link TEXT NOT NULL,
+                    status TEXT DEFAULT 'NEW',
+                    topic TEXT DEFAULT '',
+                    added_at TEXT NOT NULL,
+                    is_active BOOLEAN DEFAULT 1,
+                    FOREIGN KEY (project_id) REFERENCES projects(id),
+                    UNIQUE(project_id, platform, username)
+                )
+                ''')
+
+                self.cursor.execute(
+                    'CREATE INDEX IF NOT EXISTS idx_social_accounts_project ON project_social_accounts(project_id)'
+                )
+
+                self.conn.commit()
+                logger.info("✅ Таблица project_social_accounts создана")
+
+            # Проверяем наличие таблицы account_snapshots
+            self.cursor.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='account_snapshots'"
+            )
+
+            if not self.cursor.fetchone():
+                logger.info("Создаю таблицу account_snapshots...")
+                self.cursor.execute('''
+                CREATE TABLE IF NOT EXISTS account_snapshots (
+                    id TEXT PRIMARY KEY,
+                    account_id TEXT NOT NULL,
+                    followers INTEGER DEFAULT 0,
+                    likes INTEGER DEFAULT 0,
+                    comments INTEGER DEFAULT 0,
+                    videos INTEGER DEFAULT 0,
+                    views INTEGER DEFAULT 0,
+                    snapshot_time TEXT NOT NULL,
+                    FOREIGN KEY (account_id) REFERENCES project_social_accounts(id)
+                )
+                ''')
+
+                self.cursor.execute(
+                    'CREATE INDEX IF NOT EXISTS idx_snapshots_account_time ON account_snapshots(account_id, snapshot_time)'
+                )
+
+                self.conn.commit()
+                logger.info("✅ Таблица account_snapshots создана")
+
+            # Проверяем наличие таблицы account_daily_stats
+            self.cursor.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='account_daily_stats'"
+            )
+
+            if not self.cursor.fetchone():
+                logger.info("Создаю таблицу account_daily_stats...")
+                self.cursor.execute('''
+                CREATE TABLE IF NOT EXISTS account_daily_stats (
+                    id TEXT PRIMARY KEY,
+                    account_id TEXT NOT NULL,
+                    date TEXT NOT NULL,
+                    followers_start INTEGER DEFAULT 0,
+                    followers_end INTEGER DEFAULT 0,
+                    followers_growth INTEGER DEFAULT 0,
+                    likes_start INTEGER DEFAULT 0,
+                    likes_end INTEGER DEFAULT 0,
+                    likes_growth INTEGER DEFAULT 0,
+                    comments_start INTEGER DEFAULT 0,
+                    comments_end INTEGER DEFAULT 0,
+                    comments_growth INTEGER DEFAULT 0,
+                    videos_start INTEGER DEFAULT 0,
+                    videos_end INTEGER DEFAULT 0,
+                    videos_growth INTEGER DEFAULT 0,
+                    views_start INTEGER DEFAULT 0,
+                    views_end INTEGER DEFAULT 0,
+                    views_growth INTEGER DEFAULT 0,
+                    FOREIGN KEY (account_id) REFERENCES project_social_accounts(id),
+                    UNIQUE(account_id, date)
+                )
+                ''')
+
+                self.cursor.execute(
+                    'CREATE INDEX IF NOT EXISTS idx_daily_stats_account_date ON account_daily_stats(account_id, date)'
+                )
+
+                self.conn.commit()
+                logger.info("✅ Таблица account_daily_stats создана")
 
         except Exception as e:
             logger.error(f"Ошибка при миграции базы данных: {e}")

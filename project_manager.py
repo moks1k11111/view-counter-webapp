@@ -354,3 +354,434 @@ class ProjectManager:
         except Exception as e:
             logger.error(f"Ошибка деактивации проекта: {e}")
             return False
+
+    # ==================== УПРАВЛЕНИЕ СОЦИАЛЬНЫМИ АККАУНТАМИ ====================
+
+    def add_social_account_to_project(self, project_id: str, platform: str, username: str,
+                                      profile_link: str, status: str = "NEW", topic: str = "") -> Optional[Dict]:
+        """
+        Добавление социального аккаунта в проект
+
+        :param project_id: ID проекта
+        :param platform: Платформа (tiktok/instagram/youtube/facebook)
+        :param username: Username аккаунта
+        :param profile_link: Ссылка на профиль
+        :param status: Статус (NEW/OLD/Ban)
+        :param topic: Тематика контента
+        :return: Данные добавленного аккаунта
+        """
+        try:
+            account_id = str(uuid.uuid4())
+            added_at = datetime.now().isoformat()
+
+            self.db.cursor.execute('''
+                INSERT INTO project_social_accounts
+                (id, project_id, platform, username, profile_link, status, topic, added_at, is_active)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+            ''', (account_id, project_id, platform, username, profile_link, status, topic, added_at))
+
+            self.db.conn.commit()
+
+            logger.info(f"✅ Аккаунт {username} ({platform}) добавлен в проект {project_id}")
+
+            return {
+                "id": account_id,
+                "project_id": project_id,
+                "platform": platform,
+                "username": username,
+                "profile_link": profile_link,
+                "status": status,
+                "topic": topic,
+                "added_at": added_at
+            }
+
+        except Exception as e:
+            logger.error(f"Ошибка добавления аккаунта в проект: {e}")
+            return None
+
+    def get_project_social_accounts(self, project_id: str, platform: Optional[str] = None) -> List[Dict]:
+        """
+        Получение всех социальных аккаунтов проекта
+
+        :param project_id: ID проекта
+        :param platform: Фильтр по платформе (опционально)
+        :return: Список аккаунтов
+        """
+        try:
+            query = '''
+                SELECT id, project_id, platform, username, profile_link, status, topic, added_at, is_active
+                FROM project_social_accounts
+                WHERE project_id = ? AND is_active = 1
+            '''
+            params = [project_id]
+
+            if platform:
+                query += ' AND platform = ?'
+                params.append(platform)
+
+            query += ' ORDER BY added_at DESC'
+
+            self.db.cursor.execute(query, params)
+            rows = self.db.cursor.fetchall()
+
+            accounts = []
+            for row in rows:
+                accounts.append({
+                    "id": row[0],
+                    "project_id": row[1],
+                    "platform": row[2],
+                    "username": row[3],
+                    "profile_link": row[4],
+                    "status": row[5],
+                    "topic": row[6],
+                    "added_at": row[7],
+                    "is_active": row[8]
+                })
+
+            return accounts
+
+        except Exception as e:
+            logger.error(f"Ошибка получения аккаунтов проекта: {e}")
+            return []
+
+    def get_social_account(self, account_id: str) -> Optional[Dict]:
+        """
+        Получение данных социального аккаунта
+
+        :param account_id: ID аккаунта
+        :return: Данные аккаунта или None
+        """
+        try:
+            self.db.cursor.execute('''
+                SELECT id, project_id, platform, username, profile_link, status, topic, added_at, is_active
+                FROM project_social_accounts
+                WHERE id = ?
+            ''', (account_id,))
+
+            row = self.db.cursor.fetchone()
+
+            if row:
+                return {
+                    "id": row[0],
+                    "project_id": row[1],
+                    "platform": row[2],
+                    "username": row[3],
+                    "profile_link": row[4],
+                    "status": row[5],
+                    "topic": row[6],
+                    "added_at": row[7],
+                    "is_active": row[8]
+                }
+
+            return None
+
+        except Exception as e:
+            logger.error(f"Ошибка получения аккаунта: {e}")
+            return None
+
+    def update_social_account(self, account_id: str, **kwargs) -> bool:
+        """
+        Обновление данных социального аккаунта
+
+        :param account_id: ID аккаунта
+        :param kwargs: Поля для обновления (status, topic, etc.)
+        :return: True если успешно
+        """
+        try:
+            allowed_fields = ['status', 'topic', 'profile_link', 'username']
+            updates = []
+            values = []
+
+            for field, value in kwargs.items():
+                if field in allowed_fields:
+                    updates.append(f"{field} = ?")
+                    values.append(value)
+
+            if not updates:
+                return False
+
+            values.append(account_id)
+            query = f"UPDATE project_social_accounts SET {', '.join(updates)} WHERE id = ?"
+
+            self.db.cursor.execute(query, values)
+            self.db.conn.commit()
+
+            if self.db.cursor.rowcount > 0:
+                logger.info(f"✅ Аккаунт {account_id} обновлен")
+                return True
+
+            return False
+
+        except Exception as e:
+            logger.error(f"Ошибка обновления аккаунта: {e}")
+            return False
+
+    def remove_social_account_from_project(self, account_id: str) -> bool:
+        """
+        Удаление социального аккаунта из проекта
+
+        :param account_id: ID аккаунта
+        :return: True если успешно
+        """
+        try:
+            self.db.cursor.execute('''
+                UPDATE project_social_accounts SET is_active = 0 WHERE id = ?
+            ''', (account_id,))
+
+            self.db.conn.commit()
+
+            if self.db.cursor.rowcount > 0:
+                logger.info(f"✅ Аккаунт {account_id} удален из проекта")
+                return True
+            else:
+                logger.info(f"⚠️ Аккаунт {account_id} не найден")
+                return False
+
+        except Exception as e:
+            logger.error(f"Ошибка удаления аккаунта: {e}")
+            return False
+
+    # ==================== СНИМКИ СТАТИСТИКИ ====================
+
+    def add_account_snapshot(self, account_id: str, followers: int, likes: int,
+                            comments: int, videos: int, views: int) -> bool:
+        """
+        Добавление снимка статистики аккаунта
+
+        :param account_id: ID аккаунта
+        :param followers: Количество подписчиков
+        :param likes: Количество лайков
+        :param comments: Количество комментариев
+        :param videos: Количество видео
+        :param views: Количество просмотров
+        :return: True если успешно
+        """
+        try:
+            snapshot_id = str(uuid.uuid4())
+            snapshot_time = datetime.now().isoformat()
+
+            self.db.cursor.execute('''
+                INSERT INTO account_snapshots
+                (id, account_id, followers, likes, comments, videos, views, snapshot_time)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (snapshot_id, account_id, followers, likes, comments, videos, views, snapshot_time))
+
+            self.db.conn.commit()
+
+            logger.info(f"✅ Снимок статистики добавлен для аккаунта {account_id}")
+            return True
+
+        except Exception as e:
+            logger.error(f"Ошибка добавления снимка: {e}")
+            return False
+
+    def get_account_snapshots(self, account_id: str, start_date: Optional[str] = None,
+                             end_date: Optional[str] = None, limit: int = 100) -> List[Dict]:
+        """
+        Получение снимков статистики аккаунта
+
+        :param account_id: ID аккаунта
+        :param start_date: Начальная дата (опционально)
+        :param end_date: Конечная дата (опционально)
+        :param limit: Максимальное количество снимков
+        :return: Список снимков
+        """
+        try:
+            query = '''
+                SELECT id, account_id, followers, likes, comments, videos, views, snapshot_time
+                FROM account_snapshots
+                WHERE account_id = ?
+            '''
+            params = [account_id]
+
+            if start_date:
+                query += ' AND snapshot_time >= ?'
+                params.append(start_date)
+
+            if end_date:
+                query += ' AND snapshot_time <= ?'
+                params.append(end_date)
+
+            query += ' ORDER BY snapshot_time DESC LIMIT ?'
+            params.append(limit)
+
+            self.db.cursor.execute(query, params)
+            rows = self.db.cursor.fetchall()
+
+            snapshots = []
+            for row in rows:
+                snapshots.append({
+                    "id": row[0],
+                    "account_id": row[1],
+                    "followers": row[2],
+                    "likes": row[3],
+                    "comments": row[4],
+                    "videos": row[5],
+                    "views": row[6],
+                    "snapshot_time": row[7]
+                })
+
+            return snapshots
+
+        except Exception as e:
+            logger.error(f"Ошибка получения снимков: {e}")
+            return []
+
+    def calculate_daily_stats(self, account_id: str, date: str) -> bool:
+        """
+        Расчет статистики за день на основе снимков
+
+        :param account_id: ID аккаунта
+        :param date: Дата в формате YYYY-MM-DD
+        :return: True если успешно
+        """
+        try:
+            # Получаем первый и последний снимок за день
+            start_time = f"{date} 00:00:00"
+            end_time = f"{date} 23:59:59"
+
+            self.db.cursor.execute('''
+                SELECT followers, likes, comments, videos, views
+                FROM account_snapshots
+                WHERE account_id = ? AND snapshot_time >= ? AND snapshot_time <= ?
+                ORDER BY snapshot_time ASC
+                LIMIT 1
+            ''', (account_id, start_time, end_time))
+
+            start_row = self.db.cursor.fetchone()
+
+            if not start_row:
+                logger.warning(f"Нет данных за {date} для аккаунта {account_id}")
+                return False
+
+            self.db.cursor.execute('''
+                SELECT followers, likes, comments, videos, views
+                FROM account_snapshots
+                WHERE account_id = ? AND snapshot_time >= ? AND snapshot_time <= ?
+                ORDER BY snapshot_time DESC
+                LIMIT 1
+            ''', (account_id, start_time, end_time))
+
+            end_row = self.db.cursor.fetchone()
+
+            if not end_row:
+                end_row = start_row
+
+            # Расчет прироста
+            followers_start, likes_start, comments_start, videos_start, views_start = start_row
+            followers_end, likes_end, comments_end, videos_end, views_end = end_row
+
+            stats_id = str(uuid.uuid4())
+
+            # Проверяем, есть ли уже запись за этот день
+            self.db.cursor.execute('''
+                SELECT id FROM account_daily_stats WHERE account_id = ? AND date = ?
+            ''', (account_id, date))
+
+            existing = self.db.cursor.fetchone()
+
+            if existing:
+                # Обновляем существующую запись
+                self.db.cursor.execute('''
+                    UPDATE account_daily_stats SET
+                        followers_start = ?, followers_end = ?, followers_growth = ?,
+                        likes_start = ?, likes_end = ?, likes_growth = ?,
+                        comments_start = ?, comments_end = ?, comments_growth = ?,
+                        videos_start = ?, videos_end = ?, videos_growth = ?,
+                        views_start = ?, views_end = ?, views_growth = ?
+                    WHERE account_id = ? AND date = ?
+                ''', (
+                    followers_start, followers_end, followers_end - followers_start,
+                    likes_start, likes_end, likes_end - likes_start,
+                    comments_start, comments_end, comments_end - comments_start,
+                    videos_start, videos_end, videos_end - videos_start,
+                    views_start, views_end, views_end - views_start,
+                    account_id, date
+                ))
+            else:
+                # Создаем новую запись
+                self.db.cursor.execute('''
+                    INSERT INTO account_daily_stats (
+                        id, account_id, date,
+                        followers_start, followers_end, followers_growth,
+                        likes_start, likes_end, likes_growth,
+                        comments_start, comments_end, comments_growth,
+                        videos_start, videos_end, videos_growth,
+                        views_start, views_end, views_growth
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    stats_id, account_id, date,
+                    followers_start, followers_end, followers_end - followers_start,
+                    likes_start, likes_end, likes_end - likes_start,
+                    comments_start, comments_end, comments_end - comments_start,
+                    videos_start, videos_end, videos_end - videos_start,
+                    views_start, views_end, views_end - views_start
+                ))
+
+            self.db.conn.commit()
+
+            logger.info(f"✅ Статистика за {date} рассчитана для аккаунта {account_id}")
+            return True
+
+        except Exception as e:
+            logger.error(f"Ошибка расчета статистики: {e}")
+            return False
+
+    def get_account_daily_stats(self, account_id: str, start_date: Optional[str] = None,
+                               end_date: Optional[str] = None) -> List[Dict]:
+        """
+        Получение ежедневной статистики аккаунта
+
+        :param account_id: ID аккаунта
+        :param start_date: Начальная дата (опционально)
+        :param end_date: Конечная дата (опционально)
+        :return: Список статистики по дням
+        """
+        try:
+            query = '''
+                SELECT * FROM account_daily_stats
+                WHERE account_id = ?
+            '''
+            params = [account_id]
+
+            if start_date:
+                query += ' AND date >= ?'
+                params.append(start_date)
+
+            if end_date:
+                query += ' AND date <= ?'
+                params.append(end_date)
+
+            query += ' ORDER BY date DESC'
+
+            self.db.cursor.execute(query, params)
+            rows = self.db.cursor.fetchall()
+
+            stats = []
+            for row in rows:
+                stats.append({
+                    "id": row[0],
+                    "account_id": row[1],
+                    "date": row[2],
+                    "followers_start": row[3],
+                    "followers_end": row[4],
+                    "followers_growth": row[5],
+                    "likes_start": row[6],
+                    "likes_end": row[7],
+                    "likes_growth": row[8],
+                    "comments_start": row[9],
+                    "comments_end": row[10],
+                    "comments_growth": row[11],
+                    "videos_start": row[12],
+                    "videos_end": row[13],
+                    "videos_growth": row[14],
+                    "views_start": row[15],
+                    "views_end": row[16],
+                    "views_growth": row[17]
+                })
+
+            return stats
+
+        except Exception as e:
+            logger.error(f"Ошибка получения статистики: {e}")
+            return []

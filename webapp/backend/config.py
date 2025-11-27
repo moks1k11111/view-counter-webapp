@@ -19,8 +19,8 @@ INSTAGRAM_BASE_URL = "https://instagram-scraper-stable-api.p.rapidapi.com"
 # ============ GOOGLE SHEETS ============
 GOOGLE_SHEETS_CREDENTIALS = os.getenv("GOOGLE_SHEETS_CREDENTIALS", "service_account.json")
 GOOGLE_SHEETS_CREDENTIALS_JSON = os.getenv("GOOGLE_SHEETS_CREDENTIALS_JSON", "")
-# Дефолтная таблица для тестирования (старая TikTok Analytics переименована)
-DEFAULT_GOOGLE_SHEETS_NAME = os.getenv("GOOGLE_SHEETS_NAME", "SuperGra")
+# Дефолтная таблица MainBD для системы управления аккаунтами
+DEFAULT_GOOGLE_SHEETS_NAME = os.getenv("GOOGLE_SHEETS_NAME", "MainBD")
 
 # ============ URL PATTERNS ============
 TIKTOK_URL_PATTERN = r'(https?://)?(www\.)?(tiktok\.com|vm\.tiktok\.com)/.+'
