@@ -1000,6 +1000,22 @@ async function init() {
     try {
         console.log('Initializing app...');
 
+        // Check if opened in Telegram
+        if (!window.Telegram || !window.Telegram.WebApp || !tg.initData) {
+            console.error('⚠️ App opened outside Telegram WebApp context');
+            const loadingElement = document.getElementById('loading');
+            if (loadingElement) {
+                loadingElement.innerHTML = `
+                    <div style="text-align: center; padding: 40px 20px;">
+                        <h2>⚠️ Ошибка доступа</h2>
+                        <p style="margin: 20px 0;">Это приложение работает только внутри Telegram.</p>
+                        <p>Пожалуйста, откройте бота в Telegram и нажмите кнопку "📊 Открыть Analytics"</p>
+                    </div>
+                `;
+            }
+            return;
+        }
+
         // Initialize Telegram
         initTelegramApp();
 
