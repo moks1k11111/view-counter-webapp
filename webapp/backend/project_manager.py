@@ -21,7 +21,7 @@ class ProjectManager:
         self.db = db
 
     def create_project(self, name: str, google_sheet_name: str, start_date: str,
-                      end_date: str, target_views: int, geo: str = "") -> Dict:
+                      end_date: str, target_views: int, geo: str = "", kpi_views: int = 1000) -> Dict:
         """
         Создание нового проекта
 
@@ -31,6 +31,7 @@ class ProjectManager:
         :param end_date: Дата окончания (YYYY-MM-DD)
         :param target_views: Целевое количество просмотров
         :param geo: География заказа
+        :param kpi_views: Минимум просмотров для учета видео
         :return: Данные созданного проекта
         """
         try:
@@ -39,9 +40,9 @@ class ProjectManager:
 
             self.db.cursor.execute('''
                 INSERT INTO projects (id, name, google_sheet_name, start_date, end_date,
-                                     target_views, geo, created_at, is_active)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
-            ''', (project_id, name, google_sheet_name, start_date, end_date, target_views, geo, created_at))
+                                     target_views, geo, kpi_views, created_at, is_active)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+            ''', (project_id, name, google_sheet_name, start_date, end_date, target_views, geo, kpi_views, created_at))
 
             self.db.conn.commit()
 
@@ -55,6 +56,7 @@ class ProjectManager:
                 "end_date": end_date,
                 "target_views": target_views,
                 "geo": geo,
+                "kpi_views": kpi_views,
                 "created_at": created_at
             }
 
@@ -72,7 +74,7 @@ class ProjectManager:
         try:
             self.db.cursor.execute('''
                 SELECT id, name, google_sheet_name, start_date, end_date,
-                       target_views, geo, created_at, is_active
+                       target_views, geo, kpi_views, created_at, is_active
                 FROM projects
                 WHERE id = ?
             ''', (project_id,))
@@ -88,8 +90,9 @@ class ProjectManager:
                     "end_date": row[4],
                     "target_views": row[5],
                     "geo": row[6],
-                    "created_at": row[7],
-                    "is_active": row[8]
+                    "kpi_views": row[7] if row[7] is not None else 1000,
+                    "created_at": row[8],
+                    "is_active": row[9]
                 }
 
             return None

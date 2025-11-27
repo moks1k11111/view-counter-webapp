@@ -29,12 +29,11 @@ class SQLiteDatabase:
             self.conn.row_factory = sqlite3.Row  # Для получения результатов в виде словарей
             self.cursor = self.conn.cursor()
             
-            # Если база данных новая, создаем структуру
-            if not db_exists:
-                self._create_tables()
-            else:
-                # Если база существует, проверяем и добавляем новые таблицы
-                self._migrate_database()
+            # Создаем базовые таблицы
+            self._create_tables()
+
+            # Всегда вызываем миграцию для проверки и создания дополнительных таблиц
+            self._migrate_database()
             
             logger.info(f"Подключено к базе данных SQLite: {db_file}")
             
@@ -86,6 +85,8 @@ class SQLiteDatabase:
                     start_date TEXT NOT NULL,
                     end_date TEXT NOT NULL,
                     target_views INTEGER DEFAULT 0,
+                    geo TEXT DEFAULT "",
+                    kpi_views INTEGER DEFAULT 1000,
                     created_at TEXT NOT NULL,
                     is_active BOOLEAN DEFAULT 1
                 )
@@ -149,16 +150,6 @@ class SQLiteDatabase:
                 self.cursor.execute('ALTER TABLE projects ADD COLUMN geo TEXT DEFAULT ""')
                 self.conn.commit()
                 logger.info("✅ Поле geo добавлено в таблицу projects")
-
-            # Проверяем наличие поля kpi_views в таблице projects
-            self.cursor.execute("PRAGMA table_info(projects)")
-            columns = [column[1] for column in self.cursor.fetchall()]
-
-            if 'kpi_views' not in columns:
-                logger.info("Добавляю поле kpi_views в таблицу projects...")
-                self.cursor.execute('ALTER TABLE projects ADD COLUMN kpi_views INTEGER DEFAULT 1000')
-                self.conn.commit()
-                logger.info("✅ Поле kpi_views добавлено в таблицу projects")
 
         except Exception as e:
             logger.error(f"Ошибка при миграции базы данных: {e}")
