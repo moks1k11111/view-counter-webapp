@@ -284,6 +284,10 @@ async function renderProjects(projects) {
                             <div class="stat-label">Target</div>
                             <div class="stat-value">${formatNumber(project.target_views)}</div>
                         </div>
+                        <div class="stat">
+                            <div class="stat-label">KPI</div>
+                            <div class="stat-value">${formatNumber(project.kpi_views || 1000)}</div>
+                        </div>
                     </div>
                     <div class="last-update-text">${formatLastUpdate(project.last_update)}</div>
                     <div class="project-platforms">
@@ -342,6 +346,11 @@ async function renderMyProjects(projects) {
             <div class="project-total-views">
                 <div class="total-views-label">My Total Views</div>
                 <div class="total-views-value">${formatNumber(project.my_views)}</div>
+            </div>
+
+            <div class="project-kpi-info" style="margin-top: 10px; padding: 8px 12px; background: rgba(255,255,255,0.05); border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+                <span style="color: rgba(255,255,255,0.6); font-size: 12px;">KPI (минимум просмотров):</span>
+                <span style="color: rgba(255,255,255,0.9); font-size: 14px; font-weight: 600;">${formatNumber(project.kpi_views || 1000)}</span>
             </div>
 
             <div class="project-chart-bar-wrapper">
@@ -1952,6 +1961,7 @@ async function loadProjectManagementList() {
                     id: project.id,
                     name: project.name,
                     targetViews: project.target_views,
+                    kpiViews: project.kpi_views || 1000,
                     totalViews: analytics.total_views || 0,
                     progress: analytics.progress_percent || 0,
                     usersCount: Object.keys(analytics.users_stats || {}).length,
@@ -1989,7 +1999,7 @@ function renderProjectManagementList(projects) {
                     <div class="admin-user-details">
                         <div class="admin-user-name">${project.name}</div>
                         <div class="admin-user-stats">
-                            ${formatNumber(project.totalViews)} просмотров • ${project.progress}% • ${project.usersCount} участников • ${project.profilesCount} профилей
+                            ${formatNumber(project.totalViews)} просмотров • ${project.progress}% • KPI: ${formatNumber(project.kpiViews)} • ${project.usersCount} участников • ${project.profilesCount} профилей
                         </div>
                     </div>
                 </div>
@@ -2038,6 +2048,7 @@ async function loadProjectDetailsForAdmin(projectId) {
         // Обновляем общую статистику
         document.getElementById('pd-total-views').textContent = formatNumber(analytics.total_views);
         document.getElementById('pd-target-views').textContent = formatNumber(analytics.target_views);
+        document.getElementById('pd-kpi-views').textContent = formatNumber(analytics.project.kpi_views || 1000);
         document.getElementById('pd-progress').textContent = `${analytics.progress_percent}%`;
 
         const usersCount = Object.keys(analytics.users_stats || {}).length;
@@ -2111,8 +2122,19 @@ function renderProjectUsersList(usersStats) {
 // Модалка добавления проекта
 function openAddProjectModal() {
     document.getElementById('add-project-modal').classList.remove('hidden');
+
+    // Очищаем все поля
     document.getElementById('new-project-name-input').value = '';
     document.getElementById('new-project-target-input').value = '';
+    document.getElementById('new-project-kpi-input').value = '';
+    document.getElementById('new-project-deadline-input').value = '';
+    document.getElementById('new-project-geo-input').value = '';
+
+    // Сбрасываем переключатели в состояние "включено"
+    document.getElementById('toggle-tiktok').checked = true;
+    document.getElementById('toggle-instagram').checked = true;
+    document.getElementById('toggle-facebook').checked = true;
+    document.getElementById('toggle-youtube').checked = true;
 }
 
 function closeAddProjectModal() {
@@ -2120,12 +2142,20 @@ function closeAddProjectModal() {
 }
 
 async function submitNewProject() {
-    const nameInput = document.getElementById('new-project-name-input');
-    const targetInput = document.getElementById('new-project-target-input');
+    const projectName = document.getElementById('new-project-name-input').value.trim();
+    const targetViews = parseInt(document.getElementById('new-project-target-input').value);
+    const kpiViews = parseInt(document.getElementById('new-project-kpi-input').value);
+    const deadline = document.getElementById('new-project-deadline-input').value;
+    const geo = document.getElementById('new-project-geo-input').value.trim();
 
-    const projectName = nameInput.value.trim();
-    const targetViews = parseInt(targetInput.value);
+    const allowedPlatforms = {
+        tiktok: document.getElementById('toggle-tiktok').checked,
+        instagram: document.getElementById('toggle-instagram').checked,
+        facebook: document.getElementById('toggle-facebook').checked,
+        youtube: document.getElementById('toggle-youtube').checked
+    };
 
+    // Валидация
     if (!projectName) {
         showError('Пожалуйста, введите название проекта');
         return;
@@ -2136,9 +2166,28 @@ async function submitNewProject() {
         return;
     }
 
+    if (!kpiViews || kpiViews <= 0) {
+        showError('Пожалуйста, введите KPI (минимум просмотров для учета)');
+        return;
+    }
+
+    if (!deadline) {
+        showError('Пожалуйста, выберите дату окончания');
+        return;
+    }
+
+    const projectData = {
+        name: projectName,
+        target_views: targetViews,
+        kpi_views: kpiViews,
+        deadline: deadline,
+        geo: geo || 'Не указано',
+        allowed_platforms: allowedPlatforms
+    };
+
     try {
         // TODO: Реализовать API для создания проекта
-        console.log('Создание проекта:', { name: projectName, target_views: targetViews });
+        console.log('Создание проекта:', projectData);
 
         closeAddProjectModal();
         showSuccess(`Проект "${projectName}" создан успешно!`);
