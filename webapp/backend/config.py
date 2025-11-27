@@ -2,7 +2,7 @@ import os
 import json
 
 # ============ TELEGRAM BOT ============
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "8325383993:AAEwrvCl13DEGuxyiFkVR74Nff-F3P25Jkw")
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "8325383993:AAGl4tmstfnYIIFtEou2va7fnG37-ErC3Kk")
 ADMIN_IDS = json.loads(os.getenv("ADMIN_IDS", "[873564841]"))
 
 # ============ TIKTOK API ============
