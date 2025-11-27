@@ -24,13 +24,17 @@ async function apiCall(endpoint, options = {}) {
             ...options.headers
         };
 
+        console.log('API Call:', endpoint, 'Init Data length:', (tg.initData || '').length);
+
         const response = await fetch(`${API_BASE_URL}${endpoint}`, {
             ...options,
             headers
         });
 
         if (!response.ok) {
-            throw new Error(`API Error: ${response.statusText}`);
+            const errorText = await response.text();
+            console.error('API Error Response:', response.status, errorText);
+            throw new Error(`API Error (${response.status}): ${errorText || response.statusText}`);
         }
 
         return await response.json();
