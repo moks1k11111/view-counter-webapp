@@ -286,7 +286,7 @@ async function renderProjects(projects) {
                         </div>
                         <div class="stat">
                             <div class="stat-label">KPI</div>
-                            <div class="stat-value">${formatNumber(project.kpi_views || 1000)}</div>
+                            <div class="stat-value">от ${formatNumber(project.kpi_views || 1000)}</div>
                         </div>
                     </div>
                     <div class="last-update-text">${formatLastUpdate(project.last_update)}</div>
@@ -350,7 +350,7 @@ async function renderMyProjects(projects) {
 
             <div class="project-kpi-info" style="margin-top: 10px; padding: 8px 12px; background: rgba(255,255,255,0.05); border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
                 <span style="color: rgba(255,255,255,0.6); font-size: 12px;">KPI (минимум просмотров):</span>
-                <span style="color: rgba(255,255,255,0.9); font-size: 14px; font-weight: 600;">${formatNumber(project.kpi_views || 1000)}</span>
+                <span style="color: rgba(255,255,255,0.9); font-size: 14px; font-weight: 600;">от ${formatNumber(project.kpi_views || 1000)}</span>
             </div>
 
             <div class="project-chart-bar-wrapper">
@@ -1999,7 +1999,7 @@ function renderProjectManagementList(projects) {
                     <div class="admin-user-details">
                         <div class="admin-user-name">${project.name}</div>
                         <div class="admin-user-stats">
-                            ${formatNumber(project.totalViews)} просмотров • ${project.progress}% • KPI: ${formatNumber(project.kpiViews)} • ${project.usersCount} участников • ${project.profilesCount} профилей
+                            ${formatNumber(project.totalViews)} просмотров • ${project.progress}% • KPI от ${formatNumber(project.kpiViews)} • ${project.usersCount} участников • ${project.profilesCount} профилей
                         </div>
                     </div>
                 </div>
@@ -2048,7 +2048,7 @@ async function loadProjectDetailsForAdmin(projectId) {
         // Обновляем общую статистику
         document.getElementById('pd-total-views').textContent = formatNumber(analytics.total_views);
         document.getElementById('pd-target-views').textContent = formatNumber(analytics.target_views);
-        document.getElementById('pd-kpi-views').textContent = formatNumber(analytics.project.kpi_views || 1000);
+        document.getElementById('pd-kpi-views').textContent = `от ${formatNumber(analytics.project.kpi_views || 1000)}`;
         document.getElementById('pd-progress').textContent = `${analytics.progress_percent}%`;
 
         const usersCount = Object.keys(analytics.users_stats || {}).length;
