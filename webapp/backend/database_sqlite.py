@@ -150,6 +150,16 @@ class SQLiteDatabase:
                 self.conn.commit()
                 logger.info("✅ Поле geo добавлено в таблицу projects")
 
+            # Проверяем наличие поля kpi_views в таблице projects
+            self.cursor.execute("PRAGMA table_info(projects)")
+            columns = [column[1] for column in self.cursor.fetchall()]
+
+            if 'kpi_views' not in columns:
+                logger.info("Добавляю поле kpi_views в таблицу projects...")
+                self.cursor.execute('ALTER TABLE projects ADD COLUMN kpi_views INTEGER DEFAULT 1000')
+                self.conn.commit()
+                logger.info("✅ Поле kpi_views добавлено в таблицу projects")
+
         except Exception as e:
             logger.error(f"Ошибка при миграции базы данных: {e}")
             raise

@@ -45,7 +45,8 @@ def init_database():
             "start_date": (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d"),
             "end_date": (datetime.now() + timedelta(days=23)).strftime("%Y-%m-%d"),
             "target_views": 1000000,
-            "geo": "Ukraine"
+            "geo": "Ukraine",
+            "kpi_views": 5000
         }
 
         project = pm.create_project(**project_data)
@@ -62,7 +63,8 @@ def init_database():
             "start_date": (datetime.now() - timedelta(days=3)).strftime("%Y-%m-%d"),
             "end_date": (datetime.now() + timedelta(days=27)).strftime("%Y-%m-%d"),
             "target_views": 500000,
-            "geo": "Russia"
+            "geo": "Russia",
+            "kpi_views": 1000
         }
 
         project2 = pm.create_project(**project_data2)
