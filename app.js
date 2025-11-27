@@ -349,7 +349,7 @@ async function renderMyProjects(projects) {
             </div>
 
             <div class="project-kpi-info" style="margin-top: 10px; padding: 8px 12px; background: rgba(255,255,255,0.05); border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
-                <span style="color: rgba(255,255,255,0.6); font-size: 12px;">KPI (минимум просмотров):</span>
+                <span style="color: rgba(255,255,255,0.6); font-size: 12px;">KPI:</span>
                 <span style="color: rgba(255,255,255,0.9); font-size: 14px; font-weight: 600;">от ${formatNumber(project.kpi_views || 1000)}</span>
             </div>
 
