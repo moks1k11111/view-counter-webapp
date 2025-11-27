@@ -132,9 +132,17 @@ def validate_telegram_init_data(init_data: str) -> dict:
 
 async def get_current_user(x_telegram_init_data: str = Header(None)) -> dict:
     """Dependency для получения текущего пользователя"""
+    print(f"🔍 Auth attempt - initData present: {bool(x_telegram_init_data)}, length: {len(x_telegram_init_data) if x_telegram_init_data else 0}")
     if not x_telegram_init_data:
+        print("❌ Auth failed: No init data")
         raise HTTPException(status_code=401, detail="Telegram init data required")
-    return validate_telegram_init_data(x_telegram_init_data)
+    try:
+        user = validate_telegram_init_data(x_telegram_init_data)
+        print(f"✅ Auth success: user_id={user.get('id')}")
+        return user
+    except HTTPException as e:
+        print(f"❌ Auth failed: {e.detail}")
+        raise
 
 # ============ API Endpoints ============
 
