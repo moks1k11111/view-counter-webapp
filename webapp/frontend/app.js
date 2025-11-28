@@ -1984,7 +1984,7 @@ async function loadProjectDetailsForAdmin(projectId) {
 
     } catch (error) {
         console.error('Failed to load project details:', error);
-        showError('Не удалось загрузить детали проекта');
+        showError(`Не удалось загрузить детали проекта: ${error.message}`);
     }
 }
 
