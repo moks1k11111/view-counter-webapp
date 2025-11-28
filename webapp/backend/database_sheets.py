@@ -7,6 +7,7 @@ import traceback
 import asyncio
 import json
 import os
+import base64
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
@@ -30,11 +31,18 @@ class SheetsDatabase:
         ]
 
         try:
-            # Пробуем использовать JSON-строку (Railway)
+            # Пробуем использовать JSON-строку (Railway/Render)
             if credentials_json:
+                # Декодируем base64, если это base64-закодированная строка
+                try:
+                    decoded_json = base64.b64decode(credentials_json).decode('utf-8')
+                except Exception:
+                    # Если не base64, используем как есть
+                    decoded_json = credentials_json
+
                 # Заменяем экранированные переносы строк на обычные
-                credentials_json = credentials_json.replace('\\n', '\n')
-                creds_dict = json.loads(credentials_json)
+                decoded_json = decoded_json.replace('\\n', '\n')
+                creds_dict = json.loads(decoded_json)
                 credentials = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, self.scope)
             # Иначе используем файл (локальная разработка)
             elif os.path.exists(credentials_file):
