@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+    <title>View Counter Analytics</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Космический фон -->
+    <div class="stars-bg"></div>
+
+    <!-- Боковое меню -->
+    <div id="sidebar" class="sidebar">
+        <div class="sidebar-header">
+            <h2>Меню</h2>
+            <button class="close-btn" onclick="closeSidebar()">&times;</button>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="#" class="sidebar-item active" onclick="showPage('home')">
+                <span class="icon">🏠</span>
+                <span>Главная</span>
+            </a>
+            <a href="#" class="sidebar-item" onclick="showPage('projects')">
+                <span class="icon">📊</span>
+                <span>Мои проекты</span>
+            </a>
+            <a href="#" class="sidebar-item" onclick="showPage('profile')">
+                <span class="icon">👤</span>
+                <span>Мой профиль</span>
+            </a>
+            <a href="#" class="sidebar-item" onclick="showPage('download')">
+                <span class="icon">⬇️</span>
+                <span>Скачать видео</span>
+            </a>
+            <a href="#" class="sidebar-item" id="admin-menu-item" style="display: none;" onclick="showPage('admin')">
+                <span class="icon">⚙️</span>
+                <span>Админ панель</span>
+            </a>
+        </nav>
+    </div>
+
+    <!-- Overlay для закрытия меню -->
+    <div id="overlay" class="overlay" onclick="closeSidebar()"></div>
+
+    <!-- Основной контент -->
+    <div id="app" class="app-container">
+        <!-- Загрузка -->
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <p>Загрузка...</p>
+        </div>
+
+        <!-- Главная страница -->
+        <div id="home-page" class="page hidden">
+            <!-- Хедер -->
+            <header class="header">
+                <button class="hamburger" onclick="openSidebar()">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+                <div class="header-title">
+                    <div class="greeting">Привет, <span id="username">@user</span>!</div>
+                </div>
+            </header>
+
+            <!-- Список проектов -->
+            <div class="projects-container">
+                <h2 class="section-title">Все проекты</h2>
+                <div id="projects-list" class="projects-list">
+                    <!-- Проекты будут добавлены динамически -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Страница "Мои проекты" (личная статистика) -->
+        <div id="projects-page" class="page hidden">
+            <header class="header">
+                <button class="hamburger" onclick="openSidebar()">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+                <div class="header-title">
+                    <div class="greeting">Мои проекты</div>
+                </div>
+            </header>
+
+            <div class="projects-container">
+                <div id="my-projects-list" class="projects-list">
+                    <!-- Проекты с личной статистикой будут добавлены динамически -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Страница профиля -->
+        <div id="profile-page" class="page hidden">
+            <header class="header">
+                <button class="hamburger" onclick="openSidebar()">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+                <div class="header-title">
+                    <div class="greeting">Профиль</div>
+                </div>
+            </header>
+
+            <div class="profile-container">
+                <div class="profile-card">
+                    <div class="profile-avatar" id="profile-avatar">U</div>
+                    <h2 id="profile-name">Loading...</h2>
+                    <p id="profile-username">@user</p>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value" id="total-views">0</div>
+                        <div class="stat-label">Всего просмотров</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="total-projects">0</div>
+                        <div class="stat-label">Проектов</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Страница скачивания -->
+        <div id="download-page" class="page hidden">
+            <header class="header">
+                <button class="hamburger" onclick="openSidebar()">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+                <div class="header-title">
+                    <div class="greeting">Скачать видео</div>
+                </div>
+            </header>
+
+            <div class="download-container">
+                <div class="download-card">
+                    <h3>Скачать видео из TikTok</h3>
+                    <input type="text" id="video-url" placeholder="Вставьте ссылку на видео" class="input">
+                    <button class="btn-primary" onclick="downloadVideo()">Скачать</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Страница детальной аналитики проекта -->
+        <div id="project-details-page" class="page hidden">
+            <header class="header">
+                <button class="back-btn" onclick="closeProjectDetails()">
+                    <i class="fa-solid fa-arrow-left"></i>
+                </button>
+                <div class="header-title">
+                    <div class="greeting" id="project-details-name">Проект</div>
+                </div>
+                <button class="add-profile-btn" onclick="openAddProfileModal()">
+                    Добавить профиль
+                </button>
+            </header>
+
+            <div class="project-details-container">
+                <!-- Суммарная статистика -->
+                <div class="summary-stats">
+                    <div class="summary-card">
+                        <div class="summary-label">Всего просмотров</div>
+                        <div class="summary-value" id="detail-total-views">0</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-label">Выполнено</div>
+                        <div class="summary-value" id="detail-progress">0%</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-label">Видео</div>
+                        <div class="summary-value" id="detail-total-videos">0</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-label">Профилей</div>
+                        <div class="summary-value" id="detail-total-profiles">0</div>
+                    </div>
+                </div>
+
+                <!-- Свайпаемые диаграммы -->
+                <div class="charts-swiper-container">
+                    <div class="charts-swiper" id="charts-swiper">
+                        <!-- Слайды с диаграммами будут добавлены динамически -->
+                    </div>
+                    <div class="swiper-dots" id="swiper-dots"></div>
+                </div>
+
+                <!-- Раскрывающийся список профилей -->
+                <div class="profiles-accordion">
+                    <div class="accordion-header" onclick="toggleProfiles()">
+                        <h3>Профили (<span id="profiles-count">0</span>)</h3>
+                        <i class="fa-solid fa-chevron-down" id="profiles-chevron"></i>
+                    </div>
+                    <div class="accordion-content" id="profiles-list">
+                        <!-- Список профилей будет добавлен динамически -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Страница админ панели -->
+        <div id="admin-page" class="page hidden">
+            <header class="header">
+                <button class="hamburger" onclick="openSidebar()">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+                <div class="header-title">
+                    <div class="greeting">Админ панель</div>
+                </div>
+            </header>
+
+            <div class="admin-container">
+                <div class="admin-card">
+                    <h3>Статистика системы</h3>
+                    <div class="admin-stats">
+                        <div class="admin-stat-item">
+                            <div class="admin-stat-label">Всего пользователей</div>
+                            <div class="admin-stat-value" id="admin-total-users">0</div>
+                        </div>
+                        <div class="admin-stat-item">
+                            <div class="admin-stat-label">Всего проектов</div>
+                            <div class="admin-stat-value" id="admin-total-projects">0</div>
+                        </div>
+                        <div class="admin-stat-item">
+                            <div class="admin-stat-label">Всего профилей</div>
+                            <div class="admin-stat-value" id="admin-total-profiles">0</div>
+                        </div>
+                        <div class="admin-stat-item">
+                            <div class="admin-stat-label">Всего просмотров</div>
+                            <div class="admin-stat-value" id="admin-total-views">0</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="admin-card admin-card-clickable" onclick="openUserManagement()">
+                    <div class="admin-card-header">
+                        <h3>Управление пользователями</h3>
+                        <div class="admin-users-count">
+                            <span id="admin-total-users-display">0</span> пользователей
+                        </div>
+                    </div>
+                    <div class="admin-card-arrow">
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </div>
+                </div>
+
+                <div class="admin-card admin-card-clickable" onclick="openProjectManagement()">
+                    <div class="admin-card-header">
+                        <h3>Управление проектами</h3>
+                        <div class="admin-users-count">
+                            <span id="admin-total-projects-display">0</span> проектов
+                        </div>
+                    </div>
+                    <div class="admin-card-arrow">
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Модальное окно добавления профиля -->
+        <div id="add-profile-modal" class="modal hidden">
+            <div class="modal-overlay" onclick="closeAddProfileModal()"></div>
+            <div class="modal-content">
+                <button class="modal-close-btn" onclick="closeAddProfileModal()">
+                    <i class="fa-solid fa-times"></i>
+                </button>
+
+                <!-- Шаг 1: Ввод URL -->
+                <div id="profile-step-1" class="profile-step">
+                    <h2 class="modal-title">Добавить профиль</h2>
+                    <p class="modal-description">Вставьте ссылку на ваш профиль в социальной сети</p>
+                    <input
+                        type="text"
+                        id="profile-url-input"
+                        class="input"
+                        placeholder="Например: https://www.tiktok.com/@username"
+                    >
+                    <button class="btn-primary" onclick="nextToStatusStep()">Далее</button>
+                </div>
+
+                <!-- Шаг 2: Выбор статуса -->
+                <div id="profile-step-2" class="profile-step hidden">
+                    <h2 class="modal-title">Тип аккаунта</h2>
+                    <p class="modal-description">Это новый или старый аккаунт?</p>
+                    <div class="status-buttons">
+                        <button class="status-btn" onclick="selectStatus('NEW')">
+                            <div class="status-icon">✅</div>
+                            <div class="status-label">Новый</div>
+                            <div class="status-desc">NEW - считается автоматически все видео</div>
+                        </button>
+                        <button class="status-btn" onclick="selectStatus('OLD')">
+                            <div class="status-icon">⚠️</div>
+                            <div class="status-label">Старый</div>
+                            <div class="status-desc">OLD - считается менеджером вручную</div>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Шаг 3: Выбор тематики -->
+                <div id="profile-step-3" class="profile-step hidden">
+                    <h2 class="modal-title">Тематика контента</h2>
+                    <p class="modal-description">Выберите тематику вашего профиля</p>
+                    <div class="topic-grid">
+                        <button class="topic-btn" onclick="selectTopic('Сериалы/фильмы')">🎬 Сериалы/фильмы</button>
+                        <button class="topic-btn" onclick="selectTopic('Телешоу')">📺 Телешоу</button>
+                        <button class="topic-btn" onclick="selectTopic('Познавательные')">🧠 Познавательные</button>
+                        <button class="topic-btn" onclick="selectTopic('Спорт')">⚽ Спорт</button>
+                        <button class="topic-btn" onclick="selectTopic('Киберспорт')">🎮 Киберспорт</button>
+                        <button class="topic-btn" onclick="selectTopic('Кулинария')">🍔 Кулинария</button>
+                        <button class="topic-btn" onclick="selectTopic('Ai')">🤖 Ai</button>
+                        <button class="topic-btn" onclick="selectTopic('Медиа')">📱 Медиа</button>
+                        <button class="topic-btn" onclick="selectTopic('Истории')">📖 Истории</button>
+                        <button class="topic-btn" onclick="selectTopic('Гемблинг')">🎰 Гемблинг</button>
+                        <button class="topic-btn" onclick="openCustomTopic()">✏️ Своя тематика</button>
+                    </div>
+                </div>
+
+                <!-- Шаг 4: Своя тематика -->
+                <div id="profile-step-4" class="profile-step hidden">
+                    <h2 class="modal-title">Своя тематика</h2>
+                    <p class="modal-description">Напишите тематику вашего контента</p>
+                    <input
+                        type="text"
+                        id="custom-topic-input"
+                        class="input"
+                        placeholder="Например: Путешествия, Кулинария, Бизнес"
+                        maxlength="50"
+                    >
+                    <button class="btn-primary" onclick="submitCustomTopic()">Добавить профиль</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Модальное окно деталей пользователя -->
+        <div id="user-details-modal" class="modal hidden">
+            <div class="modal-overlay" onclick="closeUserDetailsModal()"></div>
+            <div class="modal-content modal-content-large">
+                <button class="modal-close-btn" onclick="closeUserDetailsModal()">
+                    <i class="fa-solid fa-times"></i>
+                </button>
+                <h2 class="modal-title" id="user-details-title">@user</h2>
+                <div id="user-projects-list" class="user-projects-list">
+                    <!-- Проекты пользователя будут добавлены динамически -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Страница управления пользователями -->
+        <div id="user-management-page" class="page hidden">
+            <header class="header">
+                <button class="back-btn" onclick="closeUserManagement()">
+                    <i class="fa-solid fa-arrow-left"></i>
+                </button>
+                <div class="header-title">
+                    <div class="greeting">Управление пользователями</div>
+                </div>
+            </header>
+
+            <div class="user-management-container">
+                <input
+                    type="text"
+                    id="user-management-search"
+                    class="admin-search-input"
+                    placeholder="Поиск по имени пользователя..."
+                    onkeyup="filterUserManagementList()"
+                >
+
+                <div class="user-management-count">
+                    <span id="user-management-shown">0</span> пользователей
+                </div>
+
+                <div id="user-management-list" class="user-management-list">
+                    <!-- Список пользователей будет добавлен динамически -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Страница управления проектами -->
+        <div id="project-management-page" class="page hidden">
+            <header class="header">
+                <button class="back-btn" onclick="closeProjectManagement()">
+                    <i class="fa-solid fa-arrow-left"></i>
+                </button>
+                <div class="header-title">
+                    <div class="greeting">Управление проектами</div>
+                </div>
+            </header>
+
+            <div class="user-management-container">
+                <button class="btn-primary" onclick="openAddProjectModal()" style="margin-bottom: 20px; width: 100%;">
+                    <i class="fa-solid fa-plus"></i> Добавить проект
+                </button>
+
+                <div class="user-management-count">
+                    <span id="project-management-shown">0</span> проектов
+                </div>
+
+                <div id="project-management-list" class="user-management-list">
+                    <!-- Список проектов будет добавлен динамически -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Страница детального просмотра проекта -->
+        <div id="project-details-page" class="page hidden">
+            <header class="header">
+                <button class="back-btn" onclick="closeProjectDetails()">
+                    <i class="fa-solid fa-arrow-left"></i>
+                </button>
+                <div class="header-title">
+                    <div class="greeting" id="project-details-name">Проект</div>
+                </div>
+            </header>
+
+            <div class="analytics-content">
+                <!-- Общая статистика проекта -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value" id="pd-total-views">0</div>
+                        <div class="stat-label">Всего просмотров</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="pd-target-views">0</div>
+                        <div class="stat-label">Цель просмотров</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="pd-kpi-views">от 1,000</div>
+                        <div class="stat-label">KPI (мин. просмотров)</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="pd-progress">0%</div>
+                        <div class="stat-label">Прогресс</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="pd-total-users">0</div>
+                        <div class="stat-label">Участников</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="pd-total-profiles">0</div>
+                        <div class="stat-label">Профилей</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="pd-avg-per-user">0</div>
+                        <div class="stat-label">Среднее на участника</div>
+                    </div>
+                </div>
+
+                <!-- Прогресс бар -->
+                <div class="progress-section">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="pd-progress-bar" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <!-- Список участников проекта -->
+                <h3 style="margin: 20px 0 10px 0;">Участники проекта</h3>
+                <div id="project-users-list" class="user-management-list">
+                    <!-- Список участников будет добавлен динамически -->
+                </div>
+
+                <!-- Список социальных аккаунтов -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin: 30px 0 10px 0;">
+                    <h3 style="margin: 0;">Социальные аккаунты</h3>
+                    <button class="btn-primary" onclick="openAddSocialAccountModal()" style="padding: 8px 16px; font-size: 14px;">
+                        <i class="fa-solid fa-plus"></i> Добавить аккаунт
+                    </button>
+                </div>
+                <div id="project-social-accounts-list" class="user-management-list">
+                    <!-- Список социальных аккаунтов будет добавлен динамически -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Модальное окно добавления проекта -->
+        <div id="add-project-modal" class="modal hidden">
+            <div class="modal-overlay" onclick="closeAddProjectModal()"></div>
+            <div class="modal-content">
+                <button class="modal-close-btn" onclick="closeAddProjectModal()">
+                    <i class="fa-solid fa-times"></i>
+                </button>
+                <h2 class="modal-title">Создать новый проект</h2>
+                <p class="modal-description">Заполните информацию о новом проекте</p>
+
+                <input
+                    type="text"
+                    id="new-project-name-input"
+                    class="input"
+                    placeholder="Название проекта"
+                    style="margin-bottom: 15px;"
+                >
+
+                <input
+                    type="number"
+                    id="new-project-target-input"
+                    class="input"
+                    placeholder="Цель просмотров (например: 1000000)"
+                    style="margin-bottom: 15px;"
+                >
+
+                <input
+                    type="number"
+                    id="new-project-kpi-input"
+                    class="input"
+                    placeholder="KPI: Минимум просмотров для учета видео (например: 1000)"
+                    style="margin-bottom: 15px;"
+                >
+
+                <input
+                    type="date"
+                    id="new-project-deadline-input"
+                    class="input"
+                    placeholder="Дата окончания"
+                    style="margin-bottom: 15px;"
+                >
+
+                <input
+                    type="text"
+                    id="new-project-geo-input"
+                    class="input"
+                    placeholder="Гео (например: Россия, Украина)"
+                    style="margin-bottom: 15px;"
+                >
+
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; color: rgba(255,255,255,0.7); margin-bottom: 10px; font-size: 14px;">Доступные социальные сети:</label>
+
+                    <div class="social-toggle-item">
+                        <span>📱 TikTok</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="toggle-tiktok" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="social-toggle-item">
+                        <span>📷 Instagram</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="toggle-instagram" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="social-toggle-item">
+                        <span>👤 Facebook</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="toggle-facebook" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="social-toggle-item">
+                        <span>🎬 YouTube</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="toggle-youtube" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <button class="btn-primary" onclick="submitNewProject()">Создать проект</button>
+            </div>
+        </div>
+
+        <!-- Модальное окно для бонуса -->
+        <div id="bonus-modal" class="modal hidden">
+            <div class="modal-overlay" onclick="closeBonusModal()"></div>
+            <div class="modal-content">
+                <button class="modal-close-btn" onclick="closeBonusModal()">
+                    <i class="fa-solid fa-times"></i>
+                </button>
+                <h2 class="modal-title">Выдать бонус</h2>
+                <p class="modal-description">Укажите сумму бонуса для пользователя <span id="bonus-username"></span></p>
+                <input
+                    type="number"
+                    id="bonus-amount-input"
+                    class="input"
+                    placeholder="Введите сумму в $"
+                    min="0"
+                    step="0.01"
+                >
+                <button class="btn-primary" onclick="submitBonus()">Выдать</button>
+            </div>
+        </div>
+
+        <!-- Модальное окно добавления социального аккаунта -->
+        <div id="add-social-account-modal" class="modal hidden">
+            <div class="modal-overlay" onclick="closeAddSocialAccountModal()"></div>
+            <div class="modal-content">
+                <button class="modal-close-btn" onclick="closeAddSocialAccountModal()">
+                    <i class="fa-solid fa-times"></i>
+                </button>
+                <h2 class="modal-title">Добавить социальный аккаунт</h2>
+                <p class="modal-description">Заполните информацию об аккаунте</p>
+
+                <select id="social-account-platform" class="input" style="margin-bottom: 15px;">
+                    <option value="">Выберите платформу</option>
+                    <option value="tiktok">TikTok</option>
+                    <option value="instagram">Instagram</option>
+                    <option value="youtube">YouTube</option>
+                    <option value="facebook">Facebook</option>
+                </select>
+
+                <input
+                    type="text"
+                    id="social-account-username"
+                    class="input"
+                    placeholder="Username (например: @username)"
+                    style="margin-bottom: 15px;"
+                >
+
+                <input
+                    type="text"
+                    id="social-account-link"
+                    class="input"
+                    placeholder="Ссылка на профиль"
+                    style="margin-bottom: 15px;"
+                >
+
+                <select id="social-account-status" class="input" style="margin-bottom: 15px;">
+                    <option value="NEW">Новый (NEW)</option>
+                    <option value="OLD">Старый (OLD)</option>
+                    <option value="Ban">Забанен (Ban)</option>
+                </select>
+
+                <select id="social-account-topic" class="input" style="margin-bottom: 15px;">
+                    <option value="">Выберите тематику</option>
+                    <option value="Юмор">Юмор</option>
+                    <option value="Спорт">Спорт</option>
+                    <option value="Киберспорт">Киберспорт</option>
+                    <option value="Сериалы/фильмы">Сериалы/фильмы</option>
+                    <option value="Гемблинг">Гемблинг</option>
+                    <option value="Телешоу">Телешоу</option>
+                    <option value="Познавательное">Познавательное</option>
+                    <option value="AI">AI</option>
+                    <option value="Танцы">Танцы</option>
+                    <option value="Клипы">Клипы</option>
+                    <option value="custom">Своя тематика</option>
+                </select>
+
+                <input
+                    type="text"
+                    id="social-account-custom-topic"
+                    class="input hidden"
+                    placeholder="Введите свою тематику"
+                    style="margin-bottom: 15px;"
+                >
+
+                <button class="btn-primary" onclick="submitSocialAccount()">Добавить аккаунт</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js?v=2025112801"></script>
+</body>
+</html>
