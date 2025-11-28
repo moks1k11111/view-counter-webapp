@@ -1754,8 +1754,12 @@ function closeProjectManagement() {
 
 async function loadProjectManagementList() {
     try {
-        // Используем существующие данные из глобального состояния
-        const projects = currentProjects || [];
+        // Загружаем свежий список проектов из API
+        const data = await apiCall('/api/me');
+        const projects = data.projects || [];
+
+        // Обновляем глобальное состояние
+        currentProjects = projects;
 
         allProjectsList = [];
 
