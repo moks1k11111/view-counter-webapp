@@ -16,7 +16,7 @@ from database_sheets import SheetsDatabase
 from database_sqlite import SQLiteDatabase
 from project_manager import ProjectManager
 from project_sheets_manager import ProjectSheetsManager
-from config import TELEGRAM_TOKEN, DEFAULT_GOOGLE_SHEETS_NAME, GOOGLE_SHEETS_CREDENTIALS, GOOGLE_SHEETS_CREDENTIALS_JSON
+from config import TELEGRAM_TOKEN, DEFAULT_GOOGLE_SHEETS_NAME, GOOGLE_SHEETS_CREDENTIALS, GOOGLE_SHEETS_CREDENTIALS_JSON, ADMIN_IDS
 
 app = FastAPI(title="View Counter WebApp API")
 
@@ -172,10 +172,12 @@ async def get_project(project_id: str, user: dict = Depends(get_current_user)):
     """Получить детальную информацию о проекте"""
     user_id = str(user.get('id'))
 
-    # Проверяем доступ к проекту
-    user_projects = project_manager.get_user_projects(user_id)
-    if not any(p['id'] == project_id for p in user_projects):
-        raise HTTPException(status_code=403, detail="Access denied")
+    # Проверяем доступ к проекту (админы имеют доступ ко всем проектам)
+    is_admin = int(user_id) in ADMIN_IDS
+    if not is_admin:
+        user_projects = project_manager.get_user_projects(user_id)
+        if not any(p['id'] == project_id for p in user_projects):
+            raise HTTPException(status_code=403, detail="Access denied")
 
     project = project_manager.get_project(project_id)
     if not project:
@@ -232,10 +234,12 @@ async def get_project_analytics(
     """Получить аналитику по проекту"""
     user_id = str(user.get('id'))
 
-    # Проверяем доступ
-    user_projects = project_manager.get_user_projects(user_id)
-    if not any(p['id'] == project_id for p in user_projects):
-        raise HTTPException(status_code=403, detail="Access denied")
+    # Проверяем доступ (админы имеют доступ ко всем проектам)
+    is_admin = int(user_id) in ADMIN_IDS
+    if not is_admin:
+        user_projects = project_manager.get_user_projects(user_id)
+        if not any(p['id'] == project_id for p in user_projects):
+            raise HTTPException(status_code=403, detail="Access denied")
 
     project = project_manager.get_project(project_id)
     if not project:
