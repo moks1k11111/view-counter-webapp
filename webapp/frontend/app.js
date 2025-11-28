@@ -1937,10 +1937,13 @@ async function loadProjectDetailsForAdmin(projectId) {
         });
 
         if (!analyticsResponse.ok) {
-            throw new Error('Failed to load project analytics');
+            const errorText = await analyticsResponse.text();
+            console.error(`Analytics API error (${analyticsResponse.status}):`, errorText);
+            throw new Error(`Failed to load project analytics: ${analyticsResponse.status} - ${errorText}`);
         }
 
         const analytics = await analyticsResponse.json();
+        console.log('✅ Analytics loaded successfully:', analytics);
         currentProjectDetailsData = analytics;
 
         // Обновляем название проекта
