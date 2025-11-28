@@ -429,6 +429,9 @@
                 <div class="header-title">
                     <div class="greeting" id="project-details-name">Проект</div>
                 </div>
+                <button class="btn-primary" onclick="openAddUserToProjectModal()" style="padding: 8px 16px; font-size: 14px; margin-left: auto;">
+                    <i class="fa-solid fa-user-plus"></i> Добавить пользователя
+                </button>
             </header>
 
             <div class="analytics-content">
@@ -671,6 +674,28 @@
                 <button class="btn-primary" onclick="submitSocialAccount()">Добавить аккаунт</button>
             </div>
         </div>
+
+        <!-- Модальное окно добавления пользователя в проект -->
+        <div id="add-user-to-project-modal" class="modal hidden">
+            <div class="modal-overlay" onclick="closeAddUserToProjectModal()"></div>
+            <div class="modal-content">
+                <button class="modal-close-btn" onclick="closeAddUserToProjectModal()">
+                    <i class="fa-solid fa-times"></i>
+                </button>
+                <h2 class="modal-title">Добавить пользователя в проект</h2>
+                <p class="modal-description">Введите username пользователя</p>
+
+                <input
+                    type="text"
+                    id="add-user-username"
+                    class="input"
+                    placeholder="Username (например: username123)"
+                    style="margin-bottom: 15px;"
+                >
+
+                <button class="btn-primary" onclick="submitUserToProject()">Добавить пользователя</button>
+            </div>
+        </div>
     </div>
 
     <!-- Debug Panel -->
@@ -691,6 +716,6 @@
         <div style="font-weight: bold; margin-bottom: 5px;">🐛 DEBUG PANEL (открой в браузере и смотри консоль F12)</div>
     </div>
 
-    <script src="app.js?v=1764344200"></script>
+    <script src="app.js?v=1732791400"></script>
 </body>
 </html>
