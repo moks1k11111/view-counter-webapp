@@ -1753,6 +1753,8 @@ function closeProjectManagement() {
 }
 
 async function loadProjectManagementList() {
+    alert('НОВАЯ ВЕРСИЯ ЗАГРУЖЕНА! v1764339542');
+
     const projectsList = document.getElementById('project-management-list');
     const countElement = document.getElementById('project-management-shown');
 
