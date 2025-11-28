@@ -16,7 +16,7 @@ from database_sheets import SheetsDatabase
 from database_sqlite import SQLiteDatabase
 from project_manager import ProjectManager
 from project_sheets_manager import ProjectSheetsManager
-from config import TELEGRAM_TOKEN, DEFAULT_GOOGLE_SHEETS_NAME, GOOGLE_SHEETS_CREDENTIALS, GOOGLE_SHEETS_CREDENTIALS_JSON
+from config import TELEGRAM_TOKEN, DEFAULT_GOOGLE_SHEETS_NAME, GOOGLE_SHEETS_CREDENTIALS, GOOGLE_SHEETS_CREDENTIALS_JSON, ADMIN_IDS
 
 app = FastAPI(title="View Counter WebApp API")
 
