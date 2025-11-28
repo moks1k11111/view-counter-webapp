@@ -1752,14 +1752,26 @@ function closeProjectManagement() {
     document.getElementById('admin-page').classList.remove('hidden');
 }
 
+// Debug logger
+function debugLog(message, data = null) {
+    console.log(message, data);
+    const debugPanel = document.getElementById('debug-panel');
+    if (debugPanel) {
+        const time = new Date().toLocaleTimeString();
+        const logEntry = `[${time}] ${message}${data ? ': ' + JSON.stringify(data) : ''}`;
+        debugPanel.innerHTML += `<div style="margin: 5px 0; font-size: 12px; font-family: monospace;">${logEntry}</div>`;
+        debugPanel.scrollTop = debugPanel.scrollHeight;
+    }
+}
+
 async function loadProjectManagementList() {
-    alert('НОВАЯ ВЕРСИЯ ЗАГРУЖЕНА! v1764339542');
+    debugLog('🔄 НОВАЯ ВЕРСИЯ v1764340206 - Начало загрузки');
 
     const projectsList = document.getElementById('project-management-list');
     const countElement = document.getElementById('project-management-shown');
 
     try {
-        console.log('🔄 Loading project management list...');
+        debugLog('📞 Вызов API /api/me');
 
         // Показываем индикатор загрузки
         projectsList.innerHTML = '<div class="empty-state">Загрузка проектов...</div>';
@@ -1769,7 +1781,7 @@ async function loadProjectManagementList() {
         const data = await apiCall('/api/me');
         const projects = data.projects || [];
 
-        console.log('📊 Loaded projects from API:', projects.length, projects);
+        debugLog('✅ Получено проектов', { count: projects.length, projects });
 
         // Показываем количество загруженных проектов
         projectsList.innerHTML = `<div class="empty-state">Найдено ${projects.length} проектов. Загрузка аналитики...</div>`;
