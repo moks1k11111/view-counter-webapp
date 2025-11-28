@@ -1765,26 +1765,38 @@ function debugLog(message, data = null) {
 }
 
 async function loadProjectManagementList() {
-    const VERSION = 'v1764342888';
+    const VERSION = 'v1764342999';
     debugLog(`🔄 НОВАЯ ВЕРСИЯ ${VERSION} - Начало загрузки`);
 
     const projectsList = document.getElementById('project-management-list');
     const countElement = document.getElementById('project-management-shown');
 
     try {
-        debugLog('📊 currentProjects глобальная переменная', { count: currentProjects.length, currentProjects });
+        debugLog('📊 currentProjects глобальная переменная', { count: currentProjects ? currentProjects.length : 0, currentProjects });
 
         // ПОКАЗЫВАЕМ DEBUG ИНФОРМАЦИЮ ПРЯМО В UI
         projectsList.innerHTML = `<div class="empty-state">
             DEBUG ${VERSION}<br>
-            currentProjects.length = ${currentProjects ? currentProjects.length : 'undefined'}<br>
-            Загрузка аналитики...
+            currentProjects.length = ${currentProjects ? currentProjects.length : 0}<br>
+            Загрузка проектов...
         </div>`;
         if (countElement) countElement.textContent = '...';
 
-        // Используем currentProjects напрямую вместо нового API вызова
-        // Это гарантирует консистентность с данными админ панели
-        const projects = currentProjects || [];
+        // Если currentProjects пуст, загружаем из API
+        let projects = currentProjects || [];
+        if (projects.length === 0) {
+            debugLog('📥 currentProjects пуст, загружаем из API');
+            const response = await fetch(`${API_BASE_URL}/api/projects`, {
+                headers: { 'X-Telegram-Init-Data': window.initData }
+            });
+            if (response.ok) {
+                projects = await response.json();
+                currentProjects = projects;
+                debugLog('✅ Проекты загружены из API', { count: projects.length });
+            } else {
+                throw new Error(`API Error: ${response.status}`);
+            }
+        }
 
         debugLog('✅ Используем проекты из currentProjects', { count: projects.length, projects });
 

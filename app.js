@@ -1752,37 +1752,125 @@ function closeProjectManagement() {
     document.getElementById('admin-page').classList.remove('hidden');
 }
 
+// Debug logger
+function debugLog(message, data = null) {
+    console.log(message, data);
+    const debugPanel = document.getElementById('debug-panel');
+    if (debugPanel) {
+        const time = new Date().toLocaleTimeString();
+        const logEntry = `[${time}] ${message}${data ? ': ' + JSON.stringify(data) : ''}`;
+        debugPanel.innerHTML += `<div style="margin: 5px 0; font-size: 12px; font-family: monospace;">${logEntry}</div>`;
+        debugPanel.scrollTop = debugPanel.scrollHeight;
+    }
+}
+
 async function loadProjectManagementList() {
+    const VERSION = 'v1764342999';
+    debugLog(`🔄 НОВАЯ ВЕРСИЯ ${VERSION} - Начало загрузки`);
+
+    const projectsList = document.getElementById('project-management-list');
+    const countElement = document.getElementById('project-management-shown');
+
     try {
-        // Используем существующие данные из глобального состояния
-        const projects = allProjects || [];
+        debugLog('📊 currentProjects глобальная переменная', { count: currentProjects ? currentProjects.length : 0, currentProjects });
+
+        // ПОКАЗЫВАЕМ DEBUG ИНФОРМАЦИЮ ПРЯМО В UI
+        projectsList.innerHTML = `<div class="empty-state">
+            DEBUG ${VERSION}<br>
+            currentProjects.length = ${currentProjects ? currentProjects.length : 0}<br>
+            Загрузка проектов...
+        </div>`;
+        if (countElement) countElement.textContent = '...';
+
+        // Если currentProjects пуст, загружаем из API
+        let projects = currentProjects || [];
+        if (projects.length === 0) {
+            debugLog('📥 currentProjects пуст, загружаем из API');
+            const response = await fetch(`${API_BASE_URL}/api/projects`, {
+                headers: { 'X-Telegram-Init-Data': window.initData }
+            });
+            if (response.ok) {
+                projects = await response.json();
+                currentProjects = projects;
+                debugLog('✅ Проекты загружены из API', { count: projects.length });
+            } else {
+                throw new Error(`API Error: ${response.status}`);
+            }
+        }
+
+        debugLog('✅ Используем проекты из currentProjects', { count: projects.length, projects });
+
+        // Показываем количество загруженных проектов
+        projectsList.innerHTML = `<div class="empty-state">Найдено ${projects.length} проектов. Загрузка аналитики...</div>`;
+
+        // Обновляем глобальное состояние
+        currentProjects = projects;
 
         allProjectsList = [];
 
         // Загружаем аналитику для каждого проекта
-        for (const project of projects) {
-            const response = await fetch(`${API_BASE_URL}/api/projects/${project.id}/analytics`, {
-                headers: { 'X-Telegram-Init-Data': window.initData }
-            });
+        for (let i = 0; i < projects.length; i++) {
+            const project = projects[i];
+            console.log(`📈 Loading analytics for project: ${project.name} (ID: ${project.id})`);
 
-            if (response.ok) {
-                const analytics = await response.json();
+            // Обновляем индикатор загрузки
+            projectsList.innerHTML = `<div class="empty-state">Загрузка аналитики... (${i + 1}/${projects.length})</div>`;
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/projects/${project.id}/analytics`, {
+                    headers: { 'X-Telegram-Init-Data': window.initData }
+                });
+
+                if (response.ok) {
+                    const analytics = await response.json();
+                    allProjectsList.push({
+                        id: project.id,
+                        name: project.name,
+                        targetViews: project.target_views,
+                        kpiViews: project.kpi_views || 1000,
+                        totalViews: analytics.total_views || 0,
+                        progress: analytics.progress_percent || 0,
+                        usersCount: Object.keys(analytics.users_stats || {}).length,
+                        profilesCount: Object.values(analytics.users_stats || {}).reduce((sum, user) => sum + (user.profiles_count || 0), 0)
+                    });
+                } else {
+                    // Если analytics не загрузился, добавляем проект с нулевыми данными
+                    console.warn(`Failed to load analytics for project ${project.id}: ${response.status}`);
+                    allProjectsList.push({
+                        id: project.id,
+                        name: project.name,
+                        targetViews: project.target_views,
+                        kpiViews: project.kpi_views || 1000,
+                        totalViews: 0,
+                        progress: 0,
+                        usersCount: 0,
+                        profilesCount: 0
+                    });
+                }
+            } catch (error) {
+                // В случае ошибки также добавляем проект с нулевыми данными
+                console.error(`Error loading analytics for project ${project.id}:`, error);
                 allProjectsList.push({
                     id: project.id,
                     name: project.name,
                     targetViews: project.target_views,
                     kpiViews: project.kpi_views || 1000,
-                    totalViews: analytics.total_views || 0,
-                    progress: analytics.progress_percent || 0,
-                    usersCount: Object.keys(analytics.users_stats || {}).length,
-                    profilesCount: Object.values(analytics.users_stats || {}).reduce((sum, user) => sum + (user.profiles_count || 0), 0)
+                    totalViews: 0,
+                    progress: 0,
+                    usersCount: 0,
+                    profilesCount: 0
                 });
             }
         }
 
+        console.log('✅ Final allProjectsList:', allProjectsList.length, allProjectsList);
         renderProjectManagementList(allProjectsList);
     } catch (error) {
-        console.error('Failed to load projects:', error);
+        console.error('❌ Failed to load projects:', error);
+        const projectsList = document.getElementById('project-management-list');
+        const countElement = document.getElementById('project-management-shown');
+        projectsList.innerHTML = `<div class="empty-state">❌ Ошибка загрузки: ${error.message || error}</div>`;
+        if (countElement) countElement.textContent = '0';
     }
 }
 
@@ -2012,7 +2100,14 @@ async function submitNewProject() {
             closeAddProjectModal();
             showSuccess(`Проект "${projectName}" создан успешно!`);
 
-            // Обновляем список проектов
+            // Перезагружаем данные пользователя и проекты
+            const data = await apiCall('/api/me');
+            currentProjects = data.projects || [];
+
+            // Обновляем UI
+            renderProjects(currentProjects);
+
+            // Обновляем список проектов в управлении
             await loadProjectManagementList();
         } else {
             showError('Не удалось создать проект');
