@@ -3,6 +3,9 @@ from oauth2client.service_account import ServiceAccountCredentials
 from datetime import datetime
 import logging
 from typing import Optional, Dict, List
+import json
+import os
+import base64
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
@@ -13,12 +16,13 @@ logger = logging.getLogger(__name__)
 class ProjectSheetsManager:
     """Класс для работы с Google Sheets для проектов"""
 
-    def __init__(self, credentials_file: str, spreadsheet_name: str = "MainBD"):
+    def __init__(self, credentials_file: str, spreadsheet_name: str = "MainBD", credentials_json: str = ""):
         """
         Инициализация подключения к Google Sheets
 
-        :param credentials_file: Путь к JSON файлу с credentials
+        :param credentials_file: Путь к JSON файлу с credentials (для локальной разработки)
         :param spreadsheet_name: Название основной таблицы
+        :param credentials_json: JSON-строка с credentials (для Render/Railway)
         """
         self.scope = [
             'https://spreadsheets.google.com/feeds',
@@ -26,9 +30,27 @@ class ProjectSheetsManager:
         ]
 
         try:
-            credentials = ServiceAccountCredentials.from_json_keyfile_name(
-                credentials_file, self.scope
-            )
+            # Пробуем использовать JSON-строку (Render/Railway)
+            if credentials_json:
+                # Декодируем base64, если это base64-закодированная строка
+                try:
+                    decoded_json = base64.b64decode(credentials_json).decode('utf-8')
+                except Exception:
+                    # Если не base64, используем как есть
+                    decoded_json = credentials_json
+
+                # Заменяем экранированные переносы строк на обычные
+                decoded_json = decoded_json.replace('\\n', '\n')
+                creds_dict = json.loads(decoded_json)
+                credentials = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, self.scope)
+            # Иначе используем файл (локальная разработка)
+            elif os.path.exists(credentials_file):
+                credentials = ServiceAccountCredentials.from_json_keyfile_name(
+                    credentials_file, self.scope
+                )
+            else:
+                raise FileNotFoundError(f"No credentials found: neither JSON string nor file {credentials_file}")
+
             self.client = gspread.authorize(credentials)
 
             try:

@@ -44,7 +44,7 @@ project_manager = ProjectManager(db)
 
 # Инициализация Google Sheets для проектов
 try:
-    project_sheets = ProjectSheetsManager(GOOGLE_SHEETS_CREDENTIALS, "MainBD")
+    project_sheets = ProjectSheetsManager(GOOGLE_SHEETS_CREDENTIALS, "MainBD", GOOGLE_SHEETS_CREDENTIALS_JSON)
 except Exception as e:
     print(f"⚠️  Project Sheets Manager не подключен: {e}")
     project_sheets = None
