@@ -234,33 +234,53 @@ async def get_project_analytics(
     """Получить аналитику по проекту"""
     user_id = str(user.get('id'))
 
-    # Проверяем доступ (админы имеют доступ ко всем проектам)
-    is_admin = int(user_id) in ADMIN_IDS
-    if not is_admin:
-        user_projects = project_manager.get_user_projects(user_id)
-        if not any(p['id'] == project_id for p in user_projects):
-            raise HTTPException(status_code=403, detail="Access denied")
+    # 1. Проверяем, является ли пользователь Админом
+    # Приводим все ID к строке для надежного сравнения
+    admin_ids_str = [str(admin_id) for admin_id in ADMIN_IDS]
+    is_admin = user_id in admin_ids_str
 
+    # 2. Проверяем, является ли пользователь участником проекта
+    user_projects = project_manager.get_user_projects(user_id)
+    is_member = any(p['id'] == project_id for p in user_projects)
+
+    # 3. Если не Админ и не Участник -> Запрещаем доступ
+    if not is_member and not is_admin:
+        raise HTTPException(status_code=403, detail="Access denied: You are not a member of this project")
+
+    # Получаем проект
     project = project_manager.get_project(project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    # Получаем все профили проекта
-    all_profiles = sheets_db.get_all_profiles(
-        platform=platform,
-        project_name=project['name']
-    )
+    # Получаем все профили проекта (Безопасная загрузка из Google Sheets)
+    all_profiles = []
+    if sheets_db:
+        try:
+            all_profiles = sheets_db.get_all_profiles(
+                platform=platform,
+                project_name=project['name']
+            )
+        except Exception as e:
+            print(f"⚠️ Ошибка получения профилей из Sheets: {e}")
+            # Не падаем, просто возвращаем пустой список профилей
+            all_profiles = []
 
-    # Группируем по пользователям
+    # Группируем статистику
     users_stats = {}
     platform_stats = {"tiktok": 0, "instagram": 0, "facebook": 0, "youtube": 0}
     topic_stats = {}
     total_views = 0
 
     for profile in all_profiles:
-        telegram_user = profile['telegram_user']
-        views = int(profile.get('total_views', 0) or 0)
-        plat = profile['platform']
+        telegram_user = profile.get('telegram_user', 'Unknown')
+
+        # Безопасное преобразование данных в числа
+        try:
+            views = int(str(profile.get('total_views', 0)).replace(' ', ''))
+        except (ValueError, TypeError):
+            views = 0
+
+        plat = profile.get('platform', 'tiktok')
         topic = profile.get('topic', 'Не указано')
 
         total_views += views
@@ -274,18 +294,26 @@ async def get_project_analytics(
             }
 
         users_stats[telegram_user]["total_views"] += views
-        users_stats[telegram_user]["platforms"][plat] += views
+
+        if plat in users_stats[telegram_user]["platforms"]:
+            users_stats[telegram_user]["platforms"][plat] += views
 
         if topic:
-            users_stats[telegram_user]["topics"][topic] = \
-                users_stats[telegram_user]["topics"].get(topic, 0) + views
+            current_topic_views = users_stats[telegram_user]["topics"].get(topic, 0)
+            users_stats[telegram_user]["topics"][topic] = current_topic_views + views
 
         # Общая статистика по платформам
-        platform_stats[plat] += views
+        if plat in platform_stats:
+            platform_stats[plat] += views
 
         # Общая статистика по тематикам
         if topic:
             topic_stats[topic] = topic_stats.get(topic, 0) + views
+
+    # Считаем прогресс
+    progress = 0
+    if project.get('target_views', 0) > 0:
+        progress = round((total_views / project['target_views'] * 100), 2)
 
     return {
         "project": project,
@@ -293,8 +321,8 @@ async def get_project_analytics(
         "platform_stats": platform_stats,
         "topic_stats": topic_stats,
         "users_stats": users_stats,
-        "target_views": project['target_views'],
-        "progress_percent": round((total_views / project['target_views'] * 100), 2) if project['target_views'] > 0 else 0
+        "target_views": project.get('target_views', 0),
+        "progress_percent": progress
     }
 
 @app.get("/api/my-analytics")
