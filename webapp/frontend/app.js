@@ -1765,23 +1765,40 @@ function debugLog(message, data = null) {
 }
 
 async function loadProjectManagementList() {
-    debugLog('🔄 НОВАЯ ВЕРСИЯ v1764340206 - Начало загрузки');
+    const VERSION = 'v1764342999';
+    debugLog(`🔄 НОВАЯ ВЕРСИЯ ${VERSION} - Начало загрузки`);
 
     const projectsList = document.getElementById('project-management-list');
     const countElement = document.getElementById('project-management-shown');
 
     try {
-        debugLog('📞 Вызов API /api/me');
+        debugLog('📊 currentProjects глобальная переменная', { count: currentProjects ? currentProjects.length : 0, currentProjects });
 
-        // Показываем индикатор загрузки
-        projectsList.innerHTML = '<div class="empty-state">Загрузка проектов...</div>';
+        // ПОКАЗЫВАЕМ DEBUG ИНФОРМАЦИЮ ПРЯМО В UI
+        projectsList.innerHTML = `<div class="empty-state">
+            DEBUG ${VERSION}<br>
+            currentProjects.length = ${currentProjects ? currentProjects.length : 0}<br>
+            Загрузка проектов...
+        </div>`;
         if (countElement) countElement.textContent = '...';
 
-        // Загружаем свежий список проектов из API
-        const data = await apiCall('/api/me');
-        const projects = data.projects || [];
+        // Если currentProjects пуст, загружаем из API
+        let projects = currentProjects || [];
+        if (projects.length === 0) {
+            debugLog('📥 currentProjects пуст, загружаем из API');
+            const response = await fetch(`${API_BASE_URL}/api/projects`, {
+                headers: { 'X-Telegram-Init-Data': window.initData }
+            });
+            if (response.ok) {
+                projects = await response.json();
+                currentProjects = projects;
+                debugLog('✅ Проекты загружены из API', { count: projects.length });
+            } else {
+                throw new Error(`API Error: ${response.status}`);
+            }
+        }
 
-        debugLog('✅ Получено проектов', { count: projects.length, projects });
+        debugLog('✅ Используем проекты из currentProjects', { count: projects.length, projects });
 
         // Показываем количество загруженных проектов
         projectsList.innerHTML = `<div class="empty-state">Найдено ${projects.length} проектов. Загрузка аналитики...</div>`;

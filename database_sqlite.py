@@ -17,26 +17,31 @@ class SQLiteDatabase:
     def __init__(self, db_file="tiktok_analytics.db"):
         """
         Инициализация подключения к SQLite
-        
+
         :param db_file: Путь к файлу базы данных
         """
         try:
-            # Проверяем, существует ли файл базы данных
-            db_exists = os.path.exists(db_file)
-            
+            # --- ВАЖНОЕ ИЗМЕНЕНИЕ ---
+            # Получаем папку, где лежит этот скрипт (database_sqlite.py)
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+
+            # Собираем полный путь к файлу БД
+            self.db_path = os.path.join(base_dir, db_file)
+
             # Создаем подключение
-            self.conn = sqlite3.connect(db_file)
+            self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
             self.conn.row_factory = sqlite3.Row  # Для получения результатов в виде словарей
             self.cursor = self.conn.cursor()
-            
+
             # Создаем базовые таблицы
             self._create_tables()
 
             # Всегда вызываем миграцию для проверки и создания дополнительных таблиц
             self._migrate_database()
-            
-            logger.info(f"Подключено к базе данных SQLite: {db_file}")
-            
+
+            # Логируем, какую именно базу мы открыли (для проверки)
+            logger.info(f"📂 Подключена БД: {self.db_path}")
+
         except Exception as e:
             logger.error(f"Ошибка подключения к SQLite: {e}")
             raise

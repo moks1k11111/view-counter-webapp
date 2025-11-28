@@ -7,7 +7,8 @@ import sys
 import os
 
 # Добавляем путь к модулям
-sys.path.append(os.path.dirname(__file__))
+backend_path = os.path.join(os.path.dirname(__file__), 'webapp', 'backend')
+sys.path.insert(0, backend_path)
 
 from project_manager import ProjectManager
 from database_sqlite import SQLiteDatabase
