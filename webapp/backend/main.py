@@ -223,7 +223,7 @@ async def create_project(
     )
 
     # Добавляем создателя (админа) в проект
-    project_manager.add_user_to_project(new_project['id'], user_id, role='admin')
+    project_manager.add_user_to_project(new_project['id'], user_id)
 
     # Создаем лист в Google Sheets, если project_sheets доступен
     if project_sheets:
