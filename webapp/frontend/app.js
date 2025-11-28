@@ -1949,7 +1949,6 @@ async function loadProjectDetailsForAdmin(projectId) {
         // Обновляем общую статистику
         document.getElementById('pd-total-views').textContent = formatNumber(analytics.total_views);
         document.getElementById('pd-target-views').textContent = formatNumber(analytics.target_views);
-        document.getElementById('pd-kpi-views').textContent = `от ${formatNumber(analytics.project.kpi_views || 1000)}`;
         document.getElementById('pd-progress').textContent = `${analytics.progress_percent}%`;
 
         const usersCount = Object.keys(analytics.users_stats || {}).length;
@@ -1958,8 +1957,18 @@ async function loadProjectDetailsForAdmin(projectId) {
         const totalProfiles = Object.values(analytics.users_stats || {}).reduce((sum, user) => sum + (user.profiles_count || 0), 0);
         document.getElementById('pd-total-profiles').textContent = totalProfiles;
 
-        const avgPerUser = usersCount > 0 ? Math.round(analytics.total_views / usersCount) : 0;
-        document.getElementById('pd-avg-per-user').textContent = formatNumber(avgPerUser);
+        // Подсчитываем количество уникальных тематик
+        const allTopics = new Set();
+        Object.values(analytics.users_stats || {}).forEach(user => {
+            if (user.topics) {
+                Object.keys(user.topics).forEach(topic => allTopics.add(topic));
+            }
+        });
+        document.getElementById('pd-total-topics').textContent = allTopics.size;
+
+        // Подсчитываем общее количество видео (если есть в аналитике)
+        const totalVideos = analytics.total_videos || 0;
+        document.getElementById('pd-total-videos').textContent = totalVideos;
 
         // Обновляем прогресс бар
         document.getElementById('pd-progress-bar').style.width = `${Math.min(analytics.progress_percent, 100)}%`;

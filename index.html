@@ -432,35 +432,39 @@
             </header>
 
             <div class="analytics-content">
-                <!-- Общая статистика проекта -->
-                <div class="stats-grid">
+                <!-- Основные метрики 2x2 -->
+                <div class="stats-grid" style="grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 20px;">
                     <div class="stat-card">
-                        <div class="stat-value" id="pd-total-views">0</div>
-                        <div class="stat-label">Всего просмотров</div>
+                        <div class="stat-label">ВСЕГО ПРОСМОТРОВ</div>
+                        <div class="stat-value" id="pd-total-views" style="color: #a78bfa;">0</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-value" id="pd-target-views">0</div>
-                        <div class="stat-label">Цель просмотров</div>
+                        <div class="stat-label">ВЫПОЛНЕНО</div>
+                        <div class="stat-value" id="pd-progress" style="color: #a78bfa;">0%</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-value" id="pd-kpi-views">от 1,000</div>
-                        <div class="stat-label">KPI (мин. просмотров)</div>
+                        <div class="stat-label">ВИДЕО</div>
+                        <div class="stat-value" id="pd-total-videos" style="color: #a78bfa;">0</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-value" id="pd-progress">0%</div>
-                        <div class="stat-label">Прогресс</div>
+                        <div class="stat-label">ПРОФИЛЕЙ</div>
+                        <div class="stat-value" id="pd-total-profiles" style="color: #a78bfa;">0</div>
+                    </div>
+                </div>
+
+                <!-- Дополнительные метрики -->
+                <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px;">
+                    <div class="stat-card">
+                        <div class="stat-label">Тематик</div>
+                        <div class="stat-value" id="pd-total-topics" style="font-size: 24px;">0</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-value" id="pd-total-users">0</div>
                         <div class="stat-label">Участников</div>
+                        <div class="stat-value" id="pd-total-users" style="font-size: 24px;">0</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-value" id="pd-total-profiles">0</div>
-                        <div class="stat-label">Профилей</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value" id="pd-avg-per-user">0</div>
-                        <div class="stat-label">Среднее на участника</div>
+                        <div class="stat-label">Цель</div>
+                        <div class="stat-value" id="pd-target-views" style="font-size: 20px;">0</div>
                     </div>
                 </div>
 
@@ -687,6 +691,6 @@
         <div style="font-weight: bold; margin-bottom: 5px;">🐛 DEBUG PANEL (открой в браузере и смотри консоль F12)</div>
     </div>
 
-    <script src="app.js?v=1764343500"></script>
+    <script src="app.js?v=1764344200"></script>
 </body>
 </html>
