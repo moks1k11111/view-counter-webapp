@@ -252,15 +252,26 @@ async def get_project_analytics(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    # Получаем все профили проекта
-    if sheets_db:
-        all_profiles = sheets_db.get_all_profiles(
-            platform=platform,
-            project_name=project['name']
-        )
-    else:
-        # Если Google Sheets не подключен, используем данные из SQLite
-        all_profiles = []
+    # Получаем все профили проекта из листа проекта
+    all_profiles = []
+    if project_sheets:
+        try:
+            accounts_data = project_sheets.get_project_accounts(project['name'])
+            # Конвертируем в нужный формат
+            for account in accounts_data:
+                all_profiles.append({
+                    'telegram_user': account.get('@Username', ''),
+                    'url': account.get('Link', ''),
+                    'followers': int(account.get('Followers', 0) or 0),
+                    'likes': int(account.get('Likes', 0) or 0),
+                    'comments': int(account.get('Comments', 0) or 0),
+                    'videos': int(account.get('Videos', 0) or 0),
+                    'total_views': int(account.get('Views', 0) or 0),
+                    'platform': account.get('Platform', 'tiktok').lower(),
+                    'topic': account.get('Тематика', 'Не указано')
+                })
+        except Exception as e:
+            logger.warning(f"⚠️ Could not load accounts from sheets for project {project['name']}: {e}")
 
     # Группируем по пользователям
     users_stats = {}
@@ -281,11 +292,13 @@ async def get_project_analytics(
             users_stats[telegram_user] = {
                 "total_views": 0,
                 "platforms": {"tiktok": 0, "instagram": 0, "facebook": 0, "youtube": 0},
-                "topics": {}
+                "topics": {},
+                "profiles_count": 0
             }
 
         users_stats[telegram_user]["total_views"] += views
         users_stats[telegram_user]["platforms"][plat] += views
+        users_stats[telegram_user]["profiles_count"] += 1
 
         if topic:
             users_stats[telegram_user]["topics"][topic] = \
@@ -325,12 +338,27 @@ async def get_my_analytics(
         if project:
             project_name = project['name']
 
-    # Получаем профили пользователя
-    if sheets_db:
-        profiles = sheets_db.get_user_profiles(telegram_user, project_name=project_name)
-    else:
-        # Если Google Sheets не подключен, используем данные из SQLite
-        profiles = []
+    # Получаем профили пользователя из листа проекта
+    profiles = []
+    if project_sheets and project_name:
+        try:
+            accounts_data = project_sheets.get_project_accounts(project_name)
+            # Конвертируем и фильтруем по пользователю
+            for account in accounts_data:
+                if account.get('@Username', '') == telegram_user:
+                    profiles.append({
+                        'telegram_user': account.get('@Username', ''),
+                        'url': account.get('Link', ''),
+                        'followers': int(account.get('Followers', 0) or 0),
+                        'likes': int(account.get('Likes', 0) or 0),
+                        'comments': int(account.get('Comments', 0) or 0),
+                        'videos': int(account.get('Videos', 0) or 0),
+                        'total_views': int(account.get('Views', 0) or 0),
+                        'platform': account.get('Platform', 'tiktok').lower(),
+                        'topic': account.get('Тематика', 'Не указано')
+                    })
+        except Exception as e:
+            logger.warning(f"⚠️ Could not load user profiles from sheets for project {project_name}: {e}")
 
     # Статистика
     platform_stats = {"tiktok": 0, "instagram": 0, "facebook": 0, "youtube": 0}
