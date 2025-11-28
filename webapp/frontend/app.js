@@ -1753,8 +1753,15 @@ function closeProjectManagement() {
 }
 
 async function loadProjectManagementList() {
+    const projectsList = document.getElementById('project-management-list');
+    const countElement = document.getElementById('project-management-shown');
+
     try {
         console.log('🔄 Loading project management list...');
+
+        // Показываем индикатор загрузки
+        projectsList.innerHTML = '<div class="empty-state">Загрузка проектов...</div>';
+        if (countElement) countElement.textContent = '...';
 
         // Загружаем свежий список проектов из API
         const data = await apiCall('/api/me');
@@ -1762,14 +1769,21 @@ async function loadProjectManagementList() {
 
         console.log('📊 Loaded projects from API:', projects.length, projects);
 
+        // Показываем количество загруженных проектов
+        projectsList.innerHTML = `<div class="empty-state">Найдено ${projects.length} проектов. Загрузка аналитики...</div>`;
+
         // Обновляем глобальное состояние
         currentProjects = projects;
 
         allProjectsList = [];
 
         // Загружаем аналитику для каждого проекта
-        for (const project of projects) {
+        for (let i = 0; i < projects.length; i++) {
+            const project = projects[i];
             console.log(`📈 Loading analytics for project: ${project.name} (ID: ${project.id})`);
+
+            // Обновляем индикатор загрузки
+            projectsList.innerHTML = `<div class="empty-state">Загрузка аналитики... (${i + 1}/${projects.length})</div>`;
 
             try {
                 const response = await fetch(`${API_BASE_URL}/api/projects/${project.id}/analytics`, {
@@ -1822,6 +1836,10 @@ async function loadProjectManagementList() {
         renderProjectManagementList(allProjectsList);
     } catch (error) {
         console.error('❌ Failed to load projects:', error);
+        const projectsList = document.getElementById('project-management-list');
+        const countElement = document.getElementById('project-management-shown');
+        projectsList.innerHTML = `<div class="empty-state">❌ Ошибка загрузки: ${error.message || error}</div>`;
+        if (countElement) countElement.textContent = '0';
     }
 }
 
