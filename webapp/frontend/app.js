@@ -2012,7 +2012,14 @@ async function submitNewProject() {
             closeAddProjectModal();
             showSuccess(`Проект "${projectName}" создан успешно!`);
 
-            // Обновляем список проектов
+            // Перезагружаем данные пользователя и проекты
+            const data = await apiCall('/api/me');
+            currentProjects = data.projects || [];
+
+            // Обновляем UI
+            renderProjects(currentProjects);
+
+            // Обновляем список проектов в управлении
             await loadProjectManagementList();
         } else {
             showError('Не удалось создать проект');
