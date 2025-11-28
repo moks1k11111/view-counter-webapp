@@ -1765,7 +1765,8 @@ function debugLog(message, data = null) {
 }
 
 async function loadProjectManagementList() {
-    debugLog('🔄 НОВАЯ ВЕРСИЯ v1764341999 - Начало загрузки');
+    const VERSION = 'v1764342888';
+    debugLog(`🔄 НОВАЯ ВЕРСИЯ ${VERSION} - Начало загрузки`);
 
     const projectsList = document.getElementById('project-management-list');
     const countElement = document.getElementById('project-management-shown');
@@ -1773,8 +1774,12 @@ async function loadProjectManagementList() {
     try {
         debugLog('📊 currentProjects глобальная переменная', { count: currentProjects.length, currentProjects });
 
-        // Показываем индикатор загрузки
-        projectsList.innerHTML = '<div class="empty-state">Загрузка проектов...</div>';
+        // ПОКАЗЫВАЕМ DEBUG ИНФОРМАЦИЮ ПРЯМО В UI
+        projectsList.innerHTML = `<div class="empty-state">
+            DEBUG ${VERSION}<br>
+            currentProjects.length = ${currentProjects ? currentProjects.length : 'undefined'}<br>
+            Загрузка аналитики...
+        </div>`;
         if (countElement) countElement.textContent = '...';
 
         // Используем currentProjects напрямую вместо нового API вызова
