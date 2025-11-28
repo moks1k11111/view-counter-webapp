@@ -1937,10 +1937,13 @@ async function loadProjectDetailsForAdmin(projectId) {
         });
 
         if (!analyticsResponse.ok) {
-            throw new Error('Failed to load project analytics');
+            const errorText = await analyticsResponse.text();
+            console.error(`Analytics API error (${analyticsResponse.status}):`, errorText);
+            throw new Error(`Failed to load project analytics: ${analyticsResponse.status} - ${errorText}`);
         }
 
         const analytics = await analyticsResponse.json();
+        console.log('✅ Analytics loaded successfully:', analytics);
         currentProjectDetailsData = analytics;
 
         // Обновляем название проекта
@@ -1981,7 +1984,7 @@ async function loadProjectDetailsForAdmin(projectId) {
 
     } catch (error) {
         console.error('Failed to load project details:', error);
-        showError('Не удалось загрузить детали проекта');
+        showError(`Не удалось загрузить детали проекта: ${error.message}`);
     }
 }
 
@@ -2225,6 +2228,58 @@ async function submitSocialAccount() {
     } catch (error) {
         console.error('Failed to add social account:', error);
         showError('Ошибка при добавлении аккаунта');
+    }
+}
+
+// Функции для добавления пользователя в проект
+function openAddUserToProjectModal() {
+    if (!currentProjectId) {
+        showError('Проект не выбран');
+        return;
+    }
+
+    document.getElementById('add-user-to-project-modal').classList.remove('hidden');
+    document.getElementById('add-user-username').value = '';
+}
+
+function closeAddUserToProjectModal() {
+    document.getElementById('add-user-to-project-modal').classList.add('hidden');
+}
+
+async function submitUserToProject() {
+    const username = document.getElementById('add-user-username').value.trim();
+
+    // Валидация
+    if (!username) {
+        showError('Пожалуйста, введите username');
+        return;
+    }
+
+    if (!currentProjectId) {
+        showError('Проект не выбран');
+        return;
+    }
+
+    try {
+        const response = await apiCall(`/api/projects/${currentProjectId}/users`, {
+            method: 'POST',
+            body: JSON.stringify({
+                username: username
+            })
+        });
+
+        if (response.success) {
+            showSuccess('Пользователь успешно добавлен в проект');
+            closeAddUserToProjectModal();
+
+            // Обновляем детали проекта
+            await loadProjectDetailsForAdmin(currentProjectId);
+        } else {
+            showError(response.error || 'Не удалось добавить пользователя');
+        }
+    } catch (error) {
+        console.error('Failed to add user to project:', error);
+        showError('Ошибка при добавлении пользователя');
     }
 }
 
