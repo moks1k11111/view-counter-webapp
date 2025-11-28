@@ -1765,23 +1765,23 @@ function debugLog(message, data = null) {
 }
 
 async function loadProjectManagementList() {
-    debugLog('🔄 НОВАЯ ВЕРСИЯ v1764340206 - Начало загрузки');
+    debugLog('🔄 НОВАЯ ВЕРСИЯ v1764341999 - Начало загрузки');
 
     const projectsList = document.getElementById('project-management-list');
     const countElement = document.getElementById('project-management-shown');
 
     try {
-        debugLog('📞 Вызов API /api/me');
+        debugLog('📊 currentProjects глобальная переменная', { count: currentProjects.length, currentProjects });
 
         // Показываем индикатор загрузки
         projectsList.innerHTML = '<div class="empty-state">Загрузка проектов...</div>';
         if (countElement) countElement.textContent = '...';
 
-        // Загружаем свежий список проектов из API
-        const data = await apiCall('/api/me');
-        const projects = data.projects || [];
+        // Используем currentProjects напрямую вместо нового API вызова
+        // Это гарантирует консистентность с данными админ панели
+        const projects = currentProjects || [];
 
-        debugLog('✅ Получено проектов', { count: projects.length, projects });
+        debugLog('✅ Используем проекты из currentProjects', { count: projects.length, projects });
 
         // Показываем количество загруженных проектов
         projectsList.innerHTML = `<div class="empty-state">Найдено ${projects.length} проектов. Загрузка аналитики...</div>`;
