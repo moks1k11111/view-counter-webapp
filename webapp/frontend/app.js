@@ -1754,9 +1754,13 @@ function closeProjectManagement() {
 
 async function loadProjectManagementList() {
     try {
+        console.log('🔄 Loading project management list...');
+
         // Загружаем свежий список проектов из API
         const data = await apiCall('/api/me');
         const projects = data.projects || [];
+
+        console.log('📊 Loaded projects from API:', projects.length, projects);
 
         // Обновляем глобальное состояние
         currentProjects = projects;
@@ -1765,6 +1769,8 @@ async function loadProjectManagementList() {
 
         // Загружаем аналитику для каждого проекта
         for (const project of projects) {
+            console.log(`📈 Loading analytics for project: ${project.name} (ID: ${project.id})`);
+
             try {
                 const response = await fetch(`${API_BASE_URL}/api/projects/${project.id}/analytics`, {
                     headers: { 'X-Telegram-Init-Data': window.initData }
@@ -1812,9 +1818,10 @@ async function loadProjectManagementList() {
             }
         }
 
+        console.log('✅ Final allProjectsList:', allProjectsList.length, allProjectsList);
         renderProjectManagementList(allProjectsList);
     } catch (error) {
-        console.error('Failed to load projects:', error);
+        console.error('❌ Failed to load projects:', error);
     }
 }
 
