@@ -1755,7 +1755,7 @@ function closeProjectManagement() {
 async function loadProjectManagementList() {
     try {
         // Используем существующие данные из глобального состояния
-        const projects = allProjects || [];
+        const projects = currentProjects || [];
 
         allProjectsList = [];
 
