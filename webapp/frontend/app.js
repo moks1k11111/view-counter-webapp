@@ -2283,6 +2283,54 @@ async function submitUserToProject() {
     }
 }
 
+// Regular user view - Add user modal functions
+function openAddUserModal() {
+    document.getElementById('add-user-modal').classList.remove('hidden');
+    document.getElementById('add-user-username-regular').value = '';
+    document.getElementById('add-user-username-regular').focus();
+}
+
+function closeAddUserModal() {
+    document.getElementById('add-user-modal').classList.add('hidden');
+}
+
+async function submitUserToProjectRegular() {
+    const username = document.getElementById('add-user-username-regular').value.trim();
+
+    // Валидация
+    if (!username) {
+        showError('Пожалуйста, введите username');
+        return;
+    }
+
+    if (!currentProjectId) {
+        showError('Проект не выбран');
+        return;
+    }
+
+    try {
+        const response = await apiCall(`/api/projects/${currentProjectId}/users`, {
+            method: 'POST',
+            body: JSON.stringify({
+                username: username
+            })
+        });
+
+        if (response.success) {
+            showSuccess('Пользователь успешно добавлен в проект');
+            closeAddUserModal();
+
+            // Обновляем детали проекта
+            await loadProjectDetails(currentProjectId);
+        } else {
+            showError(response.error || 'Не удалось добавить пользователя');
+        }
+    } catch (error) {
+        console.error('Failed to add user to project:', error);
+        showError('Ошибка при добавлении пользователя');
+    }
+}
+
 async function loadProjectSocialAccounts(projectId) {
     try {
         const response = await apiCall(`/api/projects/${projectId}/accounts`);
