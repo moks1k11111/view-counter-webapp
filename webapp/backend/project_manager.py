@@ -239,6 +239,78 @@ class ProjectManager:
             logger.error(f"Ошибка получения проектов пользователя: {e}")
             return []
 
+    def get_all_projects_with_access(self, user_id: str) -> List[Dict]:
+        """
+        Получение всех активных проектов с проверкой доступа для пользователя
+
+        Для проектов, где пользователь НЕ является участником:
+        - name заменяется на "***"
+        - geo заменяется на "***"
+        - target_views устанавливается в 0
+        - has_access = False
+
+        :param user_id: ID пользователя
+        :return: Список всех проектов с информацией о доступе
+        """
+        try:
+            # Получаем все активные проекты
+            self.db.cursor.execute('''
+                SELECT p.id, p.name, p.google_sheet_name, p.start_date, p.end_date,
+                       p.target_views, p.geo, p.created_at, p.is_active
+                FROM projects p
+                WHERE p.is_active = 1
+                ORDER BY p.created_at DESC
+            ''')
+
+            rows = self.db.cursor.fetchall()
+
+            projects = []
+            for row in rows:
+                project_id = row[0]
+
+                # Проверяем, является ли пользователь участником проекта
+                self.db.cursor.execute('''
+                    SELECT COUNT(*) FROM project_users
+                    WHERE project_id = ? AND user_id = ?
+                ''', (project_id, user_id))
+
+                has_access = self.db.cursor.fetchone()[0] > 0
+
+                if has_access:
+                    # Пользователь имеет доступ - показываем реальные данные
+                    projects.append({
+                        "id": row[0],
+                        "name": row[1],
+                        "google_sheet_name": row[2],
+                        "start_date": row[3],
+                        "end_date": row[4],
+                        "target_views": row[5],
+                        "geo": row[6],
+                        "created_at": row[7],
+                        "is_active": row[8],
+                        "has_access": True
+                    })
+                else:
+                    # Пользователь НЕ имеет доступа - маскируем данные
+                    projects.append({
+                        "id": row[0],
+                        "name": "***",
+                        "google_sheet_name": row[2],
+                        "start_date": row[3],
+                        "end_date": row[4],
+                        "target_views": 0,
+                        "geo": "***",
+                        "created_at": row[7],
+                        "is_active": row[8],
+                        "has_access": False
+                    })
+
+            return projects
+
+        except Exception as e:
+            logger.error(f"Ошибка получения всех проектов с проверкой доступа: {e}")
+            return []
+
     def get_project_users(self, project_id: str) -> List[Dict]:
         """
         Получение всех пользователей проекта

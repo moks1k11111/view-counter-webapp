@@ -252,9 +252,10 @@ async def get_me(user: dict = Depends(get_current_user)):
 
 @app.get("/api/projects")
 async def get_projects(user: dict = Depends(get_current_user)):
-    """Получить все проекты пользователя"""
+    """Получить все проекты с проверкой доступа для пользователя"""
     user_id = str(user.get('id'))
-    projects = project_manager.get_user_projects(user_id)
+    # Используем новый метод для получения всех проектов с маскированием данных для недоступных
+    projects = project_manager.get_all_projects_with_access(user_id)
 
     return {"projects": projects}
 

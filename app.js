@@ -242,8 +242,13 @@ async function renderProjects(projects) {
         return;
     }
 
-    // Fetch analytics for each project
+    // Fetch analytics ONLY for accessible projects
     const projectsWithStats = await Promise.all(projects.map(async (project) => {
+        if (project.has_access === false) {
+            // Для недоступных проектов не загружаем аналитику
+            return { ...project, total_views: 0 };
+        }
+
         try {
             const analytics = await apiCall(`/api/projects/${project.id}/analytics`);
             return { ...project, total_views: analytics.total_views || 0 };
@@ -254,15 +259,23 @@ async function renderProjects(projects) {
     }));
 
     projectsList.innerHTML = projectsWithStats.map((project, index) => {
+        const hasAccess = project.has_access !== false;
+        const lockIcon = hasAccess ? '🔓' : '🔒';
+        const lockColor = hasAccess ? '#4CAF50' : '#F44336';
+        const cardOpacity = hasAccess ? '1' : '0.6';
+        const clickHandler = hasAccess ? `onclick="openProject('${project.id}')"` : `onclick="showAccessDenied()"`;
+        const cursorStyle = hasAccess ? 'cursor: pointer;' : 'cursor: not-allowed;';
+
         const progress = project.target_views > 0 ? Math.round((project.total_views / project.target_views) * 100) : 0;
         const daysRemaining = calculateDaysRemaining(project.end_date);
         const daysText = daysRemaining === 1 ? 'day left' : daysRemaining < 0 ? 'Expired' : `${daysRemaining} days left`;
         const daysClass = daysRemaining < 7 ? 'days-urgent' : daysRemaining < 14 ? 'days-warning' : 'days-normal';
 
         return `
-            <div class="project-card" onclick="openProject('${project.id}')">
+            <div class="project-card" ${clickHandler} style="opacity: ${cardOpacity}; ${cursorStyle}">
                 <div class="project-header">
                     <div class="project-header-left">
+                        <span style="font-size: 20px; margin-right: 8px;" title="${hasAccess ? 'Доступ разрешен' : 'Доступ закрыт'}">${lockIcon}</span>
                         <h3 class="project-name">${project.name}</h3>
                         <span class="project-geo">${project.geo || 'Global'}</span>
                     </div>
@@ -275,22 +288,22 @@ async function renderProjects(projects) {
                     <div class="project-chart">
                         <canvas id="chart-total-${index}" width="100" height="100"></canvas>
                         <div class="chart-center-text">
-                            <div class="chart-percentage">${progress}%</div>
+                            <div class="chart-percentage">${hasAccess ? progress : 0}%</div>
                             <div class="chart-label">Progress</div>
                         </div>
                     </div>
                     <div class="project-stats-vertical">
                         <div class="stat">
                             <div class="stat-label">Total Views</div>
-                            <div class="stat-value">${formatNumber(project.total_views)}</div>
+                            <div class="stat-value">${hasAccess ? formatNumber(project.total_views) : '***'}</div>
                         </div>
                         <div class="stat">
                             <div class="stat-label">Target</div>
-                            <div class="stat-value">${formatNumber(project.target_views)}</div>
+                            <div class="stat-value">${hasAccess ? formatNumber(project.target_views) : '***'}</div>
                         </div>
                         <div class="stat">
                             <div class="stat-label">KPI</div>
-                            <div class="stat-value">от ${formatNumber(project.kpi_views || 1000)}</div>
+                            <div class="stat-value">${hasAccess ? 'от ' + formatNumber(project.kpi_views || 1000) : '***'}</div>
                         </div>
                     </div>
                     <div class="last-update-text">${formatLastUpdate(project.last_update)}</div>
@@ -309,10 +322,16 @@ async function renderProjects(projects) {
     // Render charts after DOM update
     setTimeout(() => {
         projectsWithStats.forEach((project, index) => {
-            const progress = project.target_views > 0 ? Math.round((project.total_views / project.target_views) * 100) : 0;
+            const hasAccess = project.has_access !== false;
+            const progress = hasAccess && project.target_views > 0 ? Math.round((project.total_views / project.target_views) * 100) : 0;
             createProgressChart(`chart-total-${index}`, progress);
         });
     }, 0);
+}
+
+// Функция для показа сообщения о запрете доступа
+function showAccessDenied() {
+    alert('Доступ к этому проекту закрыт. Обратитесь к администратору.');
 }
 
 // Render projects with MY PERSONAL stats
@@ -324,13 +343,16 @@ async function renderMyProjects(projects) {
         return;
     }
 
-    if (projects.length === 0) {
+    // Фильтруем только проекты с доступом для "Мои проекты"
+    const accessibleProjects = projects.filter(p => p.has_access !== false);
+
+    if (accessibleProjects.length === 0) {
         myProjectsList.innerHTML = '<div class="no-projects">No projects yet</div>';
         return;
     }
 
-    // Fetch MY analytics for each project
-    const projectsWithMyStats = await Promise.all(projects.map(async (project) => {
+    // Fetch MY analytics for each accessible project
+    const projectsWithMyStats = await Promise.all(accessibleProjects.map(async (project) => {
         try {
             const myAnalytics = await apiCall(`/api/my-analytics?project_id=${project.id}`);
             return { ...project, my_views: myAnalytics.total_views || 0 };
