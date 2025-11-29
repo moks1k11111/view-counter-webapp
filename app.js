@@ -435,8 +435,8 @@ async function openProject(projectId) {
         // Создаем слайды с диаграммами
         createChartSlides(analytics);
 
-        // Отображаем список профилей
-        displayProfiles(analytics);
+        // Загружаем и отображаем социальные аккаунты в аккордеоне
+        await loadProjectSocialAccounts(projectId);
 
     } catch (error) {
         console.error('Failed to load project details:', error);
@@ -743,32 +743,6 @@ function updateSlidePosition() {
     document.querySelectorAll('.swiper-dot').forEach((dot, i) => {
         dot.classList.toggle('active', i === currentSwipeIndex);
     });
-}
-
-function displayProfiles(analytics) {
-    const profilesList = document.getElementById('profiles-list');
-    const profilesCount = document.getElementById('profiles-count');
-
-    const users = Object.entries(analytics.users_stats || {});
-    profilesCount.textContent = users.length;
-
-    if (users.length === 0) {
-        profilesList.innerHTML = '<p class="no-profiles">Нет профилей</p>';
-        return;
-    }
-
-    const profilesHTML = users.map(([userName, stats]) => `
-        <div class="profile-item">
-            <div class="profile-info">
-                <div class="profile-name">${userName}</div>
-                <div class="profile-stats">
-                    <span>Просмотры: ${formatNumber(stats.total_views)}</span>
-                </div>
-            </div>
-        </div>
-    `).join('');
-
-    profilesList.innerHTML = profilesHTML;
 }
 
 function toggleProfiles() {
@@ -2337,12 +2311,17 @@ async function loadProjectSocialAccounts(projectId) {
 }
 
 function renderProjectSocialAccountsList(accounts) {
-    const accountsList = document.getElementById('project-social-accounts-list');
+    const accountsList = document.getElementById('profiles-list');
+    const profilesCount = document.getElementById('profiles-count');
 
     if (!accounts || accounts.length === 0) {
-        accountsList.innerHTML = '<div class="empty-state">Нет социальных аккаунтов</div>';
+        accountsList.innerHTML = '<p class="no-profiles">Нет социальных аккаунтов</p>';
+        profilesCount.textContent = '0';
         return;
     }
+
+    // Обновляем счетчик
+    profilesCount.textContent = accounts.length;
 
     // Группируем по платформам
     const groupedAccounts = {};
