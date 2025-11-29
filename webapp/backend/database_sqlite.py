@@ -21,12 +21,19 @@ class SQLiteDatabase:
         :param db_file: Путь к файлу базы данных
         """
         try:
-            # --- ВАЖНОЕ ИЗМЕНЕНИЕ ---
-            # Получаем папку, где лежит этот скрипт (database_sqlite.py)
-            base_dir = os.path.dirname(os.path.abspath(__file__))
+            # --- CRITICAL: Use persistent storage on Render ---
+            # Check if /var/lib/data exists (Render persistent disk)
+            persistent_dir = "/var/lib/data"
 
-            # Собираем полный путь к файлу БД
-            self.db_path = os.path.join(base_dir, db_file)
+            if os.path.exists(persistent_dir):
+                # Production: Use Render's persistent storage
+                self.db_path = os.path.join(persistent_dir, db_file)
+                logger.info(f"🚀 Production mode: Using persistent storage at {persistent_dir}")
+            else:
+                # Local development: Use local directory
+                base_dir = os.path.dirname(os.path.abspath(__file__))
+                self.db_path = os.path.join(base_dir, db_file)
+                logger.info(f"💻 Local mode: Using local storage at {base_dir}")
 
             # Создаем подключение
             self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
@@ -39,8 +46,8 @@ class SQLiteDatabase:
             # Всегда вызываем миграцию для проверки и создания дополнительных таблиц
             self._migrate_database()
 
-            # Логируем, какую именно базу мы открыли (для проверки)
-            logger.info(f"📂 Подключена БД: {self.db_path}")
+            # Логируем финальный путь к БД (критично для проверки)
+            logger.info(f"📂 Database connected: {self.db_path}")
 
         except Exception as e:
             logger.error(f"Ошибка подключения к SQLite: {e}")
