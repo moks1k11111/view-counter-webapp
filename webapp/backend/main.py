@@ -124,8 +124,13 @@ async def run_telegram_bot():
 async def startup_event():
     """Start bot when FastAPI starts"""
     logger.info("🚀 FastAPI starting up...")
-    # Start bot in background
-    asyncio.create_task(run_telegram_bot())
+    # Start bot in background (won't crash API if bot fails)
+    try:
+        asyncio.create_task(run_telegram_bot())
+        logger.info("✅ Bot task created successfully")
+    except Exception as e:
+        logger.error(f"⚠️ Failed to create bot task: {e}")
+        logger.info("✅ API will continue without bot")
 
 # ============ Модели данных ============
 
