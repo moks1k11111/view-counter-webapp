@@ -1729,13 +1729,6 @@ function closeProjectManagement() {
 // Debug logger
 function debugLog(message, data = null) {
     console.log(message, data);
-    const debugPanel = document.getElementById('debug-panel');
-    if (debugPanel) {
-        const time = new Date().toLocaleTimeString();
-        const logEntry = `[${time}] ${message}${data ? ': ' + JSON.stringify(data) : ''}`;
-        debugPanel.innerHTML += `<div style="margin: 5px 0; font-size: 12px; font-family: monospace;">${logEntry}</div>`;
-        debugPanel.scrollTop = debugPanel.scrollHeight;
-    }
 }
 
 async function loadProjectManagementList() {
