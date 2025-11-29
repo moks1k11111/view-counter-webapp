@@ -567,63 +567,71 @@
                 <button class="modal-close-btn" onclick="closeAddSocialAccountModal()">
                     <i class="fa-solid fa-times"></i>
                 </button>
-                <h2 class="modal-title">Добавить социальный аккаунт</h2>
-                <p class="modal-description">Заполните информацию об аккаунте</p>
 
-                <select id="social-account-platform" class="input" style="margin-bottom: 15px;">
-                    <option value="">Выберите платформу</option>
-                    <option value="tiktok">TikTok</option>
-                    <option value="instagram">Instagram</option>
-                    <option value="youtube">YouTube</option>
-                    <option value="facebook">Facebook</option>
-                </select>
+                <!-- Step 1: URL Input -->
+                <div id="profile-step-1" class="profile-step">
+                    <h2 class="modal-title">Добавить аккаунт</h2>
+                    <p class="modal-description">Вставьте ссылку на профиль</p>
+                    <input
+                        type="text"
+                        id="profile-url-input"
+                        class="input"
+                        placeholder="https://tiktok.com/@username или https://instagram.com/username"
+                        style="margin-bottom: 20px;"
+                    >
+                    <button class="btn-primary" onclick="goToStep2()">Далее</button>
+                </div>
 
-                <input
-                    type="text"
-                    id="social-account-username"
-                    class="input"
-                    placeholder="Username (например: @username)"
-                    style="margin-bottom: 15px;"
-                >
+                <!-- Step 2: Status Selection -->
+                <div id="profile-step-2" class="profile-step hidden">
+                    <h2 class="modal-title">Статус аккаунта</h2>
+                    <p class="modal-description">Выберите статус</p>
+                    <div class="status-buttons">
+                        <button class="status-btn" onclick="selectStatus('NEW')">
+                            <span class="status-icon">🆕</span>
+                            <span class="status-label">Новый</span>
+                            <span class="status-sublabel">NEW</span>
+                        </button>
+                        <button class="status-btn" onclick="selectStatus('OLD')">
+                            <span class="status-icon">📦</span>
+                            <span class="status-label">Старый</span>
+                            <span class="status-sublabel">OLD</span>
+                        </button>
+                    </div>
+                </div>
 
-                <input
-                    type="text"
-                    id="social-account-link"
-                    class="input"
-                    placeholder="Ссылка на профиль"
-                    style="margin-bottom: 15px;"
-                >
+                <!-- Step 3: Topic Selection -->
+                <div id="profile-step-3" class="profile-step hidden">
+                    <h2 class="modal-title">Выберите тематику</h2>
+                    <p class="modal-description">Категория контента</p>
+                    <div class="topic-grid">
+                        <button class="topic-btn" onclick="selectTopic('Юмор')">😂 Юмор</button>
+                        <button class="topic-btn" onclick="selectTopic('Спорт')">⚽ Спорт</button>
+                        <button class="topic-btn" onclick="selectTopic('Киберспорт')">🎮 Киберспорт</button>
+                        <button class="topic-btn" onclick="selectTopic('Сериалы/фильмы')">🎬 Сериалы/фильмы</button>
+                        <button class="topic-btn" onclick="selectTopic('Гемблинг')">🎰 Гемблинг</button>
+                        <button class="topic-btn" onclick="selectTopic('Телешоу')">📺 Телешоу</button>
+                        <button class="topic-btn" onclick="selectTopic('Познавательное')">📚 Познавательное</button>
+                        <button class="topic-btn" onclick="selectTopic('AI')">🤖 AI</button>
+                        <button class="topic-btn" onclick="selectTopic('Танцы')">💃 Танцы</button>
+                        <button class="topic-btn" onclick="selectTopic('Клипы')">🎵 Клипы</button>
+                        <button class="topic-btn" onclick="openCustomTopic()">✏️ Своя тематика</button>
+                    </div>
+                </div>
 
-                <select id="social-account-status" class="input" style="margin-bottom: 15px;">
-                    <option value="NEW">Новый (NEW)</option>
-                    <option value="OLD">Старый (OLD)</option>
-                    <option value="Ban">Забанен (Ban)</option>
-                </select>
-
-                <select id="social-account-topic" class="input" style="margin-bottom: 15px;">
-                    <option value="">Выберите тематику</option>
-                    <option value="Юмор">Юмор</option>
-                    <option value="Спорт">Спорт</option>
-                    <option value="Киберспорт">Киберспорт</option>
-                    <option value="Сериалы/фильмы">Сериалы/фильмы</option>
-                    <option value="Гемблинг">Гемблинг</option>
-                    <option value="Телешоу">Телешоу</option>
-                    <option value="Познавательное">Познавательное</option>
-                    <option value="AI">AI</option>
-                    <option value="Танцы">Танцы</option>
-                    <option value="Клипы">Клипы</option>
-                    <option value="custom">Своя тематика</option>
-                </select>
-
-                <input
-                    type="text"
-                    id="social-account-custom-topic"
-                    class="input hidden"
-                    placeholder="Введите свою тематику"
-                    style="margin-bottom: 15px;"
-                >
-
-                <button class="btn-primary" onclick="submitSocialAccount()">Добавить аккаунт</button>
+                <!-- Step 4: Custom Topic (Optional) -->
+                <div id="profile-step-4" class="profile-step hidden">
+                    <h2 class="modal-title">Своя тематика</h2>
+                    <p class="modal-description">Введите название тематики</p>
+                    <input
+                        type="text"
+                        id="profile-custom-topic-input"
+                        class="input"
+                        placeholder="Например: Кулинария, Путешествия..."
+                        style="margin-bottom: 20px;"
+                    >
+                    <button class="btn-primary" onclick="submitCustomTopic()">Готово</button>
+                </div>
             </div>
         </div>
 

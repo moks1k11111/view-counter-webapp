@@ -2280,47 +2280,149 @@ window.openAddProfileModal = openAddProfileModal;
 // ==================== SOCIAL ACCOUNTS MANAGEMENT ====================
 let currentProjectId = null;
 
+// Wizard state
+let wizardData = {
+    platform: '',
+    username: '',
+    profileLink: '',
+    status: '',
+    topic: ''
+};
+
 function openAddSocialAccountModal() {
     document.getElementById('add-social-account-modal').classList.remove('hidden');
 
-    // Очищаем поля
-    document.getElementById('social-account-platform').value = '';
-    document.getElementById('social-account-username').value = '';
-    document.getElementById('social-account-link').value = '';
-    document.getElementById('social-account-status').value = 'NEW';
-    document.getElementById('social-account-topic').value = '';
-    document.getElementById('social-account-custom-topic').classList.add('hidden');
+    // Reset wizard to step 1
+    document.getElementById('profile-step-1').classList.remove('hidden');
+    document.getElementById('profile-step-2').classList.add('hidden');
+    document.getElementById('profile-step-3').classList.add('hidden');
+    document.getElementById('profile-step-4').classList.add('hidden');
+
+    // Clear input
+    document.getElementById('profile-url-input').value = '';
+
+    // Reset wizard data
+    wizardData = {
+        platform: '',
+        username: '',
+        profileLink: '',
+        status: '',
+        topic: ''
+    };
 }
 
 function closeAddSocialAccountModal() {
     document.getElementById('add-social-account-modal').classList.add('hidden');
 }
 
+// Step 1 -> Step 2: Auto-detect platform and username from URL
+function goToStep2() {
+    const urlInput = document.getElementById('profile-url-input').value.trim();
+
+    if (!urlInput) {
+        showError('Пожалуйста, введите ссылку');
+        return;
+    }
+
+    // Auto-detection logic
+    let platform = '';
+    let username = '';
+    let profileLink = urlInput;
+
+    try {
+        const url = new URL(urlInput);
+        const hostname = url.hostname.toLowerCase();
+
+        // Detect platform
+        if (hostname.includes('tiktok.com')) {
+            platform = 'tiktok';
+            // Extract username: tiktok.com/@username
+            const match = url.pathname.match(/@([^/?]+)/);
+            username = match ? match[1] : '';
+        } else if (hostname.includes('instagram.com')) {
+            platform = 'instagram';
+            // Extract username: instagram.com/username or instagram.com/username/
+            const match = url.pathname.match(/^\/([^/?]+)/);
+            username = match ? match[1] : '';
+        } else if (hostname.includes('youtube.com') || hostname.includes('youtu.be')) {
+            platform = 'youtube';
+            // Extract channel name from various YouTube URL formats
+            const channelMatch = url.pathname.match(/\/(c|channel|user|@)\/([^/?]+)/);
+            username = channelMatch ? channelMatch[2] : '';
+        } else if (hostname.includes('facebook.com') || hostname.includes('fb.com')) {
+            platform = 'facebook';
+            // Extract username
+            const match = url.pathname.match(/^\/([^/?]+)/);
+            username = match ? match[1] : '';
+        } else {
+            showError('Неподдерживаемая платформа. Используйте TikTok, Instagram, YouTube или Facebook');
+            return;
+        }
+
+        if (!username) {
+            showError('Не удалось извлечь username из ссылки');
+            return;
+        }
+
+        // Save to wizard data
+        wizardData.platform = platform;
+        wizardData.username = username;
+        wizardData.profileLink = profileLink;
+
+        // Move to step 2
+        document.getElementById('profile-step-1').classList.add('hidden');
+        document.getElementById('profile-step-2').classList.remove('hidden');
+
+    } catch (error) {
+        showError('Некорректная ссылка. Введите полный URL (например: https://tiktok.com/@username)');
+        return;
+    }
+}
+
+// Step 2 -> Step 3: Select status
+function selectStatus(status) {
+    wizardData.status = status;
+
+    // Move to step 3
+    document.getElementById('profile-step-2').classList.add('hidden');
+    document.getElementById('profile-step-3').classList.remove('hidden');
+}
+
+// Step 3 -> Submit: Select topic and submit
+function selectTopic(topic) {
+    wizardData.topic = topic;
+
+    // Submit the account
+    submitSocialAccount();
+}
+
+// Step 3 -> Step 4: Open custom topic input
+function openCustomTopic() {
+    document.getElementById('profile-step-3').classList.add('hidden');
+    document.getElementById('profile-step-4').classList.remove('hidden');
+    document.getElementById('profile-custom-topic-input').value = '';
+    document.getElementById('profile-custom-topic-input').focus();
+}
+
+// Step 4 -> Submit: Custom topic
+function submitCustomTopic() {
+    const customTopic = document.getElementById('profile-custom-topic-input').value.trim();
+
+    if (!customTopic) {
+        showError('Пожалуйста, введите название тематики');
+        return;
+    }
+
+    wizardData.topic = customTopic;
+
+    // Submit the account
+    submitSocialAccount();
+}
+
+// Final submission
 async function submitSocialAccount() {
-    const platform = document.getElementById('social-account-platform').value;
-    const username = document.getElementById('social-account-username').value.trim();
-    const profileLink = document.getElementById('social-account-link').value.trim();
-    const status = document.getElementById('social-account-status').value;
-    let topic = document.getElementById('social-account-topic').value;
-
-    // Если выбрана своя тематика
-    if (topic === 'custom') {
-        topic = document.getElementById('social-account-custom-topic').value.trim();
-    }
-
-    // Валидация
-    if (!platform) {
-        showError('Пожалуйста, выберите платформу');
-        return;
-    }
-
-    if (!username) {
-        showError('Пожалуйста, введите username');
-        return;
-    }
-
-    if (!profileLink) {
-        showError('Пожалуйста, введите ссылку на профиль');
+    if (!currentProjectId) {
+        showError('Проект не выбран');
         return;
     }
 
@@ -2328,16 +2430,16 @@ async function submitSocialAccount() {
         const response = await apiCall(`/api/projects/${currentProjectId}/accounts`, {
             method: 'POST',
             body: JSON.stringify({
-                platform,
-                username,
-                profile_link: profileLink,
-                status,
-                topic: topic || ''
+                platform: wizardData.platform,
+                username: wizardData.username,
+                profile_link: wizardData.profileLink,
+                status: wizardData.status,
+                topic: wizardData.topic || ''
             })
         });
 
         if (response.success) {
-            showSuccess('Аккаунт успешно добавлен');
+            showSuccess('Аккаунт добавлен');
             closeAddSocialAccountModal();
 
             // Обновляем список
@@ -2677,5 +2779,10 @@ window.closeAddProjectModal = closeAddProjectModal;
 window.submitNewProject = submitNewProject;
 window.openAddSocialAccountModal = openAddSocialAccountModal;
 window.closeAddSocialAccountModal = closeAddSocialAccountModal;
+window.goToStep2 = goToStep2;
+window.selectStatus = selectStatus;
+window.selectTopic = selectTopic;
+window.openCustomTopic = openCustomTopic;
+window.submitCustomTopic = submitCustomTopic;
 window.submitSocialAccount = submitSocialAccount;
 window.deleteSocialAccount = deleteSocialAccount;
