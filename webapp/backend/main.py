@@ -25,7 +25,7 @@ from project_sheets_manager import ProjectSheetsManager
 from config import TELEGRAM_TOKEN, DEFAULT_GOOGLE_SHEETS_NAME, GOOGLE_SHEETS_CREDENTIALS, GOOGLE_SHEETS_CREDENTIALS_JSON, ADMIN_IDS
 
 # WebApp Config
-WEBAPP_URL = "https://moks1k11111.github.io/view-counter-webapp/webapp/frontend/index.html?v=6"
+WEBAPP_URL = "https://moks1k11111.github.io/view-counter-webapp/index.html"
 
 # Logging
 logging.basicConfig(

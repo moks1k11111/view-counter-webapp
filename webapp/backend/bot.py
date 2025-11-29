@@ -8,7 +8,7 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 # Пытаемся взять токен из ENV, иначе берем жестко заданный
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "8325383993:AAGl4tmstfnYIIFtEou2va7fnG37-ErC3Kk")
 # Твоя рабочая ссылка
-WEBAPP_URL = "https://moks1k11111.github.io/view-counter-webapp/webapp/frontend/index.html?v=6"
+WEBAPP_URL = "https://moks1k11111.github.io/view-counter-webapp/index.html"
 
 # Logging
 logging.basicConfig(
