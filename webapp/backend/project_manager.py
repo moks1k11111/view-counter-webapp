@@ -269,10 +269,11 @@ class ProjectManager:
                 project_id = row[0]
 
                 # Проверяем, является ли пользователь участником проекта
+                # Convert both to strings to avoid type mismatch
                 self.db.cursor.execute('''
                     SELECT COUNT(*) FROM project_users
                     WHERE project_id = ? AND user_id = ?
-                ''', (project_id, user_id))
+                ''', (str(project_id), str(user_id)))
 
                 has_access = self.db.cursor.fetchone()[0] > 0
 

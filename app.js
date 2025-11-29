@@ -289,19 +289,24 @@ async function renderProjects(projects) {
         const cardOpacity = hasAccess ? '1' : '0.6';
         const clickHandler = hasAccess ? `onclick="openProject('${project.id}')"` : `onclick="showAccessDenied()"`;
         const cursorStyle = hasAccess ? 'cursor: pointer;' : 'cursor: not-allowed;';
+        const lockedClass = hasAccess ? '' : 'project-card-locked';
 
         const progress = project.target_views > 0 ? Math.round((project.total_views / project.target_views) * 100) : 0;
         const daysRemaining = calculateDaysRemaining(project.end_date);
         const daysText = daysRemaining === 1 ? 'day left' : daysRemaining < 0 ? 'Expired' : `${daysRemaining} days left`;
         const daysClass = daysRemaining < 7 ? 'days-urgent' : daysRemaining < 14 ? 'days-warning' : 'days-normal';
 
+        // Display name: show "🔒 Hidden Project" for locked projects
+        const displayName = hasAccess ? project.name : '🔒 Hidden Project';
+        const displayGeo = hasAccess ? (project.geo || 'Global') : '***';
+
         return `
-            <div class="project-card" ${clickHandler} style="opacity: ${cardOpacity}; ${cursorStyle}">
+            <div class="project-card ${lockedClass}" ${clickHandler} style="opacity: ${cardOpacity}; ${cursorStyle}">
                 <div class="project-header">
                     <div class="project-header-left">
                         <span style="font-size: 20px; margin-right: 8px;" title="${hasAccess ? 'Доступ разрешен' : 'Доступ закрыт'}">${lockIcon}</span>
-                        <h3 class="project-name">${project.name}</h3>
-                        <span class="project-geo">${project.geo || 'Global'}</span>
+                        <h3 class="project-name">${displayName}</h3>
+                        <span class="project-geo">${displayGeo}</span>
                     </div>
                     <div class="project-days ${daysClass}">
                         <span class="days-icon">⏱</span>
@@ -2319,20 +2324,33 @@ async function submitUserToProject() {
         // Handle specific error cases
         const errorMessage = error.message || '';
 
-        // User already in project - show warning and close modal (success behavior)
-        if (errorMessage.includes('already in this project') ||
-            (errorMessage.includes('400') && errorMessage.toLowerCase().includes('already'))) {
+        // Try to parse the error detail from FastAPI JSON response
+        let errorDetail = '';
+        try {
+            const match = errorMessage.match(/API Error \(\d+\): (.+)/);
+            if (match && match[1]) {
+                const parsedError = JSON.parse(match[1]);
+                errorDetail = parsedError.detail || '';
+            }
+        } catch (e) {
+            errorDetail = errorMessage;
+        }
+
+        // User already in project - show info notification and close modal (success behavior)
+        if (errorDetail.toLowerCase().includes('already in this project') ||
+            errorDetail.toLowerCase().includes('already in project')) {
             showWarning('Пользователь уже в этом проекте');
             closeAddUserToProjectModal();
             return;
         }
 
-        if (errorMessage.includes('404') || errorMessage.includes('not found')) {
+        // Other error cases
+        if (errorMessage.includes('404') || errorDetail.toLowerCase().includes('not found')) {
             showError('Пользователь не найден. Попросите их запустить бота командой /start');
-        } else if (errorMessage.includes('403')) {
+        } else if (errorMessage.includes('403') || errorDetail.toLowerCase().includes('access denied')) {
             showError('У вас нет доступа к этому проекту');
         } else {
-            showError('Ошибка при добавлении пользователя');
+            showError(errorDetail || 'Ошибка при добавлении пользователя');
         }
     }
 }
@@ -2388,20 +2406,33 @@ async function submitUserToProjectRegular() {
         // Handle specific error cases
         const errorMessage = error.message || '';
 
-        // User already in project - show warning and close modal (success behavior)
-        if (errorMessage.includes('already in this project') ||
-            (errorMessage.includes('400') && errorMessage.toLowerCase().includes('already'))) {
+        // Try to parse the error detail from FastAPI JSON response
+        let errorDetail = '';
+        try {
+            const match = errorMessage.match(/API Error \(\d+\): (.+)/);
+            if (match && match[1]) {
+                const parsedError = JSON.parse(match[1]);
+                errorDetail = parsedError.detail || '';
+            }
+        } catch (e) {
+            errorDetail = errorMessage;
+        }
+
+        // User already in project - show info notification and close modal (success behavior)
+        if (errorDetail.toLowerCase().includes('already in this project') ||
+            errorDetail.toLowerCase().includes('already in project')) {
             showWarning('Пользователь уже в этом проекте');
             closeAddUserModal();
             return;
         }
 
-        if (errorMessage.includes('404') || errorMessage.includes('not found')) {
+        // Other error cases
+        if (errorMessage.includes('404') || errorDetail.toLowerCase().includes('not found')) {
             showError('Пользователь не найден. Попросите их запустить бота командой /start');
-        } else if (errorMessage.includes('403')) {
+        } else if (errorMessage.includes('403') || errorDetail.toLowerCase().includes('access denied')) {
             showError('У вас нет доступа к этому проекту');
         } else {
-            showError('Ошибка при добавлении пользователя');
+            showError(errorDetail || 'Ошибка при добавлении пользователя');
         }
     }
 }
