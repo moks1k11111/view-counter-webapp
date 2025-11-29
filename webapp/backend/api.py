@@ -252,6 +252,9 @@ async def get_project_analytics(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
+    # Получаем ВСЕХ пользователей проекта из БД
+    project_users = project_manager.get_project_users(project_id)
+
     # Получаем все профили проекта (Безопасная загрузка из Google Sheets)
     all_profiles = []
     if sheets_db:
@@ -265,11 +268,22 @@ async def get_project_analytics(
             # Не падаем, просто возвращаем пустой список профилей
             all_profiles = []
 
-    # Группируем статистику
+    # Инициализируем статистику для ВСЕХ пользователей проекта
     users_stats = {}
+    for user in project_users:
+        username = user.get('username', 'Unknown')
+        users_stats[username] = {
+            "total_views": 0,
+            "platforms": {"tiktok": 0, "instagram": 0, "facebook": 0, "youtube": 0},
+            "topics": {},
+            "profiles_count": 0
+        }
+
+    # Группируем статистику
     platform_stats = {"tiktok": 0, "instagram": 0, "facebook": 0, "youtube": 0}
     topic_stats = {}
     total_views = 0
+    total_videos = len(all_profiles)  # Общее количество профилей = количество видео
 
     for profile in all_profiles:
         telegram_user = profile.get('telegram_user', 'Unknown')
@@ -287,13 +301,16 @@ async def get_project_analytics(
 
         # Статистика по пользователям
         if telegram_user not in users_stats:
+            # Если пользователь не в проекте, но у него есть профили, добавляем его
             users_stats[telegram_user] = {
                 "total_views": 0,
                 "platforms": {"tiktok": 0, "instagram": 0, "facebook": 0, "youtube": 0},
-                "topics": {}
+                "topics": {},
+                "profiles_count": 0
             }
 
         users_stats[telegram_user]["total_views"] += views
+        users_stats[telegram_user]["profiles_count"] += 1  # Увеличиваем счетчик профилей
 
         if plat in users_stats[telegram_user]["platforms"]:
             users_stats[telegram_user]["platforms"][plat] += views
@@ -318,6 +335,7 @@ async def get_project_analytics(
     return {
         "project": project,
         "total_views": total_views,
+        "total_videos": total_videos,
         "platform_stats": platform_stats,
         "topic_stats": topic_stats,
         "users_stats": users_stats,
