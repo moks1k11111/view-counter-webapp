@@ -468,6 +468,10 @@ let swipeStartX = 0;
 async function openProject(projectId, mode = 'user') {
     console.log('Opening project:', projectId, 'mode:', mode);
 
+    // Set global project ID for use in modals/wizards
+    window.currentProjectId = projectId;
+    currentProjectId = projectId;
+
     try {
         // Загружаем данные проекта
         const analytics = await apiCall(`/api/projects/${projectId}/analytics`);
@@ -1992,6 +1996,7 @@ function closeProjectDetails() {
 async function loadProjectDetailsForAdmin(projectId) {
     try {
         // Сохраняем ID текущего проекта
+        window.currentProjectId = projectId;
         currentProjectId = projectId;
 
         // Загружаем детальную информацию о проекте
@@ -2421,13 +2426,17 @@ function submitCustomTopic() {
 
 // Final submission
 async function submitSocialAccount() {
-    if (!currentProjectId) {
-        showError('Проект не выбран');
+    // Use global currentProjectId (set by openProject)
+    const projectId = window.currentProjectId || currentProjectId;
+
+    if (!projectId) {
+        console.error('Internal Error: No Project ID set');
+        showError('Internal Error: No Project ID. Please reopen the project.');
         return;
     }
 
     try {
-        const response = await apiCall(`/api/projects/${currentProjectId}/accounts`, {
+        const response = await apiCall(`/api/projects/${projectId}/accounts`, {
             method: 'POST',
             body: JSON.stringify({
                 platform: wizardData.platform,
@@ -2443,7 +2452,7 @@ async function submitSocialAccount() {
             closeAddSocialAccountModal();
 
             // Обновляем список
-            await loadProjectSocialAccounts(currentProjectId);
+            await loadProjectSocialAccounts(projectId);
         } else {
             showError('Не удалось добавить аккаунт');
         }
@@ -2526,6 +2535,8 @@ async function submitUserToProject() {
             errorDetail.toLowerCase().includes('already in project')) {
             showSuccess('Пользователь уже в проекте');
             closeAddUserToProjectModal();
+            // Reload project data to ensure UI is in sync
+            await loadProjectDetailsForAdmin(currentProjectId);
             return;
         }
 
@@ -2609,6 +2620,8 @@ async function submitUserToProjectRegular() {
             errorDetail.toLowerCase().includes('already in project')) {
             showSuccess('Пользователь уже в проекте');
             closeAddUserModal();
+            // Reload project data to ensure UI is in sync
+            await loadProjectDetails(currentProjectId);
             return;
         }
 
