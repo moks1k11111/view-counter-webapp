@@ -76,15 +76,10 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
         # Register user in database
         try:
-            db.add_user(
-                user_id=str(user.id),
-                username=user.username or "",
-                first_name=user.first_name or "",
-                last_name=user.last_name or ""
-            )
-            logger.info(f"User registered/updated: {user.id} (@{user.username})")
+            db.add_user(user.id, user.username, user.first_name, user.last_name)
+            print(f"✅ User {user.id} saved to DB")
         except Exception as e:
-            logger.warning(f"Failed to register user: {e}")
+            print(f"⚠️ Error saving user: {e}")
 
         keyboard = [
             [KeyboardButton(
