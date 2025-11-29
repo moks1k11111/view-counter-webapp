@@ -48,7 +48,31 @@ async function apiCall(endpoint, options = {}) {
 // ==================== UI FUNCTIONS ====================
 function showError(message) {
     console.error('Error:', message);
-    // You can add a toast notification here later
+
+    // Create toast notification
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+        padding: 15px 25px;
+        border-radius: 12px;
+        z-index: 9999;
+        font-weight: 600;
+        box-shadow: 0 10px 30px rgba(245, 87, 108, 0.3);
+        max-width: 80%;
+        text-align: center;
+    `;
+    notification.textContent = message;
+    document.body.appendChild(notification);
+
+    // Remove after 4 seconds
+    setTimeout(() => {
+        notification.remove();
+    }, 4000);
 }
 
 function formatNumber(num) {
@@ -2229,10 +2253,10 @@ function closeAddUserToProjectModal() {
 }
 
 async function submitUserToProject() {
-    const username = document.getElementById('add-user-username').value.trim();
+    const usernameInput = document.getElementById('add-user-username').value.trim();
 
     // Валидация
-    if (!username) {
+    if (!usernameInput) {
         showError('Пожалуйста, введите username');
         return;
     }
@@ -2241,6 +2265,9 @@ async function submitUserToProject() {
         showError('Проект не выбран');
         return;
     }
+
+    // Strip @ from username if present
+    const username = usernameInput.startsWith('@') ? usernameInput.substring(1) : usernameInput;
 
     try {
         const response = await apiCall(`/api/projects/${currentProjectId}/users`, {
@@ -2261,7 +2288,16 @@ async function submitUserToProject() {
         }
     } catch (error) {
         console.error('Failed to add user to project:', error);
-        showError('Ошибка при добавлении пользователя');
+
+        // Handle specific error cases
+        const errorMessage = error.message || '';
+        if (errorMessage.includes('404') || errorMessage.includes('not found')) {
+            showError('Пользователь не найден. Попросите их запустить бота командой /start');
+        } else if (errorMessage.includes('403')) {
+            showError('У вас нет доступа к этому проекту');
+        } else {
+            showError('Ошибка при добавлении пользователя');
+        }
     }
 }
 
@@ -2277,10 +2313,10 @@ function closeAddUserModal() {
 }
 
 async function submitUserToProjectRegular() {
-    const username = document.getElementById('add-user-username-regular').value.trim();
+    const usernameInput = document.getElementById('add-user-username-regular').value.trim();
 
     // Валидация
-    if (!username) {
+    if (!usernameInput) {
         showError('Пожалуйста, введите username');
         return;
     }
@@ -2289,6 +2325,9 @@ async function submitUserToProjectRegular() {
         showError('Проект не выбран');
         return;
     }
+
+    // Strip @ from username if present
+    const username = usernameInput.startsWith('@') ? usernameInput.substring(1) : usernameInput;
 
     try {
         const response = await apiCall(`/api/projects/${currentProjectId}/users`, {
@@ -2309,7 +2348,16 @@ async function submitUserToProjectRegular() {
         }
     } catch (error) {
         console.error('Failed to add user to project:', error);
-        showError('Ошибка при добавлении пользователя');
+
+        // Handle specific error cases
+        const errorMessage = error.message || '';
+        if (errorMessage.includes('404') || errorMessage.includes('not found')) {
+            showError('Пользователь не найден. Попросите их запустить бота командой /start');
+        } else if (errorMessage.includes('403')) {
+            showError('У вас нет доступа к этому проекту');
+        } else {
+            showError('Ошибка при добавлении пользователя');
+        }
     }
 }
 

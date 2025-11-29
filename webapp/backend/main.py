@@ -73,6 +73,19 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     try:
         user = update.effective_user
+
+        # Register user in database
+        try:
+            db.add_user(
+                user_id=str(user.id),
+                username=user.username or "",
+                first_name=user.first_name or "",
+                last_name=user.last_name or ""
+            )
+            logger.info(f"User registered/updated: {user.id} (@{user.username})")
+        except Exception as e:
+            logger.warning(f"Failed to register user: {e}")
+
         keyboard = [
             [KeyboardButton(
                 text="📊 Открыть Аналитику",
@@ -173,6 +186,9 @@ class AccountSnapshot(BaseModel):
     comments: int = 0
     videos: int = 0
     views: int = 0
+
+class AddUserToProject(BaseModel):
+    username: str
 
 # ============ Telegram WebApp Аутентификация ============
 
@@ -280,6 +296,52 @@ async def get_project(project_id: str, user: dict = Depends(get_current_user)):
         "project": project,
         "users": users
     }
+
+@app.post("/api/projects/{project_id}/users")
+async def add_user_to_project_endpoint(
+    project_id: str,
+    data: AddUserToProject,
+    user: dict = Depends(get_current_user)
+):
+    """Добавить пользователя в проект по username"""
+    # Проверяем доступ к проекту
+    user_id = str(user.get('id'))
+    user_projects = project_manager.get_user_projects(user_id)
+    if not any(p['id'] == project_id for p in user_projects):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    # Strip @ from username if present
+    username = data.username.strip().lstrip('@')
+
+    # Look up user by username in the database
+    try:
+        db.cursor.execute(
+            "SELECT user_id FROM users WHERE username = ?",
+            (username,)
+        )
+        result = db.cursor.fetchone()
+
+        if not result:
+            raise HTTPException(
+                status_code=404,
+                detail="User not found. Please ask them to /start the bot first."
+            )
+
+        target_user_id = result[0]
+
+        # Add user to project
+        success = project_manager.add_user_to_project(project_id, target_user_id)
+
+        if not success:
+            raise HTTPException(status_code=400, detail="Failed to add user to project")
+
+        return {"success": True, "message": f"User @{username} added to project"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error adding user to project: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/admin/projects")
 async def create_project(
