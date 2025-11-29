@@ -964,6 +964,33 @@ function showSuccess(message) {
     }, 3000);
 }
 
+function showWarning(message) {
+    // Create warning notification (yellow/blue)
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: linear-gradient(135deg, #ffd89b 0%, #19547b 100%);
+        color: white;
+        padding: 15px 25px;
+        border-radius: 12px;
+        z-index: 9999;
+        font-weight: 600;
+        box-shadow: 0 10px 30px rgba(255, 216, 155, 0.3);
+        max-width: 80%;
+        text-align: center;
+    `;
+    notification.textContent = message;
+    document.body.appendChild(notification);
+
+    // Remove after 3 seconds
+    setTimeout(() => {
+        notification.remove();
+    }, 3000);
+}
+
 // ==================== SIDEBAR ====================
 function openSidebar() {
     const sidebar = document.getElementById('sidebar');
@@ -2291,6 +2318,15 @@ async function submitUserToProject() {
 
         // Handle specific error cases
         const errorMessage = error.message || '';
+
+        // User already in project - show warning and close modal (success behavior)
+        if (errorMessage.includes('already in this project') ||
+            (errorMessage.includes('400') && errorMessage.toLowerCase().includes('already'))) {
+            showWarning('Пользователь уже в этом проекте');
+            closeAddUserToProjectModal();
+            return;
+        }
+
         if (errorMessage.includes('404') || errorMessage.includes('not found')) {
             showError('Пользователь не найден. Попросите их запустить бота командой /start');
         } else if (errorMessage.includes('403')) {
@@ -2351,6 +2387,15 @@ async function submitUserToProjectRegular() {
 
         // Handle specific error cases
         const errorMessage = error.message || '';
+
+        // User already in project - show warning and close modal (success behavior)
+        if (errorMessage.includes('already in this project') ||
+            (errorMessage.includes('400') && errorMessage.toLowerCase().includes('already'))) {
+            showWarning('Пользователь уже в этом проекте');
+            closeAddUserModal();
+            return;
+        }
+
         if (errorMessage.includes('404') || errorMessage.includes('not found')) {
             showError('Пользователь не найден. Попросите их запустить бота командой /start');
         } else if (errorMessage.includes('403')) {

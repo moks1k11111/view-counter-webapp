@@ -329,6 +329,16 @@ async def add_user_to_project_endpoint(
 
         target_user_id = result[0]
 
+        # Check if user is already in the project
+        db.cursor.execute(
+            "SELECT COUNT(*) FROM project_users WHERE project_id = ? AND user_id = ?",
+            (project_id, target_user_id)
+        )
+        already_exists = db.cursor.fetchone()[0] > 0
+
+        if already_exists:
+            raise HTTPException(status_code=400, detail="User is already in this project")
+
         # Add user to project
         success = project_manager.add_user_to_project(project_id, target_user_id)
 
