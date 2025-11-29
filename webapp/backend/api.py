@@ -44,7 +44,7 @@ project_manager = ProjectManager(db)
 
 # Инициализация Google Sheets для проектов
 try:
-    project_sheets = ProjectSheetsManager(GOOGLE_SHEETS_CREDENTIALS, "MainBD")
+    project_sheets = ProjectSheetsManager(GOOGLE_SHEETS_CREDENTIALS, "MainBD", GOOGLE_SHEETS_CREDENTIALS_JSON)
 except Exception as e:
     print(f"⚠️  Project Sheets Manager не подключен: {e}")
     project_sheets = None
@@ -255,17 +255,37 @@ async def get_project_analytics(
     # Получаем ВСЕХ пользователей проекта из БД
     project_users = project_manager.get_project_users(project_id)
 
-    # Получаем все профили проекта (Безопасная загрузка из Google Sheets)
+    # Получаем все аккаунты проекта из Project Sheets (новый подход)
     all_profiles = []
-    if sheets_db:
+    if project_sheets:
         try:
-            all_profiles = sheets_db.get_all_profiles(
-                platform=platform,
-                project_name=project['name']
-            )
+            # Получаем аккаунты из листа проекта
+            sheet_accounts = project_sheets.get_project_accounts(project['name'])
+
+            # Преобразуем формат данных из Google Sheets в формат, ожидаемый analytics
+            for account in sheet_accounts:
+                # Маппинг полей Google Sheets -> analytics формат
+                profile = {
+                    'telegram_user': account.get('Telegram User', account.get('@Username', 'Manual')),
+                    'total_views': account.get('Views', 0),
+                    'platform': account.get('Platform', 'TIKTOK').lower(),
+                    'topic': account.get('Тематика', 'Не указано'),
+                    'username': account.get('@Username', ''),
+                    'profile_link': account.get('Link', ''),
+                    'followers': account.get('Followers', 0),
+                    'likes': account.get('Likes', 0),
+                    'comments': account.get('Comments', 0),
+                    'videos': account.get('Videos', 0),
+                    'status': account.get('Status', 'NEW')
+                }
+                all_profiles.append(profile)
+
+            print(f"✅ Загружено {len(all_profiles)} аккаунтов из проектного листа '{project['name']}'")
         except Exception as e:
-            print(f"⚠️ Ошибка получения профилей из Sheets: {e}")
-            # Не падаем, просто возвращаем пустой список профилей
+            print(f"⚠️ Ошибка получения аккаунтов из Project Sheets: {e}")
+            import traceback
+            traceback.print_exc()
+            # Не падаем, просто возвращаем пустой список
             all_profiles = []
 
     # Инициализируем статистику для ВСЕХ пользователей проекта

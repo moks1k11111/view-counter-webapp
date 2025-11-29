@@ -84,7 +84,7 @@ class ProjectSheetsManager:
             worksheet = self.spreadsheet.add_worksheet(
                 title=project_name,
                 rows=1000,
-                cols=11
+                cols=12
             )
 
             # Добавляем заголовки
@@ -99,12 +99,13 @@ class ProjectSheetsManager:
                 "Last Update",
                 "Status",
                 "Тематика",
-                "Platform"
+                "Platform",
+                "Telegram User"
             ]
             worksheet.append_row(headers)
 
             # Форматируем заголовки
-            worksheet.format('A1:K1', {
+            worksheet.format('A1:L1', {
                 "textFormat": {"bold": True},
                 "horizontalAlignment": "CENTER",
                 "backgroundColor": {
@@ -152,7 +153,8 @@ class ProjectSheetsManager:
                 datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 account_data.get('status', 'NEW'),
                 account_data.get('topic', ''),
-                account_data.get('platform', 'tiktok').upper()
+                account_data.get('platform', 'tiktok').upper(),
+                account_data.get('telegram_user', 'Manual')
             ]
 
             worksheet.append_row(row)
