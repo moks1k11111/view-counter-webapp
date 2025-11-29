@@ -287,7 +287,7 @@ async function renderProjects(projects) {
         const lockIcon = hasAccess ? '🔓' : '🔒';
         const lockColor = hasAccess ? '#4CAF50' : '#F44336';
         const cardOpacity = hasAccess ? '1' : '0.6';
-        const clickHandler = hasAccess ? `onclick="openProject('${project.id}')"` : `onclick="showAccessDenied()"`;
+        const clickHandler = hasAccess ? `onclick="openProject('${project.id}', 'user')"` : `onclick="showAccessDenied()"`;
         const cursorStyle = hasAccess ? 'cursor: pointer;' : 'cursor: not-allowed;';
         const lockedClass = hasAccess ? '' : 'project-card-locked';
 
@@ -392,7 +392,7 @@ async function renderMyProjects(projects) {
     }));
 
     myProjectsList.innerHTML = projectsWithMyStats.map((project, index) => `
-        <div class="project-card-detailed" onclick="openProject('${project.id}')">
+        <div class="project-card-detailed" onclick="openProject('${project.id}', 'user')">
             <div class="project-header">
                 <h3 class="project-name">${project.name}</h3>
                 <span class="project-geo">${project.geo || 'Global'}</span>
@@ -465,8 +465,8 @@ let currentProjectData = null;
 let currentSwipeIndex = 0;
 let swipeStartX = 0;
 
-async function openProject(projectId) {
-    console.log('Opening project:', projectId);
+async function openProject(projectId, mode = 'user') {
+    console.log('Opening project:', projectId, 'mode:', mode);
 
     try {
         // Загружаем данные проекта
@@ -479,6 +479,29 @@ async function openProject(projectId) {
 
         // Обновляем заголовок
         document.getElementById('project-details-name').textContent = analytics.project.name;
+
+        // Динамически рендерим кнопки в зависимости от режима
+        const actionsContainer = document.getElementById('project-header-actions');
+        if (actionsContainer) {
+            if (mode === 'admin') {
+                // Админ режим: кнопки "Импорт из Google" и "Добавить участника"
+                actionsContainer.innerHTML = `
+                    <button class="btn-secondary" onclick="importFromSheets()" style="padding: 8px 16px; font-size: 14px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 50%); color: white; border: none; border-radius: 8px; cursor: pointer;">
+                        <i class="fa-solid fa-download"></i> Импорт из Google
+                    </button>
+                    <button class="btn-primary" onclick="openAddUserToProjectModal()" style="padding: 8px 16px; font-size: 14px;">
+                        <i class="fa-solid fa-user-plus"></i> Добавить участника
+                    </button>
+                `;
+            } else {
+                // Пользовательский режим: кнопка "Добавить аккаунт"
+                actionsContainer.innerHTML = `
+                    <button class="btn-primary" onclick="openAddSocialAccountModal()" style="padding: 8px 16px; font-size: 14px;">
+                        <i class="fa-solid fa-plus"></i> Добавить аккаунт
+                    </button>
+                `;
+            }
+        }
 
         // Отображаем суммарную статистику
         displaySummaryStats(analytics);
@@ -1954,8 +1977,10 @@ function renderProjectManagementList(projects) {
 }
 
 async function openProjectDetailsFromAdmin(projectId) {
-    document.querySelectorAll('.page').forEach(page => page.classList.add('hidden'));
-    document.getElementById('project-details-page').classList.remove('hidden');
+    // Use openProject with 'admin' mode for dynamic button rendering
+    await openProject(projectId, 'admin');
+
+    // Load additional admin-specific data
     await loadProjectDetailsForAdmin(projectId);
 }
 
@@ -2366,8 +2391,9 @@ async function submitUserToProject() {
             })
         });
 
+        // Success: user was added successfully
         if (response.success) {
-            showSuccess('Пользователь успешно добавлен в проект');
+            showSuccess('Пользователь добавлен');
             closeAddUserToProjectModal();
 
             // Обновляем детали проекта
@@ -2448,8 +2474,9 @@ async function submitUserToProjectRegular() {
             })
         });
 
+        // Success: user was added successfully
         if (response.success) {
-            showSuccess('Пользователь успешно добавлен в проект');
+            showSuccess('Пользователь добавлен');
             closeAddUserModal();
 
             // Обновляем детали проекта
