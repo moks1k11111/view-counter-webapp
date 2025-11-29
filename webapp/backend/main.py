@@ -76,10 +76,13 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
         # Register user in database
         try:
+            print(f"🔍 DEBUG: Saving user to DB - ID: {user.id}, Username: {user.username}, Name: {user.first_name} {user.last_name}")
             db.add_user(user.id, user.username, user.first_name, user.last_name)
-            print(f"✅ User {user.id} saved to DB")
+            print(f"✅ User {user.id} (@{user.username}) saved/updated in persistent DB")
         except Exception as e:
             print(f"⚠️ Error saving user: {e}")
+            import traceback
+            traceback.print_exc()
 
         keyboard = [
             [KeyboardButton(
@@ -310,6 +313,7 @@ async def add_user_to_project_endpoint(
 
     # Look up user by username in the database (case-insensitive)
     try:
+        print(f"🔍 DEBUG: Looking up user with username: '{username}' (case-insensitive)")
         db.cursor.execute(
             "SELECT user_id, first_name FROM users WHERE LOWER(username) = LOWER(?)",
             (username,)
@@ -317,10 +321,13 @@ async def add_user_to_project_endpoint(
         result = db.cursor.fetchone()
 
         if not result:
+            print(f"❌ User '{username}' not found in database")
             raise HTTPException(
                 status_code=404,
                 detail="User not found. Please ask them to /start the bot first."
             )
+
+        print(f"✅ User found: {result[0]} (first_name: {result[1]})")
 
         target_user_id = result[0]
 
