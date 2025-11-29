@@ -1933,7 +1933,7 @@ async function loadProjectDetailsForAdmin(projectId) {
 
         // Загружаем детальную информацию о проекте
         const analyticsResponse = await fetch(`${API_BASE_URL}/api/projects/${projectId}/analytics`, {
-            headers: { 'X-Telegram-Init-Data': window.initData }
+            headers: { 'X-Telegram-Init-Data': tg.initData }
         });
 
         if (!analyticsResponse.ok) {
