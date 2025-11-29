@@ -7,7 +7,13 @@ import os
 import hmac
 import hashlib
 import json
+import asyncio
+import logging
 from urllib.parse import parse_qsl
+
+# Telegram Bot Imports
+from telegram import Update, WebAppInfo, KeyboardButton, ReplyKeyboardMarkup
+from telegram.ext import Application, CommandHandler, ContextTypes
 
 # Добавляем путь к родительской директории
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
@@ -17,6 +23,16 @@ from database_sqlite import SQLiteDatabase
 from project_manager import ProjectManager
 from project_sheets_manager import ProjectSheetsManager
 from config import TELEGRAM_TOKEN, DEFAULT_GOOGLE_SHEETS_NAME, GOOGLE_SHEETS_CREDENTIALS, GOOGLE_SHEETS_CREDENTIALS_JSON, ADMIN_IDS
+
+# WebApp Config
+WEBAPP_URL = "https://moks1k11111.github.io/view-counter-webapp/webapp/frontend/index.html?v=6"
+
+# Logging
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="View Counter WebApp API")
 
@@ -48,6 +64,68 @@ try:
 except Exception as e:
     print(f"⚠️  Project Sheets Manager не подключен: {e}")
     project_sheets = None
+
+# ============ TELEGRAM BOT LOGIC ============
+
+async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handler for /start command"""
+    logger.info(f"Received /start from {update.effective_user.id}")
+
+    try:
+        user = update.effective_user
+        keyboard = [
+            [KeyboardButton(
+                text="📊 Открыть Аналитику",
+                web_app=WebAppInfo(url=WEBAPP_URL)
+            )]
+        ]
+        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+
+        await update.message.reply_text(
+            f"👋 Привет, {user.first_name}!\n\n"
+            "Сервер Render работает ✅\n"
+            "Нажми кнопку ниже, чтобы открыть панель аналитики:",
+            reply_markup=reply_markup
+        )
+    except Exception as e:
+        logger.error(f"Error in start_command: {e}")
+
+async def run_telegram_bot():
+    """Background task to run the Telegram bot"""
+    if not TELEGRAM_TOKEN:
+        logger.error("❌ No TELEGRAM_TOKEN found")
+        return
+
+    logger.info("🚀 Starting Telegram Bot in background...")
+    try:
+        bot_app = Application.builder().token(TELEGRAM_TOKEN).build()
+        bot_app.add_handler(CommandHandler("start", start_command))
+
+        # ВАЖНО: Удаляем webhook перед polling
+        logger.info("Deleting webhook...")
+        await bot_app.bot.delete_webhook(drop_pending_updates=True)
+
+        # Start polling
+        logger.info("Starting polling...")
+        await bot_app.initialize()
+        await bot_app.start()
+        await bot_app.updater.start_polling()
+
+        logger.info("✅ Bot polling started successfully on Render")
+
+        # Keep running
+        while True:
+            await asyncio.sleep(1)
+
+    except Exception as e:
+        logger.error(f"❌ Bot failed to start: {e}")
+
+@app.on_event("startup")
+async def startup_event():
+    """Start bot when FastAPI starts"""
+    logger.info("🚀 FastAPI starting up...")
+    # Start bot in background
+    asyncio.create_task(run_telegram_bot())
 
 # ============ Модели данных ============
 
@@ -148,7 +226,7 @@ async def get_current_user(x_telegram_init_data: str = Header(None)) -> dict:
 
 @app.get("/")
 async def root():
-    return {"message": "View Counter WebApp API", "version": "1.0"}
+    return {"message": "View Counter WebApp API + Telegram Bot", "version": "2.0", "bot_enabled": bool(TELEGRAM_TOKEN)}
 
 @app.get("/api/me")
 async def get_me(user: dict = Depends(get_current_user)):
