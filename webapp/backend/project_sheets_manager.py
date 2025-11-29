@@ -93,19 +93,17 @@ class ProjectSheetsManager:
                 "Link",
                 "Followers",
                 "Likes",
-                "Comments",
+                "Following",
                 "Videos",
                 "Views",
                 "Last Update",
                 "Status",
-                "Тематика",
-                "Platform",
-                "Telegram User"
+                "Тематика"
             ]
             worksheet.append_row(headers)
 
             # Форматируем заголовки
-            worksheet.format('A1:L1', {
+            worksheet.format('A1:J1', {
                 "textFormat": {"bold": True},
                 "horizontalAlignment": "CENTER",
                 "backgroundColor": {
@@ -143,18 +141,16 @@ class ProjectSheetsManager:
 
             # Подготавливаем данные
             row = [
-                account_data.get('username', ''),
-                account_data.get('profile_link', ''),
-                account_data.get('followers', 0),
-                account_data.get('likes', 0),
-                account_data.get('comments', 0),
-                account_data.get('videos', 0),
-                account_data.get('views', 0),
-                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                account_data.get('status', 'NEW'),
-                account_data.get('topic', ''),
-                account_data.get('platform', 'tiktok').upper(),
-                account_data.get('telegram_user', 'Manual')
+                account_data.get('telegram_user', 'Manual'),  # @Username - Telegram User
+                account_data.get('profile_link', ''),         # Link
+                account_data.get('followers', 0),             # Followers
+                account_data.get('likes', 0),                 # Likes
+                account_data.get('following', 0),             # Following
+                account_data.get('videos', 0),                # Videos
+                account_data.get('views', 0),                 # Views
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S"), # Last Update
+                account_data.get('status', 'NEW'),            # Status
+                account_data.get('topic', '')                 # Тематика
             ]
 
             worksheet.append_row(row)
@@ -195,8 +191,8 @@ class ProjectSheetsManager:
                 updates.append(gspread.Cell(row_number, 3, stats['followers']))
             if 'likes' in stats:
                 updates.append(gspread.Cell(row_number, 4, stats['likes']))
-            if 'comments' in stats:
-                updates.append(gspread.Cell(row_number, 5, stats['comments']))
+            if 'following' in stats:
+                updates.append(gspread.Cell(row_number, 5, stats['following']))
             if 'videos' in stats:
                 updates.append(gspread.Cell(row_number, 6, stats['videos']))
             if 'views' in stats:
