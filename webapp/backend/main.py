@@ -308,10 +308,10 @@ async def add_user_to_project_endpoint(
     # Strip @ from username if present
     username = data.username.strip().lstrip('@')
 
-    # Look up user by username in the database
+    # Look up user by username in the database (case-insensitive)
     try:
         db.cursor.execute(
-            "SELECT user_id FROM users WHERE username = ?",
+            "SELECT user_id, first_name FROM users WHERE LOWER(username) = LOWER(?)",
             (username,)
         )
         result = db.cursor.fetchone()

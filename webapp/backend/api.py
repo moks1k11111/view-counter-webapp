@@ -460,28 +460,25 @@ async def add_social_account(
     if project_sheets:
         try:
             # Извлекаем Telegram username из user объекта
-            telegram_username = user.get('username', '')
-            if not telegram_username:
-                telegram_username = user.get('first_name', 'Unknown')
-            else:
-                telegram_username = f"@{telegram_username}"
+            tg_username = user.get('username')
+            display_name = f"@{tg_username}" if tg_username else user.get('first_name', 'Unknown')
 
             # Создаем лист проекта если не существует
             project_sheets.create_project_sheet(project['name'])
 
-            # Добавляем аккаунт в лист
+            # Добавляем аккаунт в лист с явным указанием telegram_user
             project_sheets.add_account_to_sheet(project['name'], {
                 'username': account.username,
                 'profile_link': account.profile_link,
                 'followers': 0,
                 'likes': 0,
-                'comments': 0,
+                'following': 0,
                 'videos': 0,
                 'views': 0,
                 'status': account.status,
                 'topic': account.topic,
                 'platform': account.platform,
-                'telegram_user': telegram_username
+                'telegram_user': display_name
             })
         except Exception as e:
             print(f"⚠️  Ошибка добавления в Google Sheets: {e}")
