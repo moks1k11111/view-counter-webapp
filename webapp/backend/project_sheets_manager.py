@@ -238,6 +238,15 @@ class ProjectSheetsManager:
             logger.error(f"❌ Ошибка получения аккаунтов: {e}")
             return []
 
+    def read_project_sheet(self, project_name: str) -> List[Dict]:
+        """
+        Чтение данных из листа проекта (алиас для get_project_accounts)
+
+        :param project_name: Название проекта
+        :return: Список записей из Google Sheet
+        """
+        return self.get_project_accounts(project_name)
+
     def delete_project_sheet(self, project_name: str) -> bool:
         """
         Удаление листа проекта

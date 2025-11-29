@@ -2073,6 +2073,63 @@ function renderProjectUsersList(usersStats) {
     usersList.innerHTML = usersHTML;
 }
 
+// Импорт данных из Google Sheets в БД
+async function importFromSheets() {
+    if (!currentProjectId) {
+        showError('Проект не выбран');
+        return;
+    }
+
+    try {
+        // Показываем индикатор загрузки
+        const importButton = event.target.closest('button');
+        const originalText = importButton.innerHTML;
+        importButton.disabled = true;
+        importButton.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Импорт...';
+
+        // Вызываем API
+        const response = await apiCall(`/api/projects/${currentProjectId}/import_from_sheets`, {
+            method: 'POST'
+        });
+
+        if (response.success) {
+            showSuccess(response.message || `Импортировано: ${response.updated_count} аккаунтов обновлено`);
+
+            // Обновляем данные проекта
+            await loadProjectDetailsForAdmin(currentProjectId);
+        } else {
+            showError(response.message || 'Не удалось импортировать данные');
+        }
+
+        // Восстанавливаем кнопку
+        importButton.disabled = false;
+        importButton.innerHTML = originalText;
+
+    } catch (error) {
+        console.error('Failed to import from sheets:', error);
+
+        // Восстанавливаем кнопку
+        if (event && event.target) {
+            const importButton = event.target.closest('button');
+            if (importButton) {
+                importButton.disabled = false;
+                importButton.innerHTML = '<i class="fa-solid fa-download"></i> Импорт из Google';
+            }
+        }
+
+        const errorMessage = error.message || '';
+        if (errorMessage.includes('503')) {
+            showError('Google Sheets не подключен');
+        } else if (errorMessage.includes('403')) {
+            showError('У вас нет доступа к этому проекту');
+        } else if (errorMessage.includes('404')) {
+            showError('Проект не найден');
+        } else {
+            showError('Ошибка при импорте данных');
+        }
+    }
+}
+
 // Модалка добавления проекта
 function openAddProjectModal() {
     document.getElementById('add-project-modal').classList.remove('hidden');
@@ -2336,10 +2393,10 @@ async function submitUserToProject() {
             errorDetail = errorMessage;
         }
 
-        // User already in project - show info notification and close modal (success behavior)
+        // User already in project - show success/info notification and close modal (success behavior)
         if (errorDetail.toLowerCase().includes('already in this project') ||
             errorDetail.toLowerCase().includes('already in project')) {
-            showWarning('Пользователь уже в этом проекте');
+            showSuccess('Пользователь уже в проекте');
             closeAddUserToProjectModal();
             return;
         }
@@ -2418,10 +2475,10 @@ async function submitUserToProjectRegular() {
             errorDetail = errorMessage;
         }
 
-        // User already in project - show info notification and close modal (success behavior)
+        // User already in project - show success/info notification and close modal (success behavior)
         if (errorDetail.toLowerCase().includes('already in this project') ||
             errorDetail.toLowerCase().includes('already in project')) {
-            showWarning('Пользователь уже в этом проекте');
+            showSuccess('Пользователь уже в проекте');
             closeAddUserModal();
             return;
         }

@@ -749,6 +749,99 @@ async def get_account_daily_stats(
     )
     return {"success": True, "stats": stats}
 
+@app.post("/api/projects/{project_id}/import_from_sheets")
+async def import_from_sheets(
+    project_id: str,
+    user: dict = Depends(get_current_user)
+):
+    """Импортировать данные из Google Sheets в БД (Reverse Sync)"""
+    # Проверяем доступ к проекту
+    user_id = str(user.get('id'))
+    user_projects = project_manager.get_user_projects(user_id)
+    if not any(p['id'] == project_id for p in user_projects):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    # Получаем проект
+    project = project_manager.get_project(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    if not project_sheets:
+        raise HTTPException(status_code=503, detail="Google Sheets integration not available")
+
+    try:
+        # Читаем данные из Google Sheet
+        sheet_data = project_sheets.read_project_sheet(project['name'])
+
+        if not sheet_data:
+            return {
+                "success": True,
+                "message": "No data found in Google Sheet",
+                "imported_count": 0,
+                "updated_count": 0
+            }
+
+        imported_count = 0
+        updated_count = 0
+
+        for row in sheet_data:
+            try:
+                username = row.get('@Username', '').strip()
+                link = row.get('Link', '').strip()
+
+                if not username and not link:
+                    continue
+
+                # Пытаемся найти аккаунт в БД по username или link
+                accounts = project_manager.get_project_social_accounts(project_id)
+                matching_account = None
+
+                for acc in accounts:
+                    if (username and acc.get('username') == username) or \
+                       (link and acc.get('profile_link') == link):
+                        matching_account = acc
+                        break
+
+                if matching_account:
+                    # Обновляем существующий аккаунт через snapshot
+                    followers = int(row.get('Followers', 0) or 0)
+                    likes = int(row.get('Likes', 0) or 0)
+                    comments = int(row.get('Comments', 0) or 0)
+                    videos = int(row.get('Videos', 0) or 0)
+                    views = int(row.get('Views', 0) or 0)
+
+                    # Добавляем snapshot
+                    success = project_manager.add_account_snapshot(
+                        account_id=matching_account['id'],
+                        followers=followers,
+                        likes=likes,
+                        comments=comments,
+                        videos=videos,
+                        views=views
+                    )
+
+                    if success:
+                        updated_count += 1
+                        logger.info(f"Updated account {username or link} from Sheets")
+                else:
+                    # Аккаунт не найден - можно создать новый (опционально)
+                    logger.warning(f"Account {username or link} not found in DB, skipping")
+
+            except Exception as e:
+                logger.error(f"Error importing row: {e}")
+                continue
+
+        return {
+            "success": True,
+            "message": f"Import completed: {updated_count} accounts updated",
+            "imported_count": imported_count,
+            "updated_count": updated_count
+        }
+
+    except Exception as e:
+        logger.error(f"Error importing from sheets: {e}")
+        raise HTTPException(status_code=500, detail=f"Import failed: {str(e)}")
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
