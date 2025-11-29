@@ -450,11 +450,17 @@ function closeProjectDetails() {
 }
 
 function displaySummaryStats(analytics) {
-    const { project, total_views, users_stats } = analytics;
+    const { project, total_views, users_stats, topic_stats } = analytics;
 
     // Вычисляем количество профилей и видео
     const profilesCount = Object.keys(users_stats || {}).length;
     const totalVideos = 0; // TODO: добавить подсчет видео когда данные будут доступны
+
+    // Рассчитываем количество тематик
+    const totalTopics = Object.keys(topic_stats || {}).length;
+
+    // Рассчитываем количество участников
+    const totalParticipants = Object.keys(users_stats || {}).length;
 
     // Процент выполнения
     const progress = project.target_views > 0
@@ -465,6 +471,8 @@ function displaySummaryStats(analytics) {
     document.getElementById('detail-progress').textContent = `${progress}%`;
     document.getElementById('detail-total-videos').textContent = totalVideos;
     document.getElementById('detail-total-profiles').textContent = profilesCount;
+    document.getElementById('detail-total-topics').textContent = totalTopics;
+    document.getElementById('detail-total-participants').textContent = totalParticipants;
 }
 
 function createChartSlides(analytics) {
@@ -1154,14 +1162,6 @@ async function loadAdminData() {
 
         let totalUsers = uniqueUsers.size;
 
-        // Если нет реальных данных, используем тестовые
-        if (totalUsers === 0) {
-            console.log('No real data, using test data for admin stats');
-            totalUsers = 25; // 25 тестовых пользователей
-            totalProfiles = 427; // Сумма всех профилей тестовых пользователей
-            totalViews = 3567800; // Сумма всех тестовых просмотров
-        }
-
         // Обновляем UI с проверками
         const adminTotalUsersEl = document.getElementById('admin-total-users');
         const adminTotalProjectsEl = document.getElementById('admin-total-projects');
@@ -1786,16 +1786,9 @@ async function loadProjectManagementList() {
         let projects = currentProjects || [];
         if (projects.length === 0) {
             debugLog('📥 currentProjects пуст, загружаем из API');
-            const response = await fetch(`${API_BASE_URL}/api/projects`, {
-                headers: { 'X-Telegram-Init-Data': window.initData }
-            });
-            if (response.ok) {
-                projects = await response.json();
-                currentProjects = projects;
-                debugLog('✅ Проекты загружены из API', { count: projects.length });
-            } else {
-                throw new Error(`API Error: ${response.status}`);
-            }
+            projects = await apiCall('/api/projects');
+            currentProjects = projects;
+            debugLog('✅ Проекты загружены из API', { count: projects.length });
         }
 
         debugLog('✅ Используем проекты из currentProjects', { count: projects.length, projects });
