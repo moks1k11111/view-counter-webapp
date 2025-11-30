@@ -139,9 +139,16 @@ class ProjectSheetsManager:
         try:
             worksheet = self.spreadsheet.worksheet(project_name)
 
+            # CRITICAL: Получаем telegram_user с проверкой на пустое значение
+            telegram_user = account_data.get('telegram_user') or 'Manual'
+
+            # DEBUG: Логируем что получили
+            print(f"🔍 SHEETS DEBUG: telegram_user from data = '{account_data.get('telegram_user')}'")
+            print(f"🔍 SHEETS DEBUG: final telegram_user = '{telegram_user}'")
+
             # Подготавливаем данные
             row = [
-                account_data.get('telegram_user', 'Manual'),  # @Username - Telegram User
+                telegram_user,                                # @Username - Telegram User
                 account_data.get('profile_link', ''),         # Link
                 account_data.get('followers', 0),             # Followers
                 account_data.get('likes', 0),                 # Likes
@@ -154,7 +161,7 @@ class ProjectSheetsManager:
             ]
 
             worksheet.append_row(row)
-            logger.info(f"✅ Аккаунт {account_data.get('username')} добавлен в {project_name}")
+            logger.info(f"✅ Аккаунт {account_data.get('username')} добавлен в {project_name} (Telegram User: {telegram_user})")
             return True
 
         except gspread.exceptions.WorksheetNotFound:
