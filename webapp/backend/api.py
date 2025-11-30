@@ -77,6 +77,7 @@ class SocialAccountCreate(BaseModel):
     profile_link: str
     status: str = "NEW"  # NEW, OLD, Ban
     topic: str = ""
+    telegram_user: Optional[str] = None  # Worker's Telegram username from frontend
 
 class SocialAccountUpdate(BaseModel):
     status: Optional[str] = None
@@ -438,26 +439,27 @@ async def add_social_account(
     user: dict = Depends(get_current_user)
 ):
     """Добавить социальный аккаунт в проект"""
-    # 1. Get Telegram username and first name
-    tg_username = user.get('username')
-    first_name = user.get('first_name')
-    user_id = user.get('id')
-
-    # 2. Set display name with multiple fallbacks
-    if tg_username and tg_username.strip():
-        display_name = f"@{tg_username.strip()}"
-    elif first_name and first_name.strip():
-        display_name = first_name.strip()
-    elif user_id:
-        display_name = f"User_{user_id}"
+    # 1. Use telegram_user from frontend if provided, otherwise extract from user object
+    if account.telegram_user and account.telegram_user.strip():
+        # Frontend explicitly sent the username - use it!
+        display_name = account.telegram_user.strip()
+        print(f"✅ Using telegram_user from FRONTEND: '{display_name}'")
     else:
-        display_name = "Unknown"
+        # Fallback: extract from user object
+        tg_username = user.get('username')
+        first_name = user.get('first_name')
+        user_id = user.get('id')
 
-    # 3. Debug log with full user info
-    print(f"🔍 API DEBUG: user object = {user}")
-    print(f"🔍 API DEBUG: tg_username = '{tg_username}'")
-    print(f"🔍 API DEBUG: first_name = '{first_name}'")
-    print(f"🔍 API DEBUG: final display_name = '{display_name}'")
+        if tg_username and tg_username.strip():
+            display_name = f"@{tg_username.strip()}"
+        elif first_name and first_name.strip():
+            display_name = first_name.strip()
+        elif user_id:
+            display_name = f"User_{user_id}"
+        else:
+            display_name = "Unknown"
+
+        print(f"⚠️ Using telegram_user from BACKEND extraction: '{display_name}'")
 
     # 4. Add to SQLite (with soft-delete support)
     result = project_manager.add_social_account_to_project(

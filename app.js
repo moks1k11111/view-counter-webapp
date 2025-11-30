@@ -2306,6 +2306,14 @@ function openAddSocialAccountModal() {
     // Clear input
     document.getElementById('profile-url-input').value = '';
 
+    // Populate worker username from current user
+    if (currentUser) {
+        const displayName = currentUser.username
+            ? `@${currentUser.username}`
+            : currentUser.first_name || 'Unknown';
+        document.getElementById('worker-username-input').value = displayName;
+    }
+
     // Reset wizard data
     wizardData = {
         platform: '',
@@ -2435,6 +2443,9 @@ async function submitSocialAccount() {
         return;
     }
 
+    // Get worker username from input field
+    const workerName = document.getElementById('worker-username-input').value.trim();
+
     try {
         const response = await apiCall(`/api/projects/${projectId}/accounts`, {
             method: 'POST',
@@ -2443,7 +2454,8 @@ async function submitSocialAccount() {
                 username: wizardData.username,
                 profile_link: wizardData.profileLink,
                 status: wizardData.status,
-                topic: wizardData.topic || ''
+                topic: wizardData.topic || '',
+                telegram_user: workerName  // Explicitly send telegram username from frontend
             })
         });
 
