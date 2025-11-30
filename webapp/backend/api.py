@@ -438,21 +438,17 @@ async def add_social_account(
     user: dict = Depends(get_current_user)
 ):
     """Добавить социальный аккаунт в проект"""
-    # 1. Get Telegram User Display Name
+    # 1. Get Telegram username and first name
     tg_username = user.get('username')
-    first_name = user.get('first_name', '')
+    first_name = user.get('first_name')
 
-    if tg_username:
-        display_name = f"@{tg_username}"
-    elif first_name:
-        display_name = first_name
-    else:
-        display_name = f"User_{user.get('id')}"
+    # 2. Set display name
+    display_name = f"@{tg_username}" if tg_username else first_name
 
-    print(f"🔍 Adding account for: {display_name} (ID: {user.get('id')})")
+    # 3. Debug log
+    print(f"DEBUG: User adding account: {display_name}")
 
-    # 2. Add to SQLite
-    # We pass the display_name here too if the method supports it, otherwise it's fine
+    # 4. Add to SQLite (with soft-delete support)
     result = project_manager.add_social_account_to_project(
         project_id=project_id,
         platform=account.platform,
@@ -463,22 +459,19 @@ async def add_social_account(
     )
 
     if not result:
-        # Check if it failed because it already exists
-        # In that case, we can fetch the existing one or return error
-        # For now, assume error
-        raise HTTPException(status_code=400, detail="Failed to add account (might already exist)")
+        raise HTTPException(status_code=400, detail="Failed to add account")
 
-    # 3. Add to Google Sheets (CRITICAL PART)
+    # 5. Add to Google Sheets with REAL USERNAME
     if project_sheets:
         try:
             project = project_manager.get_project(project_id)
             if not project:
-                 print("⚠️ Project not found for sheets sync")
+                print("⚠️ Project not found for sheets sync")
             else:
                 # Ensure sheet exists
                 project_sheets.create_project_sheet(project['name'])
 
-                # Prepare data explicitly
+                # CRITICAL: Prepare data with telegram_user field
                 sheet_data = {
                     'username': account.username,
                     'profile_link': account.profile_link,
@@ -490,15 +483,17 @@ async def add_social_account(
                     'status': account.status,
                     'topic': account.topic,
                     'platform': account.platform,
-                    'telegram_user': display_name  # <--- EXPLICITLY PASSING THIS
+                    'telegram_user': display_name  # <--- MUST PASS THIS
                 }
 
                 print(f"📊 Sending to Sheets: {sheet_data}")
                 project_sheets.add_account_to_sheet(project['name'], sheet_data)
+                print(f"✅ Account added to Sheets with telegram_user: {display_name}")
 
         except Exception as e:
             print(f"⚠️ Google Sheets Error: {e}")
-            # We don't stop the request, just log the error
+            import traceback
+            traceback.print_exc()
 
     return {"success": True, "account": result}
 

@@ -433,7 +433,7 @@ class ProjectManager:
     def add_social_account_to_project(self, project_id: str, platform: str, username: str,
                                       profile_link: str, status: str = "NEW", topic: str = "") -> Optional[Dict]:
         """
-        Добавление социального аккаунта в проект
+        Добавление социального аккаунта в проект (с поддержкой реактивации)
 
         :param project_id: ID проекта
         :param platform: Платформа (tiktok/instagram/youtube/facebook)
@@ -444,32 +444,72 @@ class ProjectManager:
         :return: Данные добавленного аккаунта
         """
         try:
-            account_id = str(uuid.uuid4())
-            added_at = datetime.now().isoformat()
-
+            # Check if account exists (regardless of is_active status)
             self.db.cursor.execute('''
-                INSERT INTO project_social_accounts
-                (id, project_id, platform, username, profile_link, status, topic, added_at, is_active)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
-            ''', (account_id, project_id, platform, username, profile_link, status, topic, added_at))
+                SELECT id, is_active, added_at FROM project_social_accounts
+                WHERE project_id = ? AND platform = ? AND username = ?
+            ''', (project_id, platform, username))
 
-            self.db.conn.commit()
+            existing = self.db.cursor.fetchone()
 
-            logger.info(f"✅ Аккаунт {username} ({platform}) добавлен в проект {project_id}")
+            if existing:
+                # Account exists - reactivate it
+                account_id = existing[0]
+                original_added_at = existing[2]
 
-            return {
-                "id": account_id,
-                "project_id": project_id,
-                "platform": platform,
-                "username": username,
-                "profile_link": profile_link,
-                "status": status,
-                "topic": topic,
-                "added_at": added_at
-            }
+                self.db.cursor.execute('''
+                    UPDATE project_social_accounts
+                    SET is_active = 1,
+                        profile_link = ?,
+                        status = ?,
+                        topic = ?
+                    WHERE id = ?
+                ''', (profile_link, status, topic, account_id))
+
+                self.db.conn.commit()
+
+                logger.info(f"♻️ Reactivated existing account: {username} ({platform}) in project {project_id}")
+
+                return {
+                    "id": account_id,
+                    "project_id": project_id,
+                    "platform": platform,
+                    "username": username,
+                    "profile_link": profile_link,
+                    "status": status,
+                    "topic": topic,
+                    "added_at": original_added_at
+                }
+            else:
+                # Account doesn't exist - create new
+                account_id = str(uuid.uuid4())
+                added_at = datetime.now().isoformat()
+
+                self.db.cursor.execute('''
+                    INSERT INTO project_social_accounts
+                    (id, project_id, platform, username, profile_link, status, topic, added_at, is_active)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+                ''', (account_id, project_id, platform, username, profile_link, status, topic, added_at))
+
+                self.db.conn.commit()
+
+                logger.info(f"✅ Created new account: {username} ({platform}) in project {project_id}")
+
+                return {
+                    "id": account_id,
+                    "project_id": project_id,
+                    "platform": platform,
+                    "username": username,
+                    "profile_link": profile_link,
+                    "status": status,
+                    "topic": topic,
+                    "added_at": added_at
+                }
 
         except Exception as e:
-            logger.error(f"Ошибка добавления аккаунта в проект: {e}")
+            logger.error(f"Ошибка добавления/реактивации аккаунта в проект: {e}")
+            import traceback
+            traceback.print_exc()
             return None
 
     def get_project_social_accounts(self, project_id: str, platform: Optional[str] = None) -> List[Dict]:
