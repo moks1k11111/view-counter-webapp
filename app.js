@@ -507,6 +507,7 @@ async function openProject(projectId, mode = 'user') {
     try {
         // Загружаем данные проекта
         const analytics = await apiCall(`/api/projects/${projectId}/analytics`);
+        console.log('🔍 DEBUG FRONTEND openProject: Full analytics =', JSON.stringify(analytics, null, 2));
         currentProjectData = analytics;
 
         // Показываем страницу детальной аналитики
@@ -2154,6 +2155,8 @@ async function loadProjectDetailsForAdmin(projectId) {
 
         const analytics = await analyticsResponse.json();
         console.log('✅ Analytics loaded successfully:', analytics);
+        console.log('🔍 DEBUG: analytics.total_videos =', analytics.total_videos);
+        console.log('🔍 DEBUG: analytics.total_profiles =', analytics.total_profiles);
         currentProjectDetailsData = analytics;
 
         // Обновляем название проекта
@@ -2167,7 +2170,9 @@ async function loadProjectDetailsForAdmin(projectId) {
         const usersCount = Object.keys(analytics.users_stats || {}).length;
         document.getElementById('pd-total-users').textContent = usersCount;
 
-        const totalProfiles = Object.values(analytics.users_stats || {}).reduce((sum, user) => sum + (user.profiles_count || 0), 0);
+        // Используем total_profiles из API вместо подсчета из users_stats
+        const totalProfiles = analytics.total_profiles || Object.values(analytics.users_stats || {}).reduce((sum, user) => sum + (user.profiles_count || 0), 0);
+        console.log('🔍 DEBUG: totalProfiles =', totalProfiles);
         document.getElementById('pd-total-profiles').textContent = totalProfiles;
 
         // Подсчитываем количество уникальных тематик
@@ -2181,6 +2186,8 @@ async function loadProjectDetailsForAdmin(projectId) {
 
         // Подсчитываем общее количество видео (если есть в аналитике)
         const totalVideos = analytics.total_videos || 0;
+        console.log('🔍 DEBUG FRONTEND: analytics.total_videos =', analytics.total_videos);
+        console.log('🔍 DEBUG FRONTEND: totalVideos =', totalVideos);
         document.getElementById('pd-total-videos').textContent = totalVideos;
 
         // Обновляем прогресс бар
