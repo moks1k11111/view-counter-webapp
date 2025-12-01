@@ -9,9 +9,22 @@ import hashlib
 import json
 import logging
 from urllib.parse import parse_qsl
+from datetime import datetime
 
-# Setup logger
+# Setup logger with proper configuration
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO,
+    force=True
+)
 logger = logging.getLogger(__name__)
+
+# Helper function for guaranteed output
+def log_critical(message):
+    """Log to both logger and stderr for guaranteed visibility"""
+    logger.info(message)
+    sys.stderr.write(f"{datetime.now()} - API - INFO - {message}\n")
+    sys.stderr.flush()
 
 # Добавляем путь к родительской директории
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
@@ -444,18 +457,18 @@ async def add_social_account(
 ):
     """Добавить социальный аккаунт в проект"""
 
-    logger.info("=" * 80)
-    logger.info("🚨 ADD_SOCIAL_ACCOUNT FUNCTION CALLED - VERSION 3.3 CODE RUNNING!")
-    logger.info("=" * 80)
+    log_critical("=" * 80)
+    log_critical("🚨 ADD_SOCIAL_ACCOUNT FUNCTION CALLED - VERSION 3.4 CODE RUNNING!")
+    log_critical("=" * 80)
 
     # DEBUG: Log what Pydantic received
-    logger.info(f"🔍 DEBUG: account.telegram_user = {repr(account.telegram_user)}")
-    logger.info(f"🔍 DEBUG: account.dict() = {account.dict()}")
+    log_critical(f"🔍 DEBUG: account.telegram_user = {repr(account.telegram_user)}")
+    log_critical(f"🔍 DEBUG: account.dict() = {account.dict()}")
 
     # 1. Check if frontend sent the name explicitly (must be non-empty string)
     if account.telegram_user and account.telegram_user.strip():
         display_name = account.telegram_user.strip()
-        logger.info(f"✅ Using telegram_user from FRONTEND: '{display_name}'")
+        log_critical(f"✅ Using telegram_user from FRONTEND: '{display_name}'")
     else:
         # 2. Fallback to initData extraction
         tg_username = user.get('username')
@@ -469,9 +482,9 @@ async def add_social_account(
         else:
             display_name = f"ID:{user.get('id')}"
 
-        logger.info(f"⚠️ Frontend value empty/missing, using initData: '{display_name}'")
+        log_critical(f"⚠️ Frontend value empty/missing, using initData: '{display_name}'")
 
-    logger.info(f"✅ FINAL USER: {display_name}")
+    log_critical(f"✅ FINAL USER: {display_name}")
 
     # 4. Add to SQLite (with soft-delete support)
     result = project_manager.add_social_account_to_project(
@@ -511,12 +524,12 @@ async def add_social_account(
                     'telegram_user': display_name
                 }
 
-                logger.info(f"📊 Sending to Sheets: telegram_user = '{display_name}'")
+                log_critical(f"📊 Sending to Sheets: telegram_user = '{display_name}'")
                 project_sheets.add_account_to_sheet(project['name'], sheet_data)
-                logger.info(f"✅ Added to Sheets: {account.username} by {display_name}")
+                log_critical(f"✅ Added to Sheets: {account.username} by {display_name}")
 
         except Exception as e:
-            logger.error(f"⚠️ Google Sheets Error: {e}")
+            log_critical(f"⚠️ Google Sheets Error: {e}")
             import traceback
             traceback.print_exc()
 
