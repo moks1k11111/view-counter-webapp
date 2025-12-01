@@ -576,21 +576,49 @@ async def get_my_analytics(
             logger.warning(f"⚠️ Could not load user profiles from sheets for project {project_name}: {e}")
 
     # Статистика
-    platform_stats = {"tiktok": 0, "instagram": 0, "facebook": 0, "youtube": 0}
+    platform_stats = {"tiktok": 0, "instagram": 0, "facebook": 0, "youtube": 0, "threads": 0}
     topic_stats = {}
     total_views = 0
+    total_videos = 0
 
     for profile in profiles:
         views = int(profile.get('total_views', 0) or 0)
+        videos = int(profile.get('videos', 0) or 0)
         plat = profile['platform']
         topic = profile.get('topic', 'Не указано')
 
         total_views += views
-        platform_stats[plat] += views
+        total_videos += videos
+        if plat in platform_stats:
+            platform_stats[plat] += views
 
         if topic:
             topic_stats[topic] = topic_stats.get(topic, 0) + views
 
+    # Если передан project_id, возвращаем полный формат как в /api/projects/{project_id}/analytics
+    if project_id and project:
+        # Создаем users_stats только для текущего пользователя
+        users_stats = {
+            telegram_user: {
+                "total_views": total_views,
+                "total_videos": total_videos,
+                "profiles_count": len(profiles)
+            }
+        }
+
+        return {
+            "project": project,
+            "total_views": total_views,
+            "total_videos": total_videos,
+            "total_profiles": len(profiles),
+            "platform_stats": platform_stats,
+            "topic_stats": topic_stats,
+            "users_stats": users_stats,
+            "target_views": project['target_views'],
+            "progress_percent": round((total_views / project['target_views'] * 100), 2) if project['target_views'] > 0 else 0
+        }
+
+    # Иначе возвращаем упрощенный формат (для общей статистики)
     return {
         "total_views": total_views,
         "platform_stats": platform_stats,

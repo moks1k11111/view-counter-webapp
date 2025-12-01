@@ -537,9 +537,17 @@ async function openProject(projectId, mode = 'user') {
     currentProjectId = projectId;
 
     try {
-        // Загружаем данные проекта
-        const analytics = await apiCall(`/api/projects/${projectId}/analytics`);
-        console.log('🔍 DEBUG FRONTEND openProject: Full analytics =', JSON.stringify(analytics, null, 2));
+        // Загружаем данные проекта в зависимости от режима
+        let analytics;
+        if (mode === 'user') {
+            // Пользовательский режим: показываем только статистику пользователя
+            analytics = await apiCall(`/api/my-analytics?project_id=${projectId}`);
+            console.log('🔍 DEBUG FRONTEND openProject (user mode): My analytics =', JSON.stringify(analytics, null, 2));
+        } else {
+            // Админ режим: показываем статистику всех
+            analytics = await apiCall(`/api/projects/${projectId}/analytics`);
+            console.log('🔍 DEBUG FRONTEND openProject (admin mode): Full analytics =', JSON.stringify(analytics, null, 2));
+        }
         currentProjectData = analytics;
 
         // Показываем страницу детальной аналитики
@@ -585,9 +593,10 @@ async function openProject(projectId, mode = 'user') {
         }
 
         // Показать/скрыть контроллы администратора проекта
+        // Показываем ТОЛЬКО в режиме 'admin'
         const adminProjectControls = document.getElementById('admin-project-controls');
         if (adminProjectControls) {
-            if (currentUser && ADMIN_IDS.includes(currentUser.id)) {
+            if (mode === 'admin' && currentUser && ADMIN_IDS.includes(currentUser.id)) {
                 adminProjectControls.classList.remove('hidden');
                 // Скрыть кнопку "Завершить" если проект уже завершен
                 const finishButton = adminProjectControls.querySelector('button[onclick*="finishProject"]');
