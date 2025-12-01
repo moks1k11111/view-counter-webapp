@@ -2458,21 +2458,6 @@ function openAddSocialAccountModal() {
     // Clear input
     document.getElementById('profile-url-input').value = '';
 
-    // Populate worker username from current user
-    let displayName = 'Unknown'; // Default fallback
-    if (currentUser) {
-        if (currentUser.username) {
-            displayName = `@${currentUser.username}`;
-        } else if (currentUser.first_name) {
-            displayName = currentUser.first_name;
-        } else if (currentUser.id) {
-            displayName = `ID:${currentUser.id}`;
-        }
-    }
-    console.log('🔍 FRONTEND DEBUG: Opening modal, currentUser =', currentUser);
-    console.log('🔍 FRONTEND DEBUG: Setting worker-username-input to:', displayName);
-    document.getElementById('worker-username-input').value = displayName;
-
     // Reset wizard data
     wizardData = {
         platform: '',
@@ -2602,18 +2587,28 @@ async function submitSocialAccount() {
         return;
     }
 
-    // Get worker username from input field
-    const workerName = document.getElementById('worker-username-input').value.trim();
+    // Автоматически определяем telegram_user из текущего пользователя
+    let telegramUser = 'Unknown'; // Default fallback
+    if (currentUser) {
+        if (currentUser.username) {
+            telegramUser = `@${currentUser.username}`;
+        } else if (currentUser.first_name) {
+            telegramUser = currentUser.first_name;
+        } else if (currentUser.id) {
+            telegramUser = `ID:${currentUser.id}`;
+        }
+    }
 
-    console.log('🔍 FRONTEND DEBUG: Sending telegram_user =', workerName);
+    console.log('🔍 FRONTEND DEBUG: Auto-detected telegram_user =', telegramUser);
+    console.log('🔍 FRONTEND DEBUG: Profile username (from link) =', wizardData.username);
 
     const requestBody = {
         platform: wizardData.platform,
-        username: wizardData.username,
+        username: wizardData.username,  // Username профиля соц. сети (извлечен из ссылки)
         profile_link: wizardData.profileLink,
         status: wizardData.status,
         topic: wizardData.topic || '',
-        telegram_user: workerName  // Explicitly send telegram username from frontend
+        telegram_user: telegramUser  // Telegram username текущего пользователя
     };
 
     console.log('🔍 FRONTEND DEBUG: Full request body =', requestBody);
