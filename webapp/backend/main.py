@@ -134,6 +134,7 @@ async def run_telegram_bot():
 @app.on_event("startup")
 async def startup_event():
     """Start bot when FastAPI starts"""
+    print("🚀 SERVER VERSION: 3.0 (USERNAME FIX APPLIED)")
     logger.info("🚀 FastAPI starting up...")
     # Start bot in background (won't crash API if bot fails)
     try:

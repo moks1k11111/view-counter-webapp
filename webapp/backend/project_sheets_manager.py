@@ -139,12 +139,8 @@ class ProjectSheetsManager:
         try:
             worksheet = self.spreadsheet.worksheet(project_name)
 
-            # CRITICAL: Получаем telegram_user с проверкой на пустое значение
-            telegram_user = account_data.get('telegram_user') or 'Manual'
-
-            # DEBUG: Логируем что получили
-            print(f"🔍 SHEETS DEBUG: telegram_user from data = '{account_data.get('telegram_user')}'")
-            print(f"🔍 SHEETS DEBUG: final telegram_user = '{telegram_user}'")
+            # Get telegram_user with fallback
+            telegram_user = account_data.get('telegram_user') or 'Unknown'
 
             # Подготавливаем данные
             row = [

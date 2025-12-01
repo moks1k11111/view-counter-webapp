@@ -440,42 +440,16 @@ async def add_social_account(
 ):
     """Добавить социальный аккаунт в проект"""
 
-    # DEBUG: Print full user object to see what we're working with
-    print(f"DEBUG: FULL USER OBJECT: {user}")
+    # Get User Info
+    tg_user_id = user.get('id')
+    tg_username = user.get('username')
+    tg_first = user.get('first_name', '')
 
-    # 1. Use telegram_user from frontend if provided, otherwise extract from user object
-    if account.telegram_user and account.telegram_user.strip():
-        # Frontend explicitly sent the username - use it!
-        display_name = account.telegram_user.strip()
-        print(f"✅ Using telegram_user from FRONTEND: '{display_name}'")
-    else:
-        # Fallback: extract from user object with bulletproof logic
-        print("⚠️ Frontend did not send telegram_user, extracting from backend...")
+    display_name = f"@{tg_username}" if tg_username else tg_first
+    if not display_name:
+        display_name = f"ID:{tg_user_id}"
 
-        # Try username first
-        tg_username = user.get('username')
-        print(f"  - user.get('username') = {repr(tg_username)}")
-
-        # If no username, try first_name + last_name
-        if not tg_username:
-            first = user.get('first_name', '')
-            last = user.get('last_name', '')
-            tg_username = f"{first} {last}".strip()
-            print(f"  - Trying first+last: '{tg_username}'")
-
-        # If still empty, use ID
-        if not tg_username:
-            tg_username = str(user.get('id', 'UnknownID'))
-            print(f"  - Falling back to ID: '{tg_username}'")
-
-        # Ensure it's a string
-        display_name = str(tg_username)
-
-        # Add @ prefix if it's a single word (username-like)
-        if not display_name.startswith('@') and ' ' not in display_name:
-            display_name = f"@{display_name}"
-
-        print(f"✅ FINAL display_name from BACKEND: '{display_name}'")
+    print(f"✅ PROCESSING ACCOUNT for USER: {display_name}")
 
     # 4. Add to SQLite (with soft-delete support)
     result = project_manager.add_social_account_to_project(
@@ -500,7 +474,7 @@ async def add_social_account(
                 # Ensure sheet exists
                 project_sheets.create_project_sheet(project['name'])
 
-                # CRITICAL: Prepare data with telegram_user field
+                # Prepare data with telegram_user field
                 sheet_data = {
                     'username': account.username,
                     'profile_link': account.profile_link,
@@ -512,12 +486,11 @@ async def add_social_account(
                     'status': account.status,
                     'topic': account.topic,
                     'platform': account.platform,
-                    'telegram_user': display_name  # <--- MUST PASS THIS
+                    'telegram_user': display_name
                 }
 
-                print(f"📊 Sending to Sheets: {sheet_data}")
                 project_sheets.add_account_to_sheet(project['name'], sheet_data)
-                print(f"✅ Account added to Sheets with telegram_user: {display_name}")
+                print(f"✅ Added to Sheets: {account.username} by {display_name}")
 
         except Exception as e:
             print(f"⚠️ Google Sheets Error: {e}")
