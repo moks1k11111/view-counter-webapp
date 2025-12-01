@@ -7,7 +7,11 @@ import os
 import hmac
 import hashlib
 import json
+import logging
 from urllib.parse import parse_qsl
+
+# Setup logger
+logger = logging.getLogger(__name__)
 
 # Добавляем путь к родительской директории
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
@@ -440,18 +444,18 @@ async def add_social_account(
 ):
     """Добавить социальный аккаунт в проект"""
 
-    print("=" * 80)
-    print("🚨 ADD_SOCIAL_ACCOUNT FUNCTION CALLED - VERSION 3.1 CODE RUNNING!")
-    print("=" * 80)
+    logger.info("=" * 80)
+    logger.info("🚨 ADD_SOCIAL_ACCOUNT FUNCTION CALLED - VERSION 3.3 CODE RUNNING!")
+    logger.info("=" * 80)
 
     # DEBUG: Log what Pydantic received
-    print(f"🔍 DEBUG: account.telegram_user = {repr(account.telegram_user)}")
-    print(f"🔍 DEBUG: account.dict() = {account.dict()}")
+    logger.info(f"🔍 DEBUG: account.telegram_user = {repr(account.telegram_user)}")
+    logger.info(f"🔍 DEBUG: account.dict() = {account.dict()}")
 
     # 1. Check if frontend sent the name explicitly (must be non-empty string)
     if account.telegram_user and account.telegram_user.strip():
         display_name = account.telegram_user.strip()
-        print(f"✅ Using telegram_user from FRONTEND: '{display_name}'")
+        logger.info(f"✅ Using telegram_user from FRONTEND: '{display_name}'")
     else:
         # 2. Fallback to initData extraction
         tg_username = user.get('username')
@@ -465,9 +469,9 @@ async def add_social_account(
         else:
             display_name = f"ID:{user.get('id')}"
 
-        print(f"⚠️ Frontend value empty/missing, using initData: '{display_name}'")
+        logger.info(f"⚠️ Frontend value empty/missing, using initData: '{display_name}'")
 
-    print(f"✅ FINAL USER: {display_name}")
+    logger.info(f"✅ FINAL USER: {display_name}")
 
     # 4. Add to SQLite (with soft-delete support)
     result = project_manager.add_social_account_to_project(
@@ -507,11 +511,12 @@ async def add_social_account(
                     'telegram_user': display_name
                 }
 
+                logger.info(f"📊 Sending to Sheets: telegram_user = '{display_name}'")
                 project_sheets.add_account_to_sheet(project['name'], sheet_data)
-                print(f"✅ Added to Sheets: {account.username} by {display_name}")
+                logger.info(f"✅ Added to Sheets: {account.username} by {display_name}")
 
         except Exception as e:
-            print(f"⚠️ Google Sheets Error: {e}")
+            logger.error(f"⚠️ Google Sheets Error: {e}")
             import traceback
             traceback.print_exc()
 
