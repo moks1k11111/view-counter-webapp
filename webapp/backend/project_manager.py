@@ -906,20 +906,20 @@ class ProjectManager:
 
     def finish_project(self, project_id: str) -> bool:
         """
-        Завершение проекта (установка is_active = 0)
+        Завершение проекта (установка is_active = 0 и is_finished = 1)
 
         :param project_id: ID проекта
         :return: True если успешно
         """
         try:
             self.db.cursor.execute('''
-                UPDATE projects SET is_active = 0 WHERE id = ?
+                UPDATE projects SET is_active = 0, is_finished = 1 WHERE id = ?
             ''', (project_id,))
 
             self.db.conn.commit()
 
             if self.db.cursor.rowcount > 0:
-                logger.info(f"✅ Проект {project_id} завершен (is_active=0)")
+                logger.info(f"✅ Проект {project_id} завершен (is_active=0, is_finished=1)")
                 return True
             else:
                 logger.info(f"⚠️ Проект {project_id} не найден")
