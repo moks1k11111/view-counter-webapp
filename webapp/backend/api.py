@@ -354,7 +354,8 @@ async def get_project_analytics(
     platform_stats = {"tiktok": 0, "instagram": 0, "facebook": 0, "youtube": 0}
     topic_stats = {}
     total_views = 0
-    total_videos = len(all_profiles)  # Общее количество профилей = количество видео
+    total_videos = 0
+    total_profiles = len(all_profiles)
 
     for profile in all_profiles:
         telegram_user = profile.get('telegram_user', 'Unknown')
@@ -365,10 +366,16 @@ async def get_project_analytics(
         except (ValueError, TypeError):
             views = 0
 
+        try:
+            videos = int(str(profile.get('videos', 0)).replace(' ', ''))
+        except (ValueError, TypeError):
+            videos = 0
+
         plat = profile.get('platform', 'tiktok')
         topic = profile.get('topic', 'Не указано')
 
         total_views += views
+        total_videos += videos
 
         # Статистика по пользователям
         if telegram_user not in users_stats:
@@ -407,6 +414,7 @@ async def get_project_analytics(
         "project": project,
         "total_views": total_views,
         "total_videos": total_videos,
+        "total_profiles": total_profiles,
         "platform_stats": platform_stats,
         "topic_stats": topic_stats,
         "users_stats": users_stats,
