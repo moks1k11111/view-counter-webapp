@@ -665,11 +665,11 @@ async function refreshProjectStats() {
 // ==================== END ADMIN PROJECT CONTROLS ====================
 
 function displaySummaryStats(analytics) {
-    const { project, total_views, users_stats, topic_stats } = analytics;
+    const { project, total_views, total_videos, total_profiles, users_stats, topic_stats } = analytics;
 
-    // Вычисляем количество профилей и видео
-    const profilesCount = Object.keys(users_stats || {}).length;
-    const totalVideos = 0; // TODO: добавить подсчет видео когда данные будут доступны
+    // Используем данные из API
+    const profilesCount = total_profiles || Object.keys(users_stats || {}).length;
+    const videosCount = total_videos || 0;
 
     // Рассчитываем количество тематик
     const totalTopics = Object.keys(topic_stats || {}).length;
@@ -682,9 +682,12 @@ function displaySummaryStats(analytics) {
         ? Math.round((total_views / project.target_views) * 100)
         : 0;
 
+    console.log('🔍 DEBUG displaySummaryStats: total_videos =', total_videos, 'videosCount =', videosCount);
+    console.log('🔍 DEBUG displaySummaryStats: total_profiles =', total_profiles, 'profilesCount =', profilesCount);
+
     document.getElementById('detail-total-views').textContent = formatNumber(total_views);
     document.getElementById('detail-progress').textContent = `${progress}%`;
-    document.getElementById('detail-total-videos').textContent = totalVideos;
+    document.getElementById('detail-total-videos').textContent = videosCount;
     document.getElementById('detail-total-profiles').textContent = profilesCount;
     document.getElementById('detail-total-topics').textContent = totalTopics;
     document.getElementById('detail-total-participants').textContent = totalParticipants;
