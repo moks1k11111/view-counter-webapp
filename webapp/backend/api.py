@@ -440,6 +440,10 @@ async def add_social_account(
 ):
     """Добавить социальный аккаунт в проект"""
 
+    # DEBUG: Log what Pydantic received
+    print(f"🔍 DEBUG: account.telegram_user = {repr(account.telegram_user)}")
+    print(f"🔍 DEBUG: account.dict() = {account.dict()}")
+
     # 1. Check if frontend sent the name explicitly
     if account.telegram_user:
         display_name = account.telegram_user
