@@ -210,7 +210,7 @@ class ProjectManager:
         try:
             self.db.cursor.execute('''
                 SELECT p.id, p.name, p.google_sheet_name, p.start_date, p.end_date,
-                       p.target_views, p.geo, p.created_at, p.is_active
+                       p.target_views, p.geo, p.created_at, p.is_active, p.is_finished, p.kpi_views
                 FROM projects p
                 INNER JOIN project_users pu ON p.id = pu.project_id
                 WHERE pu.user_id = ?
@@ -230,7 +230,9 @@ class ProjectManager:
                     "target_views": row[5],
                     "geo": row[6],
                     "created_at": row[7],
-                    "is_active": row[8]
+                    "is_active": row[8],
+                    "is_finished": row[9],
+                    "kpi_views": row[10]
                 })
 
             return projects
@@ -256,7 +258,7 @@ class ProjectManager:
             # Получаем все проекты (активные и неактивные)
             self.db.cursor.execute('''
                 SELECT p.id, p.name, p.google_sheet_name, p.start_date, p.end_date,
-                       p.target_views, p.geo, p.created_at, p.is_active
+                       p.target_views, p.geo, p.created_at, p.is_active, p.is_finished, p.kpi_views
                 FROM projects p
                 ORDER BY p.is_active DESC, p.created_at DESC
             ''')
@@ -288,6 +290,8 @@ class ProjectManager:
                         "geo": row[6],
                         "created_at": row[7],
                         "is_active": row[8],
+                        "is_finished": row[9],
+                        "kpi_views": row[10],
                         "has_access": True
                     })
                 else:
@@ -302,6 +306,8 @@ class ProjectManager:
                         "geo": "***",
                         "created_at": row[7],
                         "is_active": row[8],
+                        "is_finished": row[9],
+                        "kpi_views": row[10],
                         "has_access": False
                     })
 
