@@ -324,6 +324,26 @@ body {
     opacity: 1;
 }
 
+/* Finished project card styling */
+.project-card-finished {
+    border-color: rgba(96, 125, 139, 0.3) !important;
+}
+
+.project-card-finished:hover {
+    box-shadow: 0 10px 30px rgba(96, 125, 139, 0.15) !important;
+    border-color: rgba(96, 125, 139, 0.5) !important;
+}
+
+/* Locked project card styling */
+.project-card-locked {
+    border-color: rgba(244, 67, 54, 0.3) !important;
+}
+
+.project-card-locked:hover {
+    transform: none !important;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1) !important;
+}
+
 /* My Projects page - Total Views Display */
 .project-total-views {
     text-align: center;
@@ -427,6 +447,13 @@ body {
     color: #f44336;
     border: 1px solid rgba(244, 67, 54, 0.3);
     animation: pulse-urgent 2s ease-in-out infinite;
+}
+
+.days-finished {
+    background: rgba(96, 125, 139, 0.15);
+    color: #607d8b;
+    border: 1px solid rgba(96, 125, 139, 0.3);
+    font-weight: 600;
 }
 
 @keyframes pulse-urgent {

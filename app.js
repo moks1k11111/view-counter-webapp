@@ -284,27 +284,59 @@ async function renderProjects(projects) {
 
     projectsList.innerHTML = projectsWithStats.map((project, index) => {
         const hasAccess = project.has_access !== false;
-        const lockIcon = hasAccess ? '🔓' : '🔒';
-        const lockColor = hasAccess ? '#4CAF50' : '#F44336';
-        const cardOpacity = hasAccess ? '1' : '0.6';
-        const clickHandler = hasAccess ? `onclick="openProject('${project.id}', 'user')"` : `onclick="showAccessDenied()"`;
-        const cursorStyle = hasAccess ? 'cursor: pointer;' : 'cursor: not-allowed;';
-        const lockedClass = hasAccess ? '' : 'project-card-locked';
+        const isFinished = project.is_active === 0 || project.is_active === false;
+
+        // Determine lock icon and styling
+        let lockIcon, cardOpacity, clickHandler, cursorStyle, lockedClass, grayscaleFilter;
+
+        if (isFinished) {
+            // Finished project: show finish flag, grayscale, read-only
+            lockIcon = '🏁';
+            cardOpacity = '0.7';
+            clickHandler = hasAccess ? `onclick="openProject('${project.id}', 'user')"` : `onclick="showAccessDenied()"`;
+            cursorStyle = 'cursor: pointer;';
+            lockedClass = 'project-card-finished';
+            grayscaleFilter = 'filter: grayscale(0.5);';
+        } else if (!hasAccess) {
+            // No access: show lock, reduced opacity, disabled
+            lockIcon = '🔒';
+            cardOpacity = '0.6';
+            clickHandler = `onclick="showAccessDenied()"`;
+            cursorStyle = 'cursor: not-allowed;';
+            lockedClass = 'project-card-locked';
+            grayscaleFilter = '';
+        } else {
+            // Active project with access: normal
+            lockIcon = '🔓';
+            cardOpacity = '1';
+            clickHandler = `onclick="openProject('${project.id}', 'user')"`;
+            cursorStyle = 'cursor: pointer;';
+            lockedClass = '';
+            grayscaleFilter = '';
+        }
 
         const progress = project.target_views > 0 ? Math.round((project.total_views / project.target_views) * 100) : 0;
         const daysRemaining = calculateDaysRemaining(project.end_date);
-        const daysText = daysRemaining === 1 ? 'day left' : daysRemaining < 0 ? 'Expired' : `${daysRemaining} days left`;
-        const daysClass = daysRemaining < 7 ? 'days-urgent' : daysRemaining < 14 ? 'days-warning' : 'days-normal';
+
+        // Determine days text based on finish status
+        let daysText, daysClass;
+        if (isFinished) {
+            daysText = '🏁 Завершен';
+            daysClass = 'days-finished';
+        } else {
+            daysText = daysRemaining === 1 ? 'day left' : daysRemaining < 0 ? 'Expired' : `${daysRemaining} days left`;
+            daysClass = daysRemaining < 7 ? 'days-urgent' : daysRemaining < 14 ? 'days-warning' : 'days-normal';
+        }
 
         // Display name: show "🔒 Hidden Project" for locked projects
         const displayName = hasAccess ? project.name : '🔒 Hidden Project';
         const displayGeo = hasAccess ? (project.geo || 'Global') : '***';
 
         return `
-            <div class="project-card ${lockedClass}" ${clickHandler} style="opacity: ${cardOpacity}; ${cursorStyle}">
+            <div class="project-card ${lockedClass}" ${clickHandler} style="opacity: ${cardOpacity}; ${cursorStyle} ${grayscaleFilter}">
                 <div class="project-header">
                     <div class="project-header-left">
-                        <span style="font-size: 20px; margin-right: 8px;" title="${hasAccess ? 'Доступ разрешен' : 'Доступ закрыт'}">${lockIcon}</span>
+                        <span style="font-size: 20px; margin-right: 8px;" title="${isFinished ? 'Проект завершен' : hasAccess ? 'Доступ разрешен' : 'Доступ закрыт'}">${lockIcon}</span>
                         <h3 class="project-name">${displayName}</h3>
                         <span class="project-geo">${displayGeo}</span>
                     </div>
@@ -562,12 +594,10 @@ async function deleteProject() {
 
         if (response.success) {
             showSuccess('Проект успешно удален');
-            // Redirect to home page
+            // Redirect to home page and reload
             closeProjectDetails();
-            // Reload projects list if on admin page
-            if (isAdmin) {
-                await loadAdminProjects();
-            }
+            // Force page reload to refresh project list
+            setTimeout(() => window.location.reload(), 1000);
         } else {
             showError(response.message || 'Не удалось удалить проект');
         }
