@@ -406,9 +406,11 @@ async def create_project(
 async def get_project_analytics(
     project_id: str,
     user: dict = Depends(get_current_user),
-    platform: Optional[str] = None
+    platform: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None
 ):
-    """Получить аналитику по проекту"""
+    """Получить аналитику по проекту с историей"""
     user_id = str(user.get('id'))
 
     # Проверяем доступ
@@ -524,6 +526,9 @@ async def get_project_analytics(
 
     logger.info(f"🎯 FINAL ANALYTICS: total_views={total_views}, total_videos={total_videos}, total_profiles={total_profiles}")
 
+    # Получаем историю просмотров проекта
+    daily_history = project_manager.get_project_daily_history(project_id, start_date, end_date)
+
     return {
         "project": project,
         "total_views": total_views,
@@ -533,7 +538,9 @@ async def get_project_analytics(
         "topic_stats": topic_stats,
         "users_stats": users_stats,
         "target_views": project['target_views'],
-        "progress_percent": round((total_views / project['target_views'] * 100), 2) if project['target_views'] > 0 else 0
+        "progress_percent": round((total_views / project['target_views'] * 100), 2) if project['target_views'] > 0 else 0,
+        "history": daily_history.get("history", []),
+        "growth_24h": daily_history.get("growth_24h", 0)
     }
 
 @app.get("/api/my-analytics")

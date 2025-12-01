@@ -197,6 +197,25 @@
                         <div class="summary-label">Участников</div>
                         <div class="summary-value" id="detail-total-participants">0</div>
                     </div>
+                    <div class="summary-card">
+                        <div class="summary-label">Прирост 24ч</div>
+                        <div class="summary-value" id="pd-growth-24h">0</div>
+                    </div>
+                </div>
+
+                <!-- Date Picker Controls -->
+                <div class="date-picker-controls" style="margin: 16px 0; display: flex; gap: 10px; align-items: center;">
+                    <div style="display: flex; flex-direction: column; flex: 1;">
+                        <label style="font-size: 12px; color: #aaa; margin-bottom: 4px;">Начало:</label>
+                        <input type="date" id="analytics-start-date" class="date-input" style="padding: 8px; border-radius: 8px; border: 1px solid #333; background: #1e1e1e; color: #fff;">
+                    </div>
+                    <div style="display: flex; flex-direction: column; flex: 1;">
+                        <label style="font-size: 12px; color: #aaa; margin-bottom: 4px;">Конец:</label>
+                        <input type="date" id="analytics-end-date" class="date-input" style="padding: 8px; border-radius: 8px; border: 1px solid #333; background: #1e1e1e; color: #fff;">
+                    </div>
+                    <button onclick="applyDateFilter()" class="btn-primary" style="align-self: flex-end; padding: 8px 16px; font-size: 14px;">
+                        Применить
+                    </button>
                 </div>
 
                 <!-- Свайпаемые диаграммы -->

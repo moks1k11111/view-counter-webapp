@@ -936,6 +936,83 @@ class ProjectManager:
             logger.error(f"Ошибка получения статистики: {e}")
             return []
 
+    def get_project_daily_history(self, project_id: str, start_date: Optional[str] = None,
+                                  end_date: Optional[str] = None) -> Dict:
+        """
+        Получение ежедневной истории просмотров проекта
+
+        :param project_id: ID проекта
+        :param start_date: Начальная дата (опционально)
+        :param end_date: Конечная дата (опционально)
+        :return: Dict с history (список {date, views}) и growth_24h (прирост за последние 24ч)
+        """
+        try:
+            # Получаем все аккаунты проекта
+            self.db.cursor.execute('''
+                SELECT id FROM project_social_accounts
+                WHERE project_id = ? AND is_active = 1
+            ''', (project_id,))
+
+            account_ids = [row[0] for row in self.db.cursor.fetchall()]
+
+            if not account_ids:
+                return {"history": [], "growth_24h": 0}
+
+            # Строим запрос для получения суммы views_end по датам
+            placeholders = ','.join('?' * len(account_ids))
+            query = f'''
+                SELECT date, SUM(views_end) as total_views
+                FROM account_daily_stats
+                WHERE account_id IN ({placeholders})
+            '''
+            params = account_ids.copy()
+
+            if start_date:
+                query += ' AND date >= ?'
+                params.append(start_date)
+
+            if end_date:
+                query += ' AND date <= ?'
+                params.append(end_date)
+
+            query += ' GROUP BY date ORDER BY date ASC'
+
+            self.db.cursor.execute(query, params)
+            rows = self.db.cursor.fetchall()
+
+            history = []
+            for row in rows:
+                history.append({
+                    "date": row[0],
+                    "views": row[1]
+                })
+
+            # Вычисляем growth_24h для последней доступной даты
+            growth_24h = 0
+            if account_ids:
+                placeholders = ','.join('?' * len(account_ids))
+                query_growth = f'''
+                    SELECT SUM(views_growth) as total_growth
+                    FROM account_daily_stats
+                    WHERE account_id IN ({placeholders})
+                    AND date = (
+                        SELECT MAX(date) FROM account_daily_stats
+                        WHERE account_id IN ({placeholders})
+                    )
+                '''
+                params_growth = account_ids + account_ids
+
+                self.db.cursor.execute(query_growth, params_growth)
+                result = self.db.cursor.fetchone()
+                growth_24h = result[0] if result and result[0] else 0
+
+            logger.info(f"📊 История проекта {project_id}: {len(history)} дней, прирост 24ч: {growth_24h}")
+            return {"history": history, "growth_24h": growth_24h}
+
+        except Exception as e:
+            logger.error(f"Ошибка получения истории проекта: {e}")
+            return {"history": [], "growth_24h": 0}
+
     def finish_project(self, project_id: str) -> bool:
         """
         Завершение проекта (установка is_active = 0 и is_finished = 1)

@@ -532,9 +532,10 @@ let swipeStartX = 0;
 async function openProject(projectId, mode = 'user') {
     console.log('Opening project:', projectId, 'mode:', mode);
 
-    // Set global project ID for use in modals/wizards
+    // Set global project ID and mode for use in modals/wizards and date filtering
     window.currentProjectId = projectId;
     currentProjectId = projectId;
+    currentProjectMode = mode;
 
     try {
         // Загружаем данные проекта в зависимости от режима
@@ -721,7 +722,7 @@ async function refreshProjectStats() {
 // ==================== END ADMIN PROJECT CONTROLS ====================
 
 function displaySummaryStats(analytics) {
-    const { project, total_views, total_videos, total_profiles, users_stats, topic_stats } = analytics;
+    const { project, total_views, total_videos, total_profiles, users_stats, topic_stats, growth_24h } = analytics;
 
     // Используем данные из API
     const profilesCount = total_profiles || Object.keys(users_stats || {}).length;
@@ -747,6 +748,13 @@ function displaySummaryStats(analytics) {
     document.getElementById('detail-total-profiles').textContent = profilesCount;
     document.getElementById('detail-total-topics').textContent = totalTopics;
     document.getElementById('detail-total-participants').textContent = totalParticipants;
+
+    // Прирост за 24 часа
+    const growth24hValue = growth_24h || 0;
+    const growth24hElement = document.getElementById('pd-growth-24h');
+    growth24hElement.textContent = formatNumber(growth24hValue);
+    // Зеленый цвет если прирост > 0
+    growth24hElement.style.color = growth24hValue > 0 ? '#4CAF50' : '#fff';
 }
 
 function createChartSlides(analytics) {
@@ -759,8 +767,8 @@ function createChartSlides(analytics) {
 
     const slides = [];
 
-    // Слайд 1: Столбчатая диаграмма по неделям
-    slides.push(createWeeklyViewsSlide(analytics));
+    // Слайд 1: Линейная диаграмма просмотров по дням
+    slides.push(createDailyViewsSlide(analytics));
 
     // Слайд 2: Круговая диаграмма тематик
     slides.push(createTopicsSlide(analytics));
@@ -789,13 +797,53 @@ function createChartSlides(analytics) {
     setTimeout(() => renderAllCharts(analytics), 100);
 }
 
-function createWeeklyViewsSlide(analytics) {
+function createDailyViewsSlide(analytics) {
     return `
         <div class="chart-slide">
-            <h4>Просмотры по неделям</h4>
-            <canvas id="weekly-chart" width="300" height="200"></canvas>
+            <h4>Просмотры по дням</h4>
+            <canvas id="daily-chart" width="300" height="200"></canvas>
         </div>
     `;
+}
+
+// Date filter function
+async function applyDateFilter() {
+    if (!currentProjectId) return;
+
+    const startDate = document.getElementById('analytics-start-date').value;
+    const endDate = document.getElementById('analytics-end-date').value;
+
+    try {
+        // Build URL with date parameters
+        let url;
+        if (currentProjectMode === 'user') {
+            url = `/api/my-analytics?project_id=${currentProjectId}`;
+        } else {
+            url = `/api/projects/${currentProjectId}/analytics`;
+        }
+
+        // Add date parameters if set
+        const params = [];
+        if (startDate) params.push(`start_date=${startDate}`);
+        if (endDate) params.push(`end_date=${endDate}`);
+
+        if (params.length > 0) {
+            url += (url.includes('?') ? '&' : '?') + params.join('&');
+        }
+
+        const analytics = await apiCall(url);
+        currentProjectData = analytics;
+
+        // Re-render stats and charts
+        displaySummaryStats(analytics);
+        createChartSlides(analytics);
+
+        // Reload accounts list
+        loadProjectSocialAccounts(currentProjectId, currentProjectMode);
+    } catch (error) {
+        console.error('Error applying date filter:', error);
+        showToast('Ошибка применения фильтра дат');
+    }
 }
 
 function createTopicsSlide(analytics) {
@@ -826,42 +874,56 @@ function createProfilesSlide(analytics) {
 }
 
 function renderAllCharts(analytics) {
-    // Еженедельная статистика (заглушка)
-    const weeklyData = [
-        { week: 'Нед 1', views: Math.floor(analytics.total_views * 0.1) },
-        { week: 'Нед 2', views: Math.floor(analytics.total_views * 0.15) },
-        { week: 'Нед 3', views: Math.floor(analytics.total_views * 0.2) },
-        { week: 'Нед 4', views: Math.floor(analytics.total_views * 0.25) },
-    ];
+    // Используем данные истории из API
+    const dailyHistory = analytics.history || [];
 
-    createWeeklyChart(weeklyData);
+    createDailyChart(dailyHistory);
     createTopicsChart(analytics.topic_stats);
     createPlatformsChart(analytics.platform_stats);
     createProfilesChart(analytics.users_stats);
 }
 
-function createWeeklyChart(data) {
-    const canvas = document.getElementById('weekly-chart');
+function createDailyChart(history) {
+    const canvas = document.getElementById('daily-chart');
     if (!canvas) return;
 
+    // Подготавливаем данные из истории
+    const labels = history.map(item => item.date);
+    const data = history.map(item => item.views);
+
     new Chart(canvas, {
-        type: 'bar',
+        type: 'line',
         data: {
-            labels: data.map(d => d.week),
+            labels: labels,
             datasets: [{
                 label: 'Просмотры',
-                data: data.map(d => d.views),
-                backgroundColor: 'rgba(102, 126, 234, 0.7)',
-                borderColor: 'rgba(102, 126, 234, 1)',
-                borderWidth: 2
+                data: data,
+                backgroundColor: 'rgba(167, 139, 250, 0.3)', // Purple gradient fill
+                borderColor: 'rgba(167, 139, 250, 1)', // Purple line
+                borderWidth: 2,
+                fill: true,
+                tension: 0.4 // Smooth curve
             }]
         },
         options: {
             responsive: true,
-            plugins: { legend: { display: false } },
+            plugins: {
+                legend: { display: false }
+            },
             scales: {
-                y: { beginAtZero: true, ticks: { color: '#fff' }, grid: { color: 'rgba(255,255,255,0.1)' } },
-                x: { ticks: { color: '#fff' }, grid: { display: false } }
+                y: {
+                    beginAtZero: true,
+                    ticks: { color: '#fff' },
+                    grid: { color: 'rgba(255,255,255,0.1)' }
+                },
+                x: {
+                    ticks: {
+                        color: '#fff',
+                        maxRotation: 45,
+                        minRotation: 45
+                    },
+                    grid: { display: false }
+                }
             }
         }
     });
@@ -902,8 +964,18 @@ function createPlatformsChart(platformStats) {
     const canvas = document.getElementById('platforms-chart');
     if (!canvas) return;
 
+    // Определяем цвета для каждой платформы
+    const platformColors = {
+        'tiktok': '#00f2ea',      // Cyan
+        'instagram': '#d62976',   // Pink/Purple
+        'facebook': '#1877f2',    // Blue
+        'youtube': '#ff0000',     // Red
+        'threads': '#000000'      // Black
+    };
+
     const labels = Object.keys(platformStats);
     const data = Object.values(platformStats);
+    const colors = labels.map(platform => platformColors[platform] || '#888888');
 
     new Chart(canvas, {
         type: 'doughnut',
@@ -911,12 +983,7 @@ function createPlatformsChart(platformStats) {
             labels: labels,
             datasets: [{
                 data: data,
-                backgroundColor: [
-                    'rgba(0, 242, 234, 0.8)',  // TikTok
-                    'rgba(131, 58, 180, 0.8)', // Instagram
-                    'rgba(255, 0, 0, 0.8)',    // YouTube
-                    'rgba(24, 119, 242, 0.8)', // Facebook
-                ]
+                backgroundColor: colors
             }]
         },
         options: {
@@ -2500,6 +2567,7 @@ window.filterUserManagementList = filterUserManagementList;
 window.openAddProfileModal = openAddProfileModal;
 // ==================== SOCIAL ACCOUNTS MANAGEMENT ====================
 let currentProjectId = null;
+let currentProjectMode = 'user'; // Track current project viewing mode
 
 // Wizard state
 let wizardData = {
