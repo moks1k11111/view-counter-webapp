@@ -134,8 +134,8 @@ async def run_telegram_bot():
 @app.on_event("startup")
 async def startup_event():
     """Start bot when FastAPI starts"""
-    print("🚀 SERVER VERSION: 3.5 (DEBUG IN SHEETS MANAGER)")
-    logger.info("🚀 SERVER VERSION: 3.5 (DEBUG IN SHEETS MANAGER)")
+    print("🚀 SERVER VERSION: 4.0 (FIXED MAIN.PY telegram_user)")
+    logger.info("🚀 SERVER VERSION: 4.0 (FIXED MAIN.PY telegram_user)")
     logger.info("🚀 FastAPI starting up...")
     # Start bot in background (won't crash API if bot fails)
     try:
@@ -575,6 +575,31 @@ async def add_social_account(
     user: dict = Depends(get_current_user)
 ):
     """Добавить социальный аккаунт в проект"""
+
+    logger.info("🚀 MAIN.PY add_social_account called!")
+    logger.info(f"🔍 account.telegram_user = {repr(account.telegram_user)}")
+
+    # Extract display name from frontend OR initData
+    if account.telegram_user and account.telegram_user.strip():
+        display_name = account.telegram_user.strip()
+        logger.info(f"✅ Using telegram_user from FRONTEND: '{display_name}'")
+    else:
+        # Fallback to initData
+        tg_username = user.get('username')
+        first_name = user.get('first_name', '')
+        last_name = user.get('last_name', '')
+
+        if tg_username:
+            display_name = f"@{tg_username}"
+        elif first_name or last_name:
+            display_name = f"{first_name} {last_name}".strip()
+        else:
+            display_name = f"ID:{user.get('id')}"
+
+        logger.info(f"⚠️ Frontend value empty, using initData: '{display_name}'")
+
+    logger.info(f"✅ FINAL USER: {display_name}")
+
     # Добавляем аккаунт в БД
     result = project_manager.add_social_account_to_project(
         project_id=project_id,
@@ -599,7 +624,8 @@ async def add_social_account(
             # Создаем лист проекта если не существует
             project_sheets.create_project_sheet(project['name'])
 
-            # Добавляем аккаунт в лист
+            # Добавляем аккаунт в лист С TELEGRAM USERNAME!
+            logger.info(f"📊 Sending to Sheets: telegram_user = '{display_name}'")
             project_sheets.add_account_to_sheet(project['name'], {
                 'username': account.username,
                 'profile_link': account.profile_link,
@@ -610,10 +636,12 @@ async def add_social_account(
                 'views': 0,
                 'status': account.status,
                 'topic': account.topic,
-                'platform': account.platform
+                'platform': account.platform,
+                'telegram_user': display_name  # ← ИСПРАВЛЕНО: ДОБАВЛЕН TELEGRAM USER!
             })
+            logger.info(f"✅ Added to Sheets: {account.username} by {display_name}")
         except Exception as e:
-            print(f"⚠️  Ошибка добавления в Google Sheets: {e}")
+            logger.error(f"⚠️  Ошибка добавления в Google Sheets: {e}")
 
     return {"success": True, "account": result}
 
