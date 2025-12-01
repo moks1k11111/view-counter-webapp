@@ -444,19 +444,24 @@ async def add_social_account(
     print(f"🔍 DEBUG: account.telegram_user = {repr(account.telegram_user)}")
     print(f"🔍 DEBUG: account.dict() = {account.dict()}")
 
-    # 1. Check if frontend sent the name explicitly
-    if account.telegram_user:
-        display_name = account.telegram_user
+    # 1. Check if frontend sent the name explicitly (must be non-empty string)
+    if account.telegram_user and account.telegram_user.strip():
+        display_name = account.telegram_user.strip()
         print(f"✅ Using telegram_user from FRONTEND: '{display_name}'")
     else:
         # 2. Fallback to initData extraction
         tg_username = user.get('username')
         first_name = user.get('first_name', '')
-        display_name = f"@{tg_username}" if tg_username else first_name
-        print(f"⚠️ Frontend didn't send telegram_user, extracting from initData")
+        last_name = user.get('last_name', '')
 
-    if not display_name:
-        display_name = f"ID:{user.get('id')}"
+        if tg_username:
+            display_name = f"@{tg_username}"
+        elif first_name or last_name:
+            display_name = f"{first_name} {last_name}".strip()
+        else:
+            display_name = f"ID:{user.get('id')}"
+
+        print(f"⚠️ Frontend value empty/missing, using initData: '{display_name}'")
 
     print(f"✅ FINAL USER: {display_name}")
 

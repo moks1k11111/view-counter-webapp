@@ -2307,12 +2307,17 @@ function openAddSocialAccountModal() {
     document.getElementById('profile-url-input').value = '';
 
     // Populate worker username from current user
+    let displayName = 'Unknown'; // Default fallback
     if (currentUser) {
-        const displayName = currentUser.username
-            ? `@${currentUser.username}`
-            : currentUser.first_name || 'Unknown';
-        document.getElementById('worker-username-input').value = displayName;
+        if (currentUser.username) {
+            displayName = `@${currentUser.username}`;
+        } else if (currentUser.first_name) {
+            displayName = currentUser.first_name;
+        } else if (currentUser.id) {
+            displayName = `ID:${currentUser.id}`;
+        }
     }
+    document.getElementById('worker-username-input').value = displayName;
 
     // Reset wizard data
     wizardData = {
