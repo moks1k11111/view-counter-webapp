@@ -57,12 +57,12 @@ def create_test_project():
 
     # Создаем еще один проект
     project_data2 = {
-        "name": "Проект Россия",
-        "google_sheet_name": "Russia Project Sheet",
+        "name": "Проект США",
+        "google_sheet_name": "USA Project Sheet",
         "start_date": (datetime.now() - timedelta(days=3)).strftime("%Y-%m-%d"),
         "end_date": (datetime.now() + timedelta(days=27)).strftime("%Y-%m-%d"),
         "target_views": 500000,
-        "geo": "Россия"
+        "geo": "США"
     }
 
     print(f"\nСоздаю проект: {project_data2['name']}")

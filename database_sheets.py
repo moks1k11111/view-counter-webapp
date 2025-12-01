@@ -31,9 +31,10 @@ class SheetsDatabase:
             except gspread.exceptions.SpreadsheetNotFound:
                 self.spreadsheet = self.client.create(spreadsheet_name)
                 logger.info(f"Создана новая таблица {spreadsheet_name}")
-            
-            self._init_worksheets()
-            
+
+            # УБРАНО: Больше не создаём листы TikTok, Instagram, YouTube, Facebook из старого проекта
+            # self._init_worksheets()
+
         except Exception as e:
             logger.error(f"Ошибка подключения к Google Sheets: {e}")
             raise
