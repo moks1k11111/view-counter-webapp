@@ -2643,7 +2643,13 @@ async function submitSocialAccount() {
         }
     } catch (error) {
         console.error('Failed to add social account:', error);
-        showError('Ошибка при добавлении аккаунта');
+        // Проверяем, если это ошибка дубликата
+        if (error.message && error.message.includes('уже добавлен')) {
+            showSuccess('Такой аккаунт уже добавлен');
+            closeAddSocialAccountModal();
+        } else {
+            showError(error.message || 'Ошибка при добавлении аккаунта');
+        }
     }
 }
 
