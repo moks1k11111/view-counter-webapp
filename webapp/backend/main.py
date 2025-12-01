@@ -420,15 +420,20 @@ async def get_project_analytics(
     if project_sheets:
         try:
             accounts_data = project_sheets.get_project_accounts(project['name'])
+            logger.info(f"🔍 DEBUG: Raw accounts_data from Sheets: {accounts_data[:1] if accounts_data else 'empty'}")
+
             # Конвертируем в нужный формат
             for account in accounts_data:
+                videos_value = account.get('Videos', 0)
+                logger.info(f"🔍 DEBUG: Videos field = {repr(videos_value)} (type: {type(videos_value).__name__})")
+
                 all_profiles.append({
                     'telegram_user': account.get('@Username', ''),
                     'url': account.get('Link', ''),
                     'followers': int(account.get('Followers', 0) or 0),
                     'likes': int(account.get('Likes', 0) or 0),
                     'comments': int(account.get('Comments', 0) or 0),
-                    'videos': int(account.get('Videos', 0) or 0),
+                    'videos': int(videos_value or 0),
                     'total_views': int(account.get('Views', 0) or 0),
                     'platform': account.get('Platform', 'tiktok').lower(),
                     'topic': account.get('Тематика', 'Не указано')
@@ -484,6 +489,7 @@ async def get_project_analytics(
 
         total_views += views
         total_videos += videos
+        logger.info(f"🔍 DEBUG: Profile videos={videos}, total_videos now={total_videos}")
 
         # Статистика по пользователям
         if telegram_user not in users_stats:
@@ -508,6 +514,8 @@ async def get_project_analytics(
         # Общая статистика по тематикам
         if topic:
             topic_stats[topic] = topic_stats.get(topic, 0) + views
+
+    logger.info(f"🎯 FINAL ANALYTICS: total_views={total_views}, total_videos={total_videos}, total_profiles={total_profiles}")
 
     return {
         "project": project,
