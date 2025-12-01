@@ -2123,7 +2123,7 @@ async function importFromSheets() {
         });
 
         if (response.success) {
-            showSuccess(response.message || `Импортировано: ${response.updated_count} аккаунтов обновлено`);
+            showSuccess(`Импортировано: ${response.updated} обновлено, ${response.skipped} пропущено из ${response.total}`);
 
             // Обновляем данные проекта
             await loadProjectDetailsForAdmin(currentProjectId);
@@ -2556,9 +2556,11 @@ async function submitUserToProject() {
         }
 
         // User already in project - show success/info notification and close modal (success behavior)
-        if (errorDetail.toLowerCase().includes('already in this project') ||
-            errorDetail.toLowerCase().includes('already in project')) {
-            showSuccess('Пользователь уже в проекте');
+        if (errorMessage.includes('400') || errorMessage.includes('409') ||
+            errorDetail.toLowerCase().includes('already in this project') ||
+            errorDetail.toLowerCase().includes('already in project') ||
+            errorDetail.toLowerCase().includes('user already in project')) {
+            showSuccess('Пользователь уже добавлен');
             closeAddUserToProjectModal();
             // Reload project data to ensure UI is in sync
             await loadProjectDetailsForAdmin(currentProjectId);

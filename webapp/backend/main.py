@@ -659,6 +659,83 @@ async def get_project_accounts(
     accounts = project_manager.get_project_social_accounts(project_id, platform)
     return {"success": True, "accounts": accounts}
 
+@app.post("/api/projects/{project_id}/import_from_sheets")
+async def import_from_sheets(
+    project_id: str,
+    user: dict = Depends(get_current_user)
+):
+    """Импорт данных из Google Sheets (Sheets как Master DB)"""
+    logger.info(f"🔄 Starting import from Sheets for project {project_id}")
+
+    # Get project
+    project = project_manager.get_project(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    if not project_sheets:
+        raise HTTPException(status_code=503, detail="Google Sheets not available")
+
+    try:
+        # Read data from Google Sheets
+        sheet_records = project_sheets.read_project_sheet(project['name'])
+        logger.info(f"📊 Found {len(sheet_records)} records in Google Sheets")
+
+        # Get all project accounts from SQLite
+        sqlite_accounts = project_manager.get_project_social_accounts(project_id)
+
+        # Create username -> account_id mapping
+        username_to_id = {acc['username']: acc['id'] for acc in sqlite_accounts}
+
+        updated_count = 0
+        skipped_count = 0
+
+        for record in sheet_records:
+            # Extract data from Sheet record
+            # Headers: @Username, Link, Followers, Likes, Following, Videos, Views, Last Update, Status, Тематика
+            username = record.get('Link', '').split('@')[-1].split('?')[0].strip('/')
+            if not username:
+                username = record.get('@Username', '').strip('@')
+
+            followers = int(record.get('Followers', 0) or 0)
+            likes = int(record.get('Likes', 0) or 0)
+            videos = int(record.get('Videos', 0) or 0)
+            views = int(record.get('Views', 0) or 0)
+
+            # Find account in SQLite
+            account_id = username_to_id.get(username)
+
+            if account_id:
+                # Create snapshot with metrics from Sheets
+                success = project_manager.add_account_snapshot(
+                    account_id=account_id,
+                    followers=followers,
+                    likes=likes,
+                    comments=0,  # Not in Sheets
+                    videos=videos,
+                    views=views
+                )
+                if success:
+                    updated_count += 1
+                    logger.info(f"✅ Updated {username}: {followers} followers, {views} views")
+            else:
+                skipped_count += 1
+                logger.info(f"⚠️ Account {username} not found in SQLite, skipping")
+
+        logger.info(f"✅ Import completed: {updated_count} updated, {skipped_count} skipped")
+
+        return {
+            "success": True,
+            "updated": updated_count,
+            "skipped": skipped_count,
+            "total": len(sheet_records)
+        }
+
+    except Exception as e:
+        logger.error(f"❌ Import error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Import failed: {str(e)}")
+
 @app.get("/api/accounts/{account_id}")
 async def get_social_account(
     account_id: str,
