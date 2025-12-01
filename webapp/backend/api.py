@@ -273,8 +273,10 @@ async def get_project_analytics(
     # Получаем ВСЕХ пользователей проекта из БД
     project_users = project_manager.get_project_users(project_id)
 
-    # Получаем все аккаунты проекта из Project Sheets (новый подход)
+    # Получаем все аккаунты проекта из Project Sheets (новый подход) с fallback на SQLite
     all_profiles = []
+
+    # Пытаемся загрузить из Google Sheets
     if project_sheets:
         try:
             # Получаем аккаунты из листа проекта
@@ -303,8 +305,39 @@ async def get_project_analytics(
             print(f"⚠️ Ошибка получения аккаунтов из Project Sheets: {e}")
             import traceback
             traceback.print_exc()
-            # Не падаем, просто возвращаем пустой список
-            all_profiles = []
+
+    # FALLBACK: Если Google Sheets пустой или недоступен, загружаем из SQLite
+    if len(all_profiles) == 0:
+        print(f"📊 Google Sheets пустой, загружаем из SQLite для проекта '{project['name']}'")
+        try:
+            # Получаем социальные аккаунты из SQLite
+            sqlite_accounts = project_manager.get_project_social_accounts(project_id, platform)
+
+            for account in sqlite_accounts:
+                # Получаем последний snapshot для каждого аккаунта
+                snapshots = project_manager.get_account_snapshots(account['id'], limit=1)
+                latest_snapshot = snapshots[0] if snapshots else {}
+
+                profile = {
+                    'telegram_user': account.get('username', 'Unknown'),  # Используем username как telegram_user
+                    'total_views': latest_snapshot.get('views', 0),
+                    'platform': account.get('platform', 'tiktok').lower(),
+                    'topic': account.get('topic', 'Не указано'),
+                    'username': account.get('username', ''),
+                    'profile_link': account.get('profile_link', ''),
+                    'followers': latest_snapshot.get('followers', 0),
+                    'likes': latest_snapshot.get('likes', 0),
+                    'comments': latest_snapshot.get('comments', 0),
+                    'videos': latest_snapshot.get('videos', 0),
+                    'status': account.get('status', 'NEW')
+                }
+                all_profiles.append(profile)
+
+            print(f"✅ Загружено {len(all_profiles)} аккаунтов из SQLite для проекта '{project['name']}'")
+        except Exception as e:
+            print(f"⚠️ Ошибка получения аккаунтов из SQLite: {e}")
+            import traceback
+            traceback.print_exc()
 
     # Инициализируем статистику для ВСЕХ пользователей проекта
     users_stats = {}

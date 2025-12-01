@@ -413,8 +413,10 @@ async def get_project_analytics(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    # Получаем все профили проекта из листа проекта
+    # Получаем все профили проекта из листа проекта с fallback на SQLite
     all_profiles = []
+
+    # Пытаемся загрузить из Google Sheets
     if project_sheets:
         try:
             accounts_data = project_sheets.get_project_accounts(project['name'])
@@ -431,8 +433,39 @@ async def get_project_analytics(
                     'platform': account.get('Platform', 'tiktok').lower(),
                     'topic': account.get('Тематика', 'Не указано')
                 })
+            logger.info(f"✅ Loaded {len(all_profiles)} profiles from Google Sheets for project '{project['name']}'")
         except Exception as e:
             logger.warning(f"⚠️ Could not load accounts from sheets for project {project['name']}: {e}")
+
+    # FALLBACK: Если Google Sheets пустой или недоступен, загружаем из SQLite
+    if len(all_profiles) == 0:
+        logger.info(f"📊 Google Sheets empty, loading from SQLite for project '{project['name']}'")
+        try:
+            # Получаем социальные аккаунты из SQLite
+            sqlite_accounts = project_manager.get_project_social_accounts(project_id, platform)
+
+            for account in sqlite_accounts:
+                # Получаем последний snapshot для каждого аккаунта
+                snapshots = project_manager.get_account_snapshots(account['id'], limit=1)
+                latest_snapshot = snapshots[0] if snapshots else {}
+
+                all_profiles.append({
+                    'telegram_user': account.get('username', 'Unknown'),
+                    'url': account.get('profile_link', ''),
+                    'followers': latest_snapshot.get('followers', 0),
+                    'likes': latest_snapshot.get('likes', 0),
+                    'comments': latest_snapshot.get('comments', 0),
+                    'videos': latest_snapshot.get('videos', 0),
+                    'total_views': latest_snapshot.get('views', 0),
+                    'platform': account.get('platform', 'tiktok').lower(),
+                    'topic': account.get('topic', 'Не указано')
+                })
+
+            logger.info(f"✅ Loaded {len(all_profiles)} profiles from SQLite for project '{project['name']}'")
+        except Exception as e:
+            logger.warning(f"⚠️ Could not load accounts from SQLite: {e}")
+            import traceback
+            traceback.print_exc()
 
     # Группируем по пользователям
     users_stats = {}
