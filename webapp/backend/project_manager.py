@@ -101,11 +101,11 @@ class ProjectManager:
             logger.error(f"Ошибка получения проекта: {e}")
             return None
 
-    def get_all_projects(self, active_only: bool = True) -> List[Dict]:
+    def get_all_projects(self, active_only: bool = False) -> List[Dict]:
         """
-        Получение всех проектов
+        Получение всех проектов (включая завершенные по умолчанию)
 
-        :param active_only: Получить только активные проекты
+        :param active_only: Получить только активные проекты (False = все проекты)
         :return: Список проектов
         """
         try:
@@ -118,7 +118,7 @@ class ProjectManager:
             if active_only:
                 query += ' WHERE is_active = 1'
 
-            query += ' ORDER BY created_at DESC'
+            query += ' ORDER BY is_active DESC, created_at DESC'
 
             self.db.cursor.execute(query)
             rows = self.db.cursor.fetchall()
@@ -202,10 +202,10 @@ class ProjectManager:
 
     def get_user_projects(self, user_id: str) -> List[Dict]:
         """
-        Получение всех проектов пользователя
+        Получение всех проектов пользователя (включая завершенные)
 
         :param user_id: ID пользователя
-        :return: Список проектов
+        :return: Список проектов (активные и неактивные)
         """
         try:
             self.db.cursor.execute('''
@@ -213,8 +213,8 @@ class ProjectManager:
                        p.target_views, p.geo, p.created_at, p.is_active
                 FROM projects p
                 INNER JOIN project_users pu ON p.id = pu.project_id
-                WHERE pu.user_id = ? AND p.is_active = 1
-                ORDER BY p.created_at DESC
+                WHERE pu.user_id = ?
+                ORDER BY p.is_active DESC, p.created_at DESC
             ''', (user_id,))
 
             rows = self.db.cursor.fetchall()
@@ -241,7 +241,7 @@ class ProjectManager:
 
     def get_all_projects_with_access(self, user_id: str) -> List[Dict]:
         """
-        Получение всех активных проектов с проверкой доступа для пользователя
+        Получение всех проектов с проверкой доступа для пользователя (включая завершенные)
 
         Для проектов, где пользователь НЕ является участником:
         - name заменяется на "***"
@@ -253,13 +253,12 @@ class ProjectManager:
         :return: Список всех проектов с информацией о доступе
         """
         try:
-            # Получаем все активные проекты
+            # Получаем все проекты (активные и неактивные)
             self.db.cursor.execute('''
                 SELECT p.id, p.name, p.google_sheet_name, p.start_date, p.end_date,
                        p.target_views, p.geo, p.created_at, p.is_active
                 FROM projects p
-                WHERE p.is_active = 1
-                ORDER BY p.created_at DESC
+                ORDER BY p.is_active DESC, p.created_at DESC
             ''')
 
             rows = self.db.cursor.fetchall()

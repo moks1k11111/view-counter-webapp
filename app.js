@@ -296,7 +296,7 @@ async function renderProjects(projects) {
             clickHandler = hasAccess ? `onclick="openProject('${project.id}', 'user')"` : `onclick="showAccessDenied()"`;
             cursorStyle = 'cursor: pointer;';
             lockedClass = 'project-card-finished';
-            grayscaleFilter = 'filter: grayscale(0.5);';
+            grayscaleFilter = 'filter: grayscale(100%);';
         } else if (!hasAccess) {
             // No access: show lock, reduced opacity, disabled
             lockIcon = '🔒';
@@ -514,13 +514,25 @@ async function openProject(projectId, mode = 'user') {
         document.getElementById('project-details-page').classList.remove('hidden');
 
         // Обновляем заголовок
-        document.getElementById('project-details-name').textContent = analytics.project.name;
+        const isFinished = analytics.project.is_active === 0 || analytics.project.is_active === false;
+        const projectTitle = isFinished
+            ? `${analytics.project.name} 🏁`
+            : analytics.project.name;
+        document.getElementById('project-details-name').textContent = projectTitle;
 
-        // Динамически рендерим кнопки в зависимости от режима
+        // Динамически рендерим кнопки в зависимости от режима и статуса проекта
         const actionsContainer = document.getElementById('project-header-actions');
         if (actionsContainer) {
-            if (mode === 'admin') {
-                // Админ режим: кнопки "Импорт из Google" и "Добавить участника"
+            if (isFinished) {
+                // Завершенный проект: показываем только индикатор "Только для чтения"
+                actionsContainer.innerHTML = `
+                    <div style="padding: 8px 16px; font-size: 14px; color: #999; background: rgba(96, 125, 139, 0.1); border-radius: 8px; display: flex; align-items: center; gap: 8px;">
+                        <i class="fa-solid fa-lock"></i>
+                        <span>Только для чтения</span>
+                    </div>
+                `;
+            } else if (mode === 'admin') {
+                // Админ режим (активный проект): кнопки "Импорт из Google" и "Добавить участника"
                 actionsContainer.innerHTML = `
                     <button class="btn-secondary" onclick="importFromSheets()" style="padding: 8px 16px; font-size: 14px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 50%); color: white; border: none; border-radius: 8px; cursor: pointer;">
                         <i class="fa-solid fa-download"></i> Импорт из Google
@@ -530,7 +542,7 @@ async function openProject(projectId, mode = 'user') {
                     </button>
                 `;
             } else {
-                // Пользовательский режим: кнопка "Добавить аккаунт"
+                // Пользовательский режим (активный проект): кнопка "Добавить аккаунт"
                 actionsContainer.innerHTML = `
                     <button class="btn-primary" onclick="openAddSocialAccountModal()" style="padding: 8px 16px; font-size: 14px;">
                         <i class="fa-solid fa-plus"></i> Добавить аккаунт
@@ -544,6 +556,15 @@ async function openProject(projectId, mode = 'user') {
         if (adminProjectControls) {
             if (currentUser && ADMIN_IDS.includes(currentUser.id)) {
                 adminProjectControls.classList.remove('hidden');
+                // Скрыть кнопку "Завершить" если проект уже завершен
+                const finishButton = adminProjectControls.querySelector('button[onclick*="finishProject"]');
+                if (finishButton) {
+                    if (isFinished) {
+                        finishButton.style.display = 'none';
+                    } else {
+                        finishButton.style.display = '';
+                    }
+                }
             } else {
                 adminProjectControls.classList.add('hidden');
             }
