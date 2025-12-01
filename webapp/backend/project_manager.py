@@ -21,7 +21,8 @@ class ProjectManager:
         self.db = db
 
     def create_project(self, name: str, google_sheet_name: str, start_date: str,
-                      end_date: str, target_views: int, geo: str = "", kpi_views: int = 1000) -> Dict:
+                      end_date: str, target_views: int, geo: str = "", kpi_views: int = 1000,
+                      allowed_platforms: Dict = None) -> Dict:
         """
         Создание нового проекта
 
@@ -32,17 +33,25 @@ class ProjectManager:
         :param target_views: Целевое количество просмотров
         :param geo: География заказа
         :param kpi_views: Минимум просмотров для учета видео
+        :param allowed_platforms: Разрешенные социальные сети (dict)
         :return: Данные созданного проекта
         """
         try:
+            import json
             project_id = str(uuid.uuid4())
             created_at = datetime.now().isoformat()
 
+            # Если allowed_platforms не указан, разрешаем все платформы
+            if allowed_platforms is None:
+                allowed_platforms = {"tiktok": True, "instagram": True, "facebook": True, "youtube": True, "threads": True}
+
+            allowed_platforms_json = json.dumps(allowed_platforms)
+
             self.db.cursor.execute('''
                 INSERT INTO projects (id, name, google_sheet_name, start_date, end_date,
-                                     target_views, geo, kpi_views, created_at, is_active)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
-            ''', (project_id, name, google_sheet_name, start_date, end_date, target_views, geo, kpi_views, created_at))
+                                     target_views, geo, kpi_views, created_at, is_active, allowed_platforms)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
+            ''', (project_id, name, google_sheet_name, start_date, end_date, target_views, geo, kpi_views, created_at, allowed_platforms_json))
 
             self.db.conn.commit()
 
@@ -74,7 +83,7 @@ class ProjectManager:
         try:
             self.db.cursor.execute('''
                 SELECT id, name, google_sheet_name, start_date, end_date,
-                       target_views, geo, kpi_views, created_at, is_active
+                       target_views, geo, kpi_views, created_at, is_active, allowed_platforms
                 FROM projects
                 WHERE id = ?
             ''', (project_id,))
@@ -82,6 +91,11 @@ class ProjectManager:
             row = self.db.cursor.fetchone()
 
             if row:
+                import json
+                # Десериализуем allowed_platforms из JSON
+                allowed_platforms_str = row[10] if row[10] else '{"tiktok": true, "instagram": true, "facebook": true, "youtube": true, "threads": true}'
+                allowed_platforms = json.loads(allowed_platforms_str)
+
                 return {
                     "id": row[0],
                     "name": row[1],
@@ -92,7 +106,8 @@ class ProjectManager:
                     "geo": row[6],
                     "kpi_views": row[7] if row[7] is not None else 1000,
                     "created_at": row[8],
-                    "is_active": row[9]
+                    "is_active": row[9],
+                    "allowed_platforms": allowed_platforms
                 }
 
             return None

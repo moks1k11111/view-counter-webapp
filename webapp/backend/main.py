@@ -386,7 +386,8 @@ async def create_project(
         end_date=project.deadline,
         target_views=project.target_views,
         geo=project.geo,
-        kpi_views=project.kpi_views
+        kpi_views=project.kpi_views,
+        allowed_platforms=project.allowed_platforms
     )
 
     # Добавляем создателя (админа) в проект

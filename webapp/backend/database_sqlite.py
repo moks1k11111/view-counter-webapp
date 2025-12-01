@@ -157,6 +157,18 @@ class SQLiteDatabase:
                 self.conn.commit()
                 logger.info("✅ Поле is_finished добавлено в таблицу projects")
 
+            # Проверяем наличие поля allowed_platforms в таблице projects
+            self.cursor.execute("PRAGMA table_info(projects)")
+            columns = [column[1] for column in self.cursor.fetchall()]
+
+            if 'allowed_platforms' not in columns:
+                logger.info("Добавляю поле allowed_platforms в таблицу projects...")
+                # JSON с дефолтными значениями - все платформы включены
+                default_platforms = '{"tiktok": true, "instagram": true, "facebook": true, "youtube": true, "threads": true}'
+                self.cursor.execute(f"ALTER TABLE projects ADD COLUMN allowed_platforms TEXT DEFAULT '{default_platforms}'")
+                self.conn.commit()
+                logger.info("✅ Поле allowed_platforms добавлено в таблицу projects")
+
             # Проверяем наличие таблицы project_social_accounts
             self.cursor.execute(
                 "SELECT name FROM sqlite_master WHERE type='table' AND name='project_social_accounts'"

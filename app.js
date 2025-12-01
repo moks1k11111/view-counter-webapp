@@ -2347,6 +2347,7 @@ function openAddProjectModal() {
     document.getElementById('toggle-instagram').checked = true;
     document.getElementById('toggle-facebook').checked = true;
     document.getElementById('toggle-youtube').checked = true;
+    document.getElementById('toggle-threads').checked = true;
 }
 
 function closeAddProjectModal() {
@@ -2364,7 +2365,8 @@ async function submitNewProject() {
         tiktok: document.getElementById('toggle-tiktok').checked,
         instagram: document.getElementById('toggle-instagram').checked,
         facebook: document.getElementById('toggle-facebook').checked,
-        youtube: document.getElementById('toggle-youtube').checked
+        youtube: document.getElementById('toggle-youtube').checked,
+        threads: document.getElementById('toggle-threads').checked
     };
 
     // Валидация
