@@ -2536,6 +2536,9 @@ function goToStep2() {
         wizardData.username = username;
         wizardData.profileLink = profileLink;
 
+        // Update username display in Step 2
+        document.getElementById('profile-ready-username').textContent = `@${username}`;
+
         // Move to step 2
         document.getElementById('profile-step-1').classList.add('hidden');
         document.getElementById('profile-step-2').classList.remove('hidden');
