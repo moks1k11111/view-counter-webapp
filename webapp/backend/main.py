@@ -134,8 +134,8 @@ async def run_telegram_bot():
 @app.on_event("startup")
 async def startup_event():
     """Start bot when FastAPI starts"""
-    print("🚀 SERVER VERSION: 4.0 (FIXED MAIN.PY telegram_user)")
-    logger.info("🚀 SERVER VERSION: 4.0 (FIXED MAIN.PY telegram_user)")
+    print("🚀 SERVER VERSION: 4.1 (ADDED telegram_user TO PYDANTIC MODEL)")
+    logger.info("🚀 SERVER VERSION: 4.1 (ADDED telegram_user TO PYDANTIC MODEL)")
     logger.info("🚀 FastAPI starting up...")
     # Start bot in background (won't crash API if bot fails)
     try:
@@ -173,6 +173,7 @@ class SocialAccountCreate(BaseModel):
     profile_link: str
     status: str = "NEW"  # NEW, OLD, Ban
     topic: str = ""
+    telegram_user: Optional[str] = None  # Worker's Telegram username from frontend
 
 class SocialAccountUpdate(BaseModel):
     status: Optional[str] = None
@@ -577,11 +578,14 @@ async def add_social_account(
     """Добавить социальный аккаунт в проект"""
 
     logger.info("🚀 MAIN.PY add_social_account called!")
-    logger.info(f"🔍 account.telegram_user = {repr(account.telegram_user)}")
+
+    # Safely get telegram_user (may not be present)
+    telegram_user_from_frontend = getattr(account, 'telegram_user', None)
+    logger.info(f"🔍 account.telegram_user = {repr(telegram_user_from_frontend)}")
 
     # Extract display name from frontend OR initData
-    if account.telegram_user and account.telegram_user.strip():
-        display_name = account.telegram_user.strip()
+    if telegram_user_from_frontend and telegram_user_from_frontend.strip():
+        display_name = telegram_user_from_frontend.strip()
         logger.info(f"✅ Using telegram_user from FRONTEND: '{display_name}'")
     else:
         # Fallback to initData
