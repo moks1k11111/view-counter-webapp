@@ -440,16 +440,21 @@ async def add_social_account(
 ):
     """Добавить социальный аккаунт в проект"""
 
-    # Get User Info
-    tg_user_id = user.get('id')
-    tg_username = user.get('username')
-    tg_first = user.get('first_name', '')
+    # 1. Check if frontend sent the name explicitly
+    if account.telegram_user:
+        display_name = account.telegram_user
+        print(f"✅ Using telegram_user from FRONTEND: '{display_name}'")
+    else:
+        # 2. Fallback to initData extraction
+        tg_username = user.get('username')
+        first_name = user.get('first_name', '')
+        display_name = f"@{tg_username}" if tg_username else first_name
+        print(f"⚠️ Frontend didn't send telegram_user, extracting from initData")
 
-    display_name = f"@{tg_username}" if tg_username else tg_first
     if not display_name:
-        display_name = f"ID:{tg_user_id}"
+        display_name = f"ID:{user.get('id')}"
 
-    print(f"✅ PROCESSING ACCOUNT for USER: {display_name}")
+    print(f"✅ FINAL USER: {display_name}")
 
     # 4. Add to SQLite (with soft-delete support)
     result = project_manager.add_social_account_to_project(
