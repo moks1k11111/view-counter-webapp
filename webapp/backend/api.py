@@ -440,6 +440,10 @@ async def add_social_account(
 ):
     """Добавить социальный аккаунт в проект"""
 
+    print("=" * 80)
+    print("🚨 ADD_SOCIAL_ACCOUNT FUNCTION CALLED - VERSION 3.1 CODE RUNNING!")
+    print("=" * 80)
+
     # DEBUG: Log what Pydantic received
     print(f"🔍 DEBUG: account.telegram_user = {repr(account.telegram_user)}")
     print(f"🔍 DEBUG: account.dict() = {account.dict()}")
