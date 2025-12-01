@@ -867,7 +867,7 @@ function createPlatformsSlide(analytics) {
 function createProfilesSlide(analytics) {
     return `
         <div class="chart-slide">
-            <h4>Топ профилей по просмотрам</h4>
+            <h4>Топ аккаунтов по просмотрам</h4>
             <canvas id="profiles-chart" width="300" height="200"></canvas>
         </div>
     `;
@@ -876,11 +876,12 @@ function createProfilesSlide(analytics) {
 function renderAllCharts(analytics) {
     // Используем данные истории из API
     const dailyHistory = analytics.history || [];
+    const profiles = analytics.profiles || [];
 
     createDailyChart(dailyHistory);
     createTopicsChart(analytics.topic_stats);
     createPlatformsChart(analytics.platform_stats);
-    createProfilesChart(analytics.users_stats);
+    createProfilesChart(profiles);
 }
 
 function createDailyChart(history) {
@@ -966,7 +967,7 @@ function createPlatformsChart(platformStats) {
 
     // Определяем цвета для каждой платформы
     const platformColors = {
-        'tiktok': '#00f2ea',      // Cyan
+        'tiktok': '#25F4EE',      // Green (TikTok brand green)
         'instagram': '#d62976',   // Pink/Purple
         'facebook': '#1877f2',    // Blue
         'youtube': '#ff0000',     // Red
@@ -995,16 +996,22 @@ function createPlatformsChart(platformStats) {
     });
 }
 
-function createProfilesChart(usersStats) {
+function createProfilesChart(profiles) {
     const canvas = document.getElementById('profiles-chart');
     if (!canvas) return;
 
-    const sortedUsers = Object.entries(usersStats)
-        .sort((a, b) => b[1].total_views - a[1].total_views)
-        .slice(0, 5);
+    // Сортируем профили по просмотрам и берем топ 8
+    const sortedProfiles = profiles
+        .map(profile => ({
+            username: profile.username || profile.telegram_user || 'Unknown',
+            views: profile.total_views || 0,
+            platform: profile.platform || 'unknown'
+        }))
+        .sort((a, b) => b.views - a.views)
+        .slice(0, 8);
 
-    const labels = sortedUsers.map(([name]) => name);
-    const data = sortedUsers.map(([, stats]) => stats.total_views);
+    const labels = sortedProfiles.map(p => `@${p.username}`);
+    const data = sortedProfiles.map(p => p.views);
 
     new Chart(canvas, {
         type: 'doughnut',
@@ -1018,6 +1025,9 @@ function createProfilesChart(usersStats) {
                     'rgba(244, 67, 54, 0.8)',
                     'rgba(255, 193, 7, 0.8)',
                     'rgba(156, 39, 176, 0.8)',
+                    'rgba(255, 152, 0, 0.8)',
+                    'rgba(0, 188, 212, 0.8)',
+                    'rgba(233, 30, 99, 0.8)',
                 ]
             }]
         },

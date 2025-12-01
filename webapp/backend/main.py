@@ -537,6 +537,7 @@ async def get_project_analytics(
         "platform_stats": platform_stats,
         "topic_stats": topic_stats,
         "users_stats": users_stats,
+        "profiles": all_profiles,  # Список всех профилей для диаграммы аккаунтов
         "target_views": project['target_views'],
         "progress_percent": round((total_views / project['target_views'] * 100), 2) if project['target_views'] > 0 else 0,
         "history": daily_history.get("history", []),
@@ -613,6 +614,9 @@ async def get_my_analytics(
             }
         }
 
+        # Получаем историю просмотров проекта
+        daily_history = project_manager.get_project_daily_history(project_id)
+
         return {
             "project": project,
             "total_views": total_views,
@@ -621,8 +625,11 @@ async def get_my_analytics(
             "platform_stats": platform_stats,
             "topic_stats": topic_stats,
             "users_stats": users_stats,
+            "profiles": profiles,  # Список всех профилей для диаграммы аккаунтов
             "target_views": project['target_views'],
-            "progress_percent": round((total_views / project['target_views'] * 100), 2) if project['target_views'] > 0 else 0
+            "progress_percent": round((total_views / project['target_views'] * 100), 2) if project['target_views'] > 0 else 0,
+            "history": daily_history.get("history", []),
+            "growth_24h": daily_history.get("growth_24h", 0)
         }
 
     # Иначе возвращаем упрощенный формат (для общей статистики)

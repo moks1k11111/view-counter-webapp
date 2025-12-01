@@ -430,6 +430,7 @@ async def get_project_analytics(
         "platform_stats": platform_stats,
         "topic_stats": topic_stats,
         "users_stats": users_stats,
+        "profiles": all_profiles,  # Список всех профилей для диаграммы аккаунтов
         "target_views": project.get('target_views', 0),
         "progress_percent": progress,
         "history": daily_history.get("history", []),
