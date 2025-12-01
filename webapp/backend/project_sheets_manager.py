@@ -6,11 +6,55 @@ from typing import Optional, Dict, List
 import json
 import os
 import base64
+import time
+from functools import wraps
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
 )
 logger = logging.getLogger(__name__)
+
+
+def retry_on_quota_error(max_retries=3, delay=5):
+    """
+    Decorator to retry Google Sheets API calls on quota errors (429).
+
+    :param max_retries: Maximum number of retry attempts (default 3)
+    :param delay: Delay in seconds between retries (default 5)
+    """
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            for attempt in range(max_retries):
+                try:
+                    return func(*args, **kwargs)
+                except gspread.exceptions.APIError as e:
+                    # Check if it's a quota/rate limit error (429)
+                    if hasattr(e, 'response') and e.response.status_code == 429:
+                        if attempt < max_retries - 1:
+                            logger.warning(
+                                f"⚠️ Google Sheets API Rate Limit hit (429). "
+                                f"Retry {attempt + 1}/{max_retries - 1} in {delay}s... "
+                                f"Function: {func.__name__}"
+                            )
+                            time.sleep(delay)
+                            continue
+                        else:
+                            logger.error(
+                                f"❌ Google Sheets API Rate Limit exceeded after {max_retries} attempts. "
+                                f"Function: {func.__name__}"
+                            )
+                            raise
+                    else:
+                        # Not a quota error, raise immediately
+                        raise
+                except Exception as e:
+                    # For non-API errors, raise immediately
+                    raise
+            # Should not reach here, but just in case
+            return func(*args, **kwargs)
+        return wrapper
+    return decorator
 
 
 class ProjectSheetsManager:
@@ -65,9 +109,10 @@ class ProjectSheetsManager:
             logger.error(f"❌ Ошибка подключения к Google Sheets: {e}")
             raise
 
+    @retry_on_quota_error(max_retries=3, delay=5)
     def create_project_sheet(self, project_name: str) -> bool:
         """
-        Создание листа для проекта
+        Создание листа для проекта (с автоматическими повторами при quota errors)
 
         :param project_name: Название проекта
         :return: True если успешно
@@ -128,9 +173,10 @@ class ProjectSheetsManager:
             logger.error(f"❌ Ошибка создания листа проекта: {e}")
             return False
 
+    @retry_on_quota_error(max_retries=3, delay=5)
     def add_account_to_sheet(self, project_name: str, account_data: Dict) -> bool:
         """
-        Добавление аккаунта в лист проекта
+        Добавление аккаунта в лист проекта (с автоматическими повторами при quota errors)
 
         :param project_name: Название проекта
         :param account_data: Данные аккаунта
@@ -174,10 +220,11 @@ class ProjectSheetsManager:
             logger.error(f"❌ Ошибка добавления аккаунта: {e}")
             return False
 
+    @retry_on_quota_error(max_retries=3, delay=5)
     def update_account_stats(self, project_name: str, username: str,
                             stats: Dict) -> bool:
         """
-        Обновление статистики аккаунта в листе
+        Обновление статистики аккаунта в листе (с автоматическими повторами при quota errors)
 
         :param project_name: Название проекта
         :param username: Username аккаунта
@@ -253,9 +300,10 @@ class ProjectSheetsManager:
         """
         return self.get_project_accounts(project_name)
 
+    @retry_on_quota_error(max_retries=3, delay=5)
     def delete_project_sheet(self, project_name: str) -> bool:
         """
-        Удаление листа проекта
+        Удаление листа проекта (с автоматическими повторами при quota errors)
 
         :param project_name: Название проекта
         :return: True если успешно
@@ -269,13 +317,18 @@ class ProjectSheetsManager:
         except gspread.exceptions.WorksheetNotFound:
             logger.warning(f"⚠️ Лист {project_name} не найден")
             return False
+        except gspread.exceptions.APIError as e:
+            # APIError will be caught by retry decorator if it's a 429
+            logger.error(f"❌ API ошибка удаления листа: {e}")
+            raise
         except Exception as e:
             logger.error(f"❌ Ошибка удаления листа: {e}")
             return False
 
+    @retry_on_quota_error(max_retries=3, delay=5)
     def remove_account_from_sheet(self, project_name: str, username: str) -> bool:
         """
-        Удаление аккаунта из листа проекта
+        Удаление аккаунта из листа проекта (с автоматическими повторами при quota errors)
 
         :param project_name: Название проекта
         :param username: Username аккаунта

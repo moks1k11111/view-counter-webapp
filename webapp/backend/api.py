@@ -688,21 +688,42 @@ async def delete_project(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    # Удаляем проект полностью
+    # STEP 1: Пытаемся удалить лист из Google Sheets ПЕРЕД удалением из БД
+    # (чтобы избежать orphan sheets если БД удалена, но sheet остался)
+    sheet_deletion_failed = False
+    if project_sheets:
+        try:
+            logger.info(f"🔄 Attempting to delete Google Sheet for project '{project['name']}'...")
+            project_sheets.delete_project_sheet(project['name'])
+            logger.info(f"✅ Google Sheet '{project['name']}' deleted successfully")
+        except Exception as e:
+            sheet_deletion_failed = True
+            logger.error(
+                f"{'='*80}\n"
+                f"⚠️⚠️⚠️ CRITICAL WARNING ⚠️⚠️⚠️\n"
+                f"Failed to delete Google Sheet '{project['name']}' after retries!\n"
+                f"Error: {e}\n"
+                f"The project will still be deleted from the database to prevent phantom projects.\n"
+                f"MANUAL ACTION REQUIRED: Delete the orphan Google Sheet '{project['name']}' manually!\n"
+                f"{'='*80}"
+            )
+            # Continue with DB deletion despite sheet deletion failure
+
+    # STEP 2: Удаляем проект из БД (даже если Google Sheet не удалился)
     success = project_manager.delete_project_fully(project_id)
 
     if not success:
-        raise HTTPException(status_code=500, detail="Failed to delete project")
+        raise HTTPException(status_code=500, detail="Failed to delete project from database")
 
-    # Также удаляем лист из Google Sheets (если доступно)
-    if project_sheets:
-        try:
-            project_sheets.delete_project_sheet(project['name'])
-            logger.info(f"✅ Google Sheet for project {project['name']} deleted")
-        except Exception as e:
-            logger.warning(f"⚠️ Could not delete Google Sheet: {e}")
+    # Log final status
+    if sheet_deletion_failed:
+        logger.warning(
+            f"⚠️ Project {project_id} deleted from DB by admin {user_id}, "
+            f"but Google Sheet '{project['name']}' may still exist!"
+        )
+    else:
+        logger.info(f"✅ Project {project_id} fully deleted (DB + Sheet) by admin {user_id}")
 
-    logger.info(f"✅ Project {project_id} deleted by admin {user_id}")
     return {"success": True, "message": "Project deleted successfully"}
 
 @app.post("/api/projects/{project_id}/finish")
