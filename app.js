@@ -338,9 +338,9 @@ async function renderProjects(projects) {
             daysClass = daysRemaining < 7 ? 'days-urgent' : daysRemaining < 14 ? 'days-warning' : 'days-normal';
         }
 
-        // Display name: show "🔒 Hidden Project" for locked projects
-        const displayName = hasAccess ? project.name : '🔒 Hidden Project';
-        const displayGeo = hasAccess ? (project.geo || 'Global') : '***';
+        // Display name: backend already masks data for locked projects
+        const displayName = project.name;
+        const displayGeo = project.geo || 'Global';
 
         return `
             <div class="project-card ${lockedClass}" ${clickHandler} style="opacity: ${cardOpacity}; ${cursorStyle} ${grayscaleFilter}">
@@ -1263,12 +1263,16 @@ async function init() {
         // Initialize Telegram
         initTelegramApp();
 
-        // Load user data and projects
+        // Load user data
         const data = await apiCall('/api/me');
         currentUser = data.user;
-        currentProjects = data.projects || [];
 
         console.log('User:', currentUser);
+
+        // Load ALL projects (including those without access, for display on home page)
+        const projectsData = await apiCall('/api/projects');
+        currentProjects = projectsData.projects || [];
+
         console.log('Projects:', currentProjects);
 
         // Check if user is admin
@@ -1287,7 +1291,7 @@ async function init() {
             usernameElement.textContent = currentUser.first_name || 'User';
         }
 
-        // Render projects
+        // Render projects (includes locked projects with masked data)
         renderProjects(currentProjects);
 
         // Load analytics in background (non-blocking)
@@ -1299,7 +1303,9 @@ async function init() {
                 totalViewsElement.textContent = formatNumber(statsData.total_views || 0);
             }
             if (totalProjectsElement) {
-                totalProjectsElement.textContent = currentProjects.length;
+                // Показываем только проекты с доступом
+                const accessibleProjectsCount = currentProjects.filter(p => p.has_access !== false).length;
+                totalProjectsElement.textContent = accessibleProjectsCount;
             }
         }).catch(err => console.error('Failed to load analytics:', err));
 
@@ -2406,9 +2412,9 @@ async function submitNewProject() {
             closeAddProjectModal();
             showSuccess(`Проект "${projectName}" создан успешно!`);
 
-            // Перезагружаем данные пользователя и проекты
-            const data = await apiCall('/api/me');
-            currentProjects = data.projects || [];
+            // Перезагружаем все проекты (включая недоступные)
+            const projectsData = await apiCall('/api/projects');
+            currentProjects = projectsData.projects || [];
 
             // Обновляем UI
             renderProjects(currentProjects);
