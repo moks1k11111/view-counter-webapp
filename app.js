@@ -2317,6 +2317,8 @@ function openAddSocialAccountModal() {
             displayName = `ID:${currentUser.id}`;
         }
     }
+    console.log('🔍 FRONTEND DEBUG: Opening modal, currentUser =', currentUser);
+    console.log('🔍 FRONTEND DEBUG: Setting worker-username-input to:', displayName);
     document.getElementById('worker-username-input').value = displayName;
 
     // Reset wizard data
@@ -2451,17 +2453,23 @@ async function submitSocialAccount() {
     // Get worker username from input field
     const workerName = document.getElementById('worker-username-input').value.trim();
 
+    console.log('🔍 FRONTEND DEBUG: Sending telegram_user =', workerName);
+
+    const requestBody = {
+        platform: wizardData.platform,
+        username: wizardData.username,
+        profile_link: wizardData.profileLink,
+        status: wizardData.status,
+        topic: wizardData.topic || '',
+        telegram_user: workerName  // Explicitly send telegram username from frontend
+    };
+
+    console.log('🔍 FRONTEND DEBUG: Full request body =', requestBody);
+
     try {
         const response = await apiCall(`/api/projects/${projectId}/accounts`, {
             method: 'POST',
-            body: JSON.stringify({
-                platform: wizardData.platform,
-                username: wizardData.username,
-                profile_link: wizardData.profileLink,
-                status: wizardData.status,
-                topic: wizardData.topic || '',
-                telegram_user: workerName  // Explicitly send telegram username from frontend
-            })
+            body: JSON.stringify(requestBody)
         });
 
         if (response.success) {
