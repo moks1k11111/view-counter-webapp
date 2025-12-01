@@ -2889,6 +2889,8 @@ async function loadProjectSocialAccounts(projectId, mode = 'user') {
 
         if (response.success) {
             let accounts = response.accounts;
+            console.log('🔍 DEBUG: Total accounts from API:', accounts.length);
+            console.log('🔍 DEBUG: All accounts:', accounts);
 
             // В режиме user фильтруем только аккаунты текущего пользователя
             if (mode === 'user' && currentUser) {
@@ -2896,7 +2898,16 @@ async function loadProjectSocialAccounts(projectId, mode = 'user') {
                     ? `@${currentUser.username}`
                     : currentUser.first_name || `ID:${currentUser.id}`;
 
-                accounts = accounts.filter(account => account.telegram_user === myTelegramUser);
+                console.log('🔍 DEBUG: My telegram_user:', myTelegramUser);
+
+                // Показываем аккаунты где telegram_user совпадает ИЛИ пустой (для обратной совместимости)
+                accounts = accounts.filter(account => {
+                    const match = !account.telegram_user ||
+                                  account.telegram_user === '' ||
+                                  account.telegram_user === myTelegramUser;
+                    console.log(`🔍 Account ${account.username}: telegram_user="${account.telegram_user}" -> ${match ? 'SHOW' : 'HIDE'}`);
+                    return match;
+                });
                 console.log('🔍 Filtered accounts for user:', myTelegramUser, 'Count:', accounts.length);
             }
 
