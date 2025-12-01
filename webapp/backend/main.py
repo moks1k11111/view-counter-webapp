@@ -626,6 +626,16 @@ async def add_social_account(
 
     logger.info("🚀 MAIN.PY add_social_account called!")
 
+    # Проверка на дубликаты - проверяем существует ли уже аккаунт с такой ссылкой
+    existing_accounts = project_manager.get_project_social_accounts(project_id)
+    for existing in existing_accounts:
+        if existing.get('profile_link', '').strip() == account.profile_link.strip():
+            logger.warning(f"⚠️ Duplicate account detected: {account.profile_link}")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Этот аккаунт уже добавлен в проект"
+            )
+
     # Safely get telegram_user (may not be present)
     telegram_user_from_frontend = getattr(account, 'telegram_user', None)
     logger.info(f"🔍 account.telegram_user = {repr(telegram_user_from_frontend)}")

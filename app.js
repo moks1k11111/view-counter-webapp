@@ -34,7 +34,17 @@ async function apiCall(endpoint, options = {}) {
         if (!response.ok) {
             const errorText = await response.text();
             console.error('API Error Response:', response.status, errorText);
-            throw new Error(`API Error (${response.status}): ${errorText || response.statusText}`);
+
+            // Пытаемся распарсить JSON ошибку для извлечения detail
+            let errorMessage;
+            try {
+                const errorJson = JSON.parse(errorText);
+                errorMessage = errorJson.detail || errorJson.message || errorText;
+            } catch (e) {
+                errorMessage = errorText || response.statusText;
+            }
+
+            throw new Error(errorMessage);
         }
 
         return await response.json();

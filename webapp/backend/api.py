@@ -502,6 +502,16 @@ async def add_social_account(
     log_critical("🚨 ADD_SOCIAL_ACCOUNT FUNCTION CALLED - VERSION 3.4 CODE RUNNING!")
     log_critical("=" * 80)
 
+    # Проверка на дубликаты - проверяем существует ли уже аккаунт с такой ссылкой
+    existing_accounts = project_manager.get_project_social_accounts(project_id)
+    for existing in existing_accounts:
+        if existing.get('profile_link', '').strip() == account.profile_link.strip():
+            log_critical(f"⚠️ Duplicate account detected: {account.profile_link}")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Этот аккаунт уже добавлен в проект"
+            )
+
     # DEBUG: Log what Pydantic received
     log_critical(f"🔍 DEBUG: account.telegram_user = {repr(account.telegram_user)}")
     log_critical(f"🔍 DEBUG: account.dict() = {account.dict()}")

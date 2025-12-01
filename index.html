@@ -601,15 +601,19 @@
                     <h2 class="modal-title">Статус аккаунта</h2>
                     <p class="modal-description">Выберите статус</p>
                     <div class="status-buttons">
-                        <button class="status-btn" onclick="selectStatus('NEW')">
-                            <span class="status-icon">🆕</span>
-                            <span class="status-label">Новый</span>
-                            <span class="status-sublabel">NEW</span>
+                        <button class="status-btn" onclick="selectStatus('NEW')" style="flex-direction: column; padding: 15px; height: auto;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                                <span class="status-icon">🆕</span>
+                                <span class="status-label">Новый</span>
+                            </div>
+                            <span class="status-sublabel" style="font-size: 11px; color: #888; text-align: center;">Профиль создан недавно, мало контента</span>
                         </button>
-                        <button class="status-btn" onclick="selectStatus('OLD')">
-                            <span class="status-icon">📦</span>
-                            <span class="status-label">Старый</span>
-                            <span class="status-sublabel">OLD</span>
+                        <button class="status-btn" onclick="selectStatus('OLD')" style="flex-direction: column; padding: 15px; height: auto;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                                <span class="status-icon">📦</span>
+                                <span class="status-label">Старый</span>
+                            </div>
+                            <span class="status-sublabel" style="font-size: 11px; color: #888; text-align: center;">Профиль существует давно, много контента</span>
                         </button>
                     </div>
                 </div>
