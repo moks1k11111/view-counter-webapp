@@ -90,6 +90,33 @@ function formatNumber(num) {
     return num.toLocaleString('en-US');
 }
 
+function renderPlatformIcons(allowedPlatforms) {
+    // Генерирует HTML для иконок социальных сетей на основе allowed_platforms
+    if (!allowedPlatforms) {
+        // Если не указано, показываем все
+        allowedPlatforms = { tiktok: true, instagram: true, facebook: true, youtube: true, threads: true };
+    }
+
+    let iconsHTML = '';
+    if (allowedPlatforms.tiktok) {
+        iconsHTML += '<div class="platform-icon tiktok" title="TikTok"><i class="fa-brands fa-tiktok"></i></div>';
+    }
+    if (allowedPlatforms.instagram) {
+        iconsHTML += '<div class="platform-icon instagram" title="Instagram"><i class="fa-brands fa-instagram"></i></div>';
+    }
+    if (allowedPlatforms.youtube) {
+        iconsHTML += '<div class="platform-icon youtube" title="YouTube"><i class="fa-brands fa-youtube"></i></div>';
+    }
+    if (allowedPlatforms.facebook) {
+        iconsHTML += '<div class="platform-icon facebook" title="Facebook"><i class="fa-brands fa-facebook"></i></div>';
+    }
+    if (allowedPlatforms.threads) {
+        iconsHTML += '<div class="platform-icon threads" title="Threads"><i class="fa-brands fa-threads"></i></div>';
+    }
+
+    return iconsHTML;
+}
+
 function calculateDaysRemaining(endDate) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -375,11 +402,7 @@ async function renderProjects(projects) {
                     </div>
                     <div class="last-update-text">${formatLastUpdate(project.last_update)}</div>
                     <div class="project-platforms">
-                        <div class="platform-icon tiktok" title="TikTok"><i class="fa-brands fa-tiktok"></i></div>
-                        <div class="platform-icon instagram" title="Instagram"><i class="fa-brands fa-instagram"></i></div>
-                        <div class="platform-icon youtube" title="YouTube"><i class="fa-brands fa-youtube"></i></div>
-                        <div class="platform-icon facebook" title="Facebook"><i class="fa-brands fa-facebook"></i></div>
-                        <div class="platform-icon threads" title="Threads"><i class="fa-brands fa-threads"></i></div>
+                        ${renderPlatformIcons(project.allowed_platforms)}
                     </div>
                 </div>
             </div>
@@ -459,11 +482,7 @@ async function renderMyProjects(projects) {
                 <div class="chart-legend">Last 7 days activity</div>
                 <div class="last-update-text">${formatLastUpdate(project.last_update)}</div>
                 <div class="project-platforms">
-                    <div class="platform-icon tiktok" title="TikTok"><i class="fa-brands fa-tiktok"></i></div>
-                    <div class="platform-icon instagram" title="Instagram"><i class="fa-brands fa-instagram"></i></div>
-                    <div class="platform-icon youtube" title="YouTube"><i class="fa-brands fa-youtube"></i></div>
-                    <div class="platform-icon facebook" title="Facebook"><i class="fa-brands fa-facebook"></i></div>
-                    <div class="platform-icon threads" title="Threads"><i class="fa-brands fa-threads"></i></div>
+                    ${renderPlatformIcons(project.allowed_platforms)}
                 </div>
             </div>
         </div>

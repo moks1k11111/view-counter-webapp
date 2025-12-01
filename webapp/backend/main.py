@@ -633,6 +633,20 @@ async def add_social_account(
 
     logger.info("🚀 MAIN.PY add_social_account called!")
 
+    # Получаем данные проекта
+    project = project_manager.get_project(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Проверяем, разрешена ли эта платформа в проекте
+    allowed_platforms = project.get('allowed_platforms', {})
+    if not allowed_platforms.get(account.platform.lower(), False):
+        logger.warning(f"⚠️ Platform {account.platform} not allowed in project {project_id}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Добавьте платформу из списка доступных"
+        )
+
     # Проверка на дубликаты - проверяем существует ли уже аккаунт с такой ссылкой
     existing_accounts = project_manager.get_project_social_accounts(project_id)
     for existing in existing_accounts:
@@ -680,11 +694,6 @@ async def add_social_account(
 
     if not result:
         raise HTTPException(status_code=400, detail="Failed to add account")
-
-    # Получаем данные проекта для Google Sheets
-    project = project_manager.get_project(project_id)
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
 
     # Добавляем в Google Sheets (если включено)
     if project_sheets:
