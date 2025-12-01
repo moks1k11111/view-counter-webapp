@@ -571,77 +571,68 @@ function closeProjectDetails() {
 
 // ==================== ADMIN PROJECT CONTROLS ====================
 
-async function deleteProject() {
-    if (!window.currentProjectId) {
+async function deleteProject(id) {
+    const projectId = id || window.currentProjectId;
+    if (!projectId) {
         showError('Проект не выбран');
         return;
     }
 
     // Подтверждение удаления
-    const confirmed = confirm('Вы уверены, что хотите УДАЛИТЬ этот проект?\n\nЭто действие нельзя отменить. Все данные проекта будут удалены без возможности восстановления.');
-    if (!confirmed) return;
-
-    // Двойное подтверждение
-    const doubleConfirmed = confirm('⚠️ ВНИМАНИЕ! Это окончательное удаление!\n\nВсе аккаунты, статистика и данные проекта будут безвозвратно удалены.\n\nПродолжить удаление?');
-    if (!doubleConfirmed) return;
+    if (!confirm('Вы точно хотите удалить проект и все данные? Это действие нельзя отменить.')) {
+        return;
+    }
 
     try {
-        showLoading('Удаление проекта...');
-
-        const response = await apiCall(`/api/projects/${window.currentProjectId}`, {
+        const response = await apiCall(`/api/projects/${projectId}`, {
             method: 'DELETE'
         });
 
         if (response.success) {
-            showSuccess('Проект успешно удален');
-            // Redirect to home page and reload
+            showSuccess('Проект удален');
             closeProjectDetails();
-            // Force page reload to refresh project list
+            // Reload page to refresh project list
             setTimeout(() => window.location.reload(), 1000);
         } else {
             showError(response.message || 'Не удалось удалить проект');
         }
     } catch (error) {
         console.error('Error deleting project:', error);
-        if (error.message.includes('403')) {
-            showError('У вас нет прав для удаления проекта');
-        } else {
-            showError('Ошибка при удалении проекта');
-        }
+        showError('Ошибка при удалении проекта');
     }
 }
 
-async function finishProject() {
-    if (!window.currentProjectId) {
+async function finishProject(id) {
+    const projectId = id || window.currentProjectId;
+    if (!projectId) {
         showError('Проект не выбран');
         return;
     }
 
     // Подтверждение завершения
-    const confirmed = confirm('Вы уверены, что хотите ЗАВЕРШИТЬ этот проект?\n\nПроект станет неактивным и будет доступен только для просмотра.');
-    if (!confirmed) return;
+    if (!confirm('Завершить проект? Он станет недоступен для редактирования.')) {
+        return;
+    }
 
     try {
-        showLoading('Завершение проекта...');
-
-        const response = await apiCall(`/api/projects/${window.currentProjectId}/finish`, {
+        const response = await apiCall(`/api/projects/${projectId}/finish`, {
             method: 'POST'
         });
 
         if (response.success) {
             showSuccess('Проект завершен');
-            // Reload project data to show locked state
-            await openProject(window.currentProjectId, 'admin');
+            // Reload project details
+            if (isAdmin) {
+                await loadProjectDetailsForAdmin(projectId);
+            } else {
+                await openProject(projectId, 'user');
+            }
         } else {
             showError(response.message || 'Не удалось завершить проект');
         }
     } catch (error) {
         console.error('Error finishing project:', error);
-        if (error.message.includes('403')) {
-            showError('У вас нет прав для завершения проекта');
-        } else {
-            showError('Ошибка при завершении проекта');
-        }
+        showError('Ошибка при завершении проекта');
     }
 }
 
