@@ -139,8 +139,15 @@ class ProjectSheetsManager:
         try:
             worksheet = self.spreadsheet.worksheet(project_name)
 
+            # DEBUG: Log what we received from api.py
+            logger.info("=" * 80)
+            logger.info(f"🔍 SHEETS MANAGER: Received account_data = {account_data}")
+            logger.info(f"🔍 SHEETS MANAGER: account_data['telegram_user'] = {repr(account_data.get('telegram_user'))}")
+            logger.info("=" * 80)
+
             # Get telegram_user with fallback
             telegram_user = account_data.get('telegram_user') or 'Unknown'
+            logger.info(f"🔍 SHEETS MANAGER: After fallback, telegram_user = '{telegram_user}'")
 
             # Подготавливаем данные
             row = [
