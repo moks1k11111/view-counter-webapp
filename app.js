@@ -2019,7 +2019,7 @@ async function loadProjectManagementList() {
 
             try {
                 const response = await fetch(`${API_BASE_URL}/api/projects/${project.id}/analytics`, {
-                    headers: { 'X-Telegram-Init-Data': window.initData }
+                    headers: { 'X-Telegram-Init-Data': tg.initData }
                 });
 
                 if (response.ok) {
