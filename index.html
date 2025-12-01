@@ -207,6 +207,19 @@
                     <div class="swiper-dots" id="swiper-dots"></div>
                 </div>
 
+                <!-- Контроллы администратора проекта (видимы только админам) -->
+                <div id="admin-project-controls" class="hidden" style="margin: 16px 0; display: flex; gap: 12px; flex-wrap: wrap;">
+                    <button class="btn-secondary" onclick="refreshProjectStats()" style="flex: 1; min-width: 150px;">
+                        <i class="fa-solid fa-rotate"></i> Обновить статистику
+                    </button>
+                    <button class="btn-warning" onclick="finishProject()" style="flex: 1; min-width: 150px;">
+                        <i class="fa-solid fa-flag-checkered"></i> Завершить проект
+                    </button>
+                    <button class="btn-danger" onclick="deleteProject()" style="flex: 1; min-width: 150px;">
+                        <i class="fa-solid fa-trash"></i> Удалить проект
+                    </button>
+                </div>
+
                 <!-- Раскрывающийся список аккаунтов -->
                 <div class="profiles-accordion">
                     <div class="accordion-header" onclick="toggleProfiles()">

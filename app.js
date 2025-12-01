@@ -507,6 +507,16 @@ async function openProject(projectId, mode = 'user') {
             }
         }
 
+        // Показать/скрыть контроллы администратора проекта
+        const adminProjectControls = document.getElementById('admin-project-controls');
+        if (adminProjectControls) {
+            if (currentUser && ADMIN_IDS.includes(currentUser.id)) {
+                adminProjectControls.classList.remove('hidden');
+            } else {
+                adminProjectControls.classList.add('hidden');
+            }
+        }
+
         // Отображаем суммарную статистику
         displaySummaryStats(analytics);
 
@@ -526,6 +536,90 @@ function closeProjectDetails() {
     document.getElementById('project-details-page').classList.add('hidden');
     document.getElementById('home-page').classList.remove('hidden');
 }
+
+// ==================== ADMIN PROJECT CONTROLS ====================
+
+async function deleteProject() {
+    if (!window.currentProjectId) {
+        showError('Проект не выбран');
+        return;
+    }
+
+    // Подтверждение удаления
+    const confirmed = confirm('Вы уверены, что хотите УДАЛИТЬ этот проект?\n\nЭто действие нельзя отменить. Все данные проекта будут удалены без возможности восстановления.');
+    if (!confirmed) return;
+
+    // Двойное подтверждение
+    const doubleConfirmed = confirm('⚠️ ВНИМАНИЕ! Это окончательное удаление!\n\nВсе аккаунты, статистика и данные проекта будут безвозвратно удалены.\n\nПродолжить удаление?');
+    if (!doubleConfirmed) return;
+
+    try {
+        showLoading('Удаление проекта...');
+
+        const response = await apiCall(`/api/projects/${window.currentProjectId}`, {
+            method: 'DELETE'
+        });
+
+        if (response.success) {
+            showSuccess('Проект успешно удален');
+            // Redirect to home page
+            closeProjectDetails();
+            // Reload projects list if on admin page
+            if (isAdmin) {
+                await loadAdminProjects();
+            }
+        } else {
+            showError(response.message || 'Не удалось удалить проект');
+        }
+    } catch (error) {
+        console.error('Error deleting project:', error);
+        if (error.message.includes('403')) {
+            showError('У вас нет прав для удаления проекта');
+        } else {
+            showError('Ошибка при удалении проекта');
+        }
+    }
+}
+
+async function finishProject() {
+    if (!window.currentProjectId) {
+        showError('Проект не выбран');
+        return;
+    }
+
+    // Подтверждение завершения
+    const confirmed = confirm('Вы уверены, что хотите ЗАВЕРШИТЬ этот проект?\n\nПроект станет неактивным и будет доступен только для просмотра.');
+    if (!confirmed) return;
+
+    try {
+        showLoading('Завершение проекта...');
+
+        const response = await apiCall(`/api/projects/${window.currentProjectId}/finish`, {
+            method: 'POST'
+        });
+
+        if (response.success) {
+            showSuccess('Проект завершен');
+            // Reload project data to show locked state
+            await openProject(window.currentProjectId, 'admin');
+        } else {
+            showError(response.message || 'Не удалось завершить проект');
+        }
+    } catch (error) {
+        console.error('Error finishing project:', error);
+        if (error.message.includes('403')) {
+            showError('У вас нет прав для завершения проекта');
+        } else {
+            showError('Ошибка при завершении проекта');
+        }
+    }
+}
+
+async function refreshProjectStats() {
+    showSuccess('🚧 Функция "Обновить статистику" пока не реализована');
+}
+
+// ==================== END ADMIN PROJECT CONTROLS ====================
 
 function displaySummaryStats(analytics) {
     const { project, total_views, users_stats, topic_stats } = analytics;
@@ -2814,6 +2908,9 @@ window.openProjectManagement = openProjectManagement;
 window.closeProjectManagement = closeProjectManagement;
 window.openProjectDetailsFromAdmin = openProjectDetailsFromAdmin;
 window.closeProjectDetails = closeProjectDetails;
+window.deleteProject = deleteProject;
+window.finishProject = finishProject;
+window.refreshProjectStats = refreshProjectStats;
 window.openAddProjectModal = openAddProjectModal;
 window.closeAddProjectModal = closeAddProjectModal;
 window.submitNewProject = submitNewProject;

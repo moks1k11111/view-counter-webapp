@@ -898,3 +898,87 @@ class ProjectManager:
         except Exception as e:
             logger.error(f"Ошибка получения статистики: {e}")
             return []
+
+    def finish_project(self, project_id: str) -> bool:
+        """
+        Завершение проекта (установка is_active = 0)
+
+        :param project_id: ID проекта
+        :return: True если успешно
+        """
+        try:
+            self.db.cursor.execute('''
+                UPDATE projects SET is_active = 0 WHERE id = ?
+            ''', (project_id,))
+
+            self.db.conn.commit()
+
+            if self.db.cursor.rowcount > 0:
+                logger.info(f"✅ Проект {project_id} завершен (is_active=0)")
+                return True
+            else:
+                logger.info(f"⚠️ Проект {project_id} не найден")
+                return False
+
+        except Exception as e:
+            logger.error(f"Ошибка завершения проекта: {e}")
+            return False
+
+    def delete_project_fully(self, project_id: str) -> bool:
+        """
+        Полное удаление проекта из базы данных
+
+        Удаляет:
+        - Записи из account_daily_stats
+        - Записи из account_snapshots
+        - Записи из project_social_accounts
+        - Записи из project_users
+        - Запись из projects
+
+        :param project_id: ID проекта
+        :return: True если успешно
+        """
+        try:
+            # 1. Получаем все аккаунты проекта для удаления их снимков и статистики
+            self.db.cursor.execute('''
+                SELECT id FROM project_social_accounts WHERE project_id = ?
+            ''', (project_id,))
+
+            account_ids = [row[0] for row in self.db.cursor.fetchall()]
+
+            # 2. Удаляем ежедневную статистику всех аккаунтов проекта
+            for account_id in account_ids:
+                self.db.cursor.execute('''
+                    DELETE FROM account_daily_stats WHERE account_id = ?
+                ''', (account_id,))
+
+            # 3. Удаляем снимки всех аккаунтов проекта
+            for account_id in account_ids:
+                self.db.cursor.execute('''
+                    DELETE FROM account_snapshots WHERE account_id = ?
+                ''', (account_id,))
+
+            # 4. Удаляем социальные аккаунты проекта
+            self.db.cursor.execute('''
+                DELETE FROM project_social_accounts WHERE project_id = ?
+            ''', (project_id,))
+
+            # 5. Удаляем пользователей проекта
+            self.db.cursor.execute('''
+                DELETE FROM project_users WHERE project_id = ?
+            ''', (project_id,))
+
+            # 6. Удаляем сам проект
+            self.db.cursor.execute('''
+                DELETE FROM projects WHERE id = ?
+            ''', (project_id,))
+
+            self.db.conn.commit()
+
+            logger.info(f"✅ Проект {project_id} полностью удален из БД")
+            return True
+
+        except Exception as e:
+            logger.error(f"Ошибка удаления проекта: {e}")
+            self.db.conn.rollback()
+            return False

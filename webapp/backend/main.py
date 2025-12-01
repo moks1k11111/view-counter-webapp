@@ -736,6 +736,66 @@ async def import_from_sheets(
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Import failed: {str(e)}")
 
+@app.delete("/api/projects/{project_id}")
+async def delete_project(
+    project_id: str,
+    user: dict = Depends(get_current_user)
+):
+    """Полное удаление проекта (только для администраторов)"""
+    user_id = str(user.get('id'))
+
+    # Проверка прав администратора
+    if user_id not in [str(admin_id) for admin_id in ADMIN_IDS]:
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    # Проверяем, существует ли проект
+    project = project_manager.get_project(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Удаляем проект полностью
+    success = project_manager.delete_project_fully(project_id)
+
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to delete project")
+
+    # Также удаляем лист из Google Sheets (если доступно)
+    if project_sheets:
+        try:
+            project_sheets.delete_project_sheet(project['name'])
+            logger.info(f"✅ Google Sheet for project {project['name']} deleted")
+        except Exception as e:
+            logger.warning(f"⚠️ Could not delete Google Sheet: {e}")
+
+    logger.info(f"✅ Project {project_id} deleted by admin {user_id}")
+    return {"success": True, "message": "Project deleted successfully"}
+
+@app.post("/api/projects/{project_id}/finish")
+async def finish_project(
+    project_id: str,
+    user: dict = Depends(get_current_user)
+):
+    """Завершение проекта (только для администраторов)"""
+    user_id = str(user.get('id'))
+
+    # Проверка прав администратора
+    if user_id not in [str(admin_id) for admin_id in ADMIN_IDS]:
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    # Проверяем, существует ли проект
+    project = project_manager.get_project(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Завершаем проект (is_active = 0)
+    success = project_manager.finish_project(project_id)
+
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to finish project")
+
+    logger.info(f"✅ Project {project_id} finished by admin {user_id}")
+    return {"success": True, "message": "Project finished successfully"}
+
 @app.get("/api/accounts/{account_id}")
 async def get_social_account(
     account_id: str,
