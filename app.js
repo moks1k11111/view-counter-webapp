@@ -433,10 +433,16 @@ async function renderMyProjects(projects) {
         }
     }));
 
-    myProjectsList.innerHTML = projectsWithMyStats.map((project, index) => `
-        <div class="project-card-detailed" onclick="openProject('${project.id}', 'user')">
+    myProjectsList.innerHTML = projectsWithMyStats.map((project, index) => {
+        const isFinished = project.is_active === 0 || project.is_active === false;
+        const cardOpacity = isFinished ? '0.7' : '1';
+        const grayscaleFilter = isFinished ? 'filter: grayscale(100%);' : '';
+        const finishedBadge = isFinished ? '<span style="color: #4CAF50; margin-left: 8px; font-size: 14px;">🏁 Завершен</span>' : '';
+
+        return `
+        <div class="project-card-detailed" onclick="openProject('${project.id}', 'user')" style="opacity: ${cardOpacity}; ${grayscaleFilter}">
             <div class="project-header">
-                <h3 class="project-name">${project.name}</h3>
+                <h3 class="project-name">${project.name}${finishedBadge}</h3>
                 <span class="project-geo">${project.geo || 'Global'}</span>
             </div>
 
@@ -465,7 +471,8 @@ async function renderMyProjects(projects) {
                 </div>
             </div>
         </div>
-    `).join('');
+    `;
+    }).join('');
 
     // Render bar charts after DOM update
     setTimeout(() => {
