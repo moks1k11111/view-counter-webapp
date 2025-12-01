@@ -2032,7 +2032,8 @@ async function loadProjectManagementList() {
                         totalViews: analytics.total_views || 0,
                         progress: analytics.progress_percent || 0,
                         usersCount: Object.keys(analytics.users_stats || {}).length,
-                        profilesCount: Object.values(analytics.users_stats || {}).reduce((sum, user) => sum + (user.profiles_count || 0), 0)
+                        profilesCount: Object.values(analytics.users_stats || {}).reduce((sum, user) => sum + (user.profiles_count || 0), 0),
+                        isFinished: project.is_finished || false
                     });
                 } else {
                     // Если analytics не загрузился, добавляем проект с нулевыми данными
@@ -2045,7 +2046,8 @@ async function loadProjectManagementList() {
                         totalViews: 0,
                         progress: 0,
                         usersCount: 0,
-                        profilesCount: 0
+                        profilesCount: 0,
+                        isFinished: project.is_finished || false
                     });
                 }
             } catch (error) {
@@ -2059,7 +2061,8 @@ async function loadProjectManagementList() {
                     totalViews: 0,
                     progress: 0,
                     usersCount: 0,
-                    profilesCount: 0
+                    profilesCount: 0,
+                    isFinished: project.is_finished || false
                 });
             }
         }
@@ -2089,6 +2092,9 @@ function renderProjectManagementList(projects) {
     projects.sort((a, b) => b.totalViews - a.totalViews);
 
     const projectsHTML = projects.map(project => {
+        // Определяем статус завершенности проекта
+        const finishedBadge = project.isFinished ? '<span style="color: #4CAF50; margin-left: 8px;">🏁 Завершен</span>' : '';
+
         return `
             <div class="admin-user-item" onclick="openProjectDetailsFromAdmin('${project.id}')">
                 <div class="admin-user-info">
@@ -2096,7 +2102,7 @@ function renderProjectManagementList(projects) {
                         <i class="fa-solid fa-folder-open"></i>
                     </div>
                     <div class="admin-user-details">
-                        <div class="admin-user-name">${project.name}</div>
+                        <div class="admin-user-name">${project.name}${finishedBadge}</div>
                         <div class="admin-user-stats">
                             ${formatNumber(project.totalViews)} просмотров • ${project.progress}% • KPI от ${formatNumber(project.kpiViews)} • ${project.usersCount} участников • ${project.profilesCount} профилей
                         </div>
