@@ -83,7 +83,8 @@ class SQLiteDatabase:
                     geo TEXT DEFAULT "",
                     kpi_views INTEGER DEFAULT 1000,
                     created_at TEXT NOT NULL,
-                    is_active BOOLEAN DEFAULT 1
+                    is_active BOOLEAN DEFAULT 1,
+                    is_finished BOOLEAN DEFAULT 0
                 )
                 ''')
 
@@ -145,6 +146,16 @@ class SQLiteDatabase:
                 self.cursor.execute('ALTER TABLE projects ADD COLUMN geo TEXT DEFAULT ""')
                 self.conn.commit()
                 logger.info("✅ Поле geo добавлено в таблицу projects")
+
+            # Проверяем наличие поля is_finished в таблице projects
+            self.cursor.execute("PRAGMA table_info(projects)")
+            columns = [column[1] for column in self.cursor.fetchall()]
+
+            if 'is_finished' not in columns:
+                logger.info("Добавляю поле is_finished в таблицу projects...")
+                self.cursor.execute('ALTER TABLE projects ADD COLUMN is_finished BOOLEAN DEFAULT 0')
+                self.conn.commit()
+                logger.info("✅ Поле is_finished добавлено в таблицу projects")
 
             # Проверяем наличие таблицы project_social_accounts
             self.cursor.execute(
