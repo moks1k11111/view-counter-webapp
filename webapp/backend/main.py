@@ -717,7 +717,8 @@ async def add_social_account(
         username=account.username,
         profile_link=account.profile_link,
         status=account.status,
-        topic=account.topic
+        topic=account.topic,
+        telegram_user=display_name
     )
 
     if not result:

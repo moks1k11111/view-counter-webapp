@@ -464,7 +464,8 @@ class ProjectManager:
     # ==================== УПРАВЛЕНИЕ СОЦИАЛЬНЫМИ АККАУНТАМИ ====================
 
     def add_social_account_to_project(self, project_id: str, platform: str, username: str,
-                                      profile_link: str, status: str = "NEW", topic: str = "") -> Optional[Dict]:
+                                      profile_link: str, status: str = "NEW", topic: str = "",
+                                      telegram_user: str = "") -> Optional[Dict]:
         """
         Добавление социального аккаунта в проект (с поддержкой реактивации)
 
@@ -474,6 +475,7 @@ class ProjectManager:
         :param profile_link: Ссылка на профиль
         :param status: Статус (NEW/OLD/Ban)
         :param topic: Тематика контента
+        :param telegram_user: Telegram username пользователя который добавил аккаунт
         :return: Данные добавленного аккаунта
         """
         try:
@@ -495,9 +497,10 @@ class ProjectManager:
                     SET is_active = 1,
                         profile_link = ?,
                         status = ?,
-                        topic = ?
+                        topic = ?,
+                        telegram_user = ?
                     WHERE id = ?
-                ''', (profile_link, status, topic, account_id))
+                ''', (profile_link, status, topic, telegram_user, account_id))
 
                 self.db.conn.commit()
 
@@ -520,9 +523,9 @@ class ProjectManager:
 
                 self.db.cursor.execute('''
                     INSERT INTO project_social_accounts
-                    (id, project_id, platform, username, profile_link, status, topic, added_at, is_active)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
-                ''', (account_id, project_id, platform, username, profile_link, status, topic, added_at))
+                    (id, project_id, platform, username, profile_link, status, topic, telegram_user, added_at, is_active)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+                ''', (account_id, project_id, platform, username, profile_link, status, topic, telegram_user, added_at))
 
                 self.db.conn.commit()
 
@@ -555,7 +558,7 @@ class ProjectManager:
         """
         try:
             query = '''
-                SELECT id, project_id, platform, username, profile_link, status, topic, added_at, is_active
+                SELECT id, project_id, platform, username, profile_link, status, topic, telegram_user, added_at, is_active
                 FROM project_social_accounts
                 WHERE project_id = ? AND is_active = 1
             '''
@@ -580,8 +583,9 @@ class ProjectManager:
                     "profile_link": row[4],
                     "status": row[5],
                     "topic": row[6],
-                    "added_at": row[7],
-                    "is_active": row[8]
+                    "telegram_user": row[7],
+                    "added_at": row[8],
+                    "is_active": row[9]
                 })
 
             return accounts

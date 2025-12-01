@@ -612,6 +612,20 @@ async function openProject(projectId, mode = 'user') {
             }
         }
 
+        // Показать/скрыть секции участников в зависимости от режима
+        const participantsCard = document.getElementById('participants-card');
+        const participantsSection = document.getElementById('participants-section');
+
+        if (mode === 'user') {
+            // В пользовательском режиме скрываем информацию об участниках
+            if (participantsCard) participantsCard.style.display = 'none';
+            if (participantsSection) participantsSection.style.display = 'none';
+        } else {
+            // В админском режиме показываем участников
+            if (participantsCard) participantsCard.style.display = '';
+            if (participantsSection) participantsSection.style.display = '';
+        }
+
         // Отображаем суммарную статистику
         displaySummaryStats(analytics);
 
@@ -619,7 +633,8 @@ async function openProject(projectId, mode = 'user') {
         createChartSlides(analytics);
 
         // Загружаем и отображаем социальные аккаунты в аккордеоне
-        await loadProjectSocialAccounts(projectId);
+        // В режиме user передаем флаг для фильтрации только своих аккаунтов
+        await loadProjectSocialAccounts(projectId, mode);
 
     } catch (error) {
         console.error('Failed to load project details:', error);
@@ -2868,12 +2883,24 @@ async function submitUserToProjectRegular() {
     }
 }
 
-async function loadProjectSocialAccounts(projectId) {
+async function loadProjectSocialAccounts(projectId, mode = 'user') {
     try {
         const response = await apiCall(`/api/projects/${projectId}/accounts`);
 
         if (response.success) {
-            renderProjectSocialAccountsList(response.accounts);
+            let accounts = response.accounts;
+
+            // В режиме user фильтруем только аккаунты текущего пользователя
+            if (mode === 'user' && currentUser) {
+                const myTelegramUser = currentUser.username
+                    ? `@${currentUser.username}`
+                    : currentUser.first_name || `ID:${currentUser.id}`;
+
+                accounts = accounts.filter(account => account.telegram_user === myTelegramUser);
+                console.log('🔍 Filtered accounts for user:', myTelegramUser, 'Count:', accounts.length);
+            }
+
+            renderProjectSocialAccountsList(accounts);
         }
     } catch (error) {
         console.error('Failed to load social accounts:', error);

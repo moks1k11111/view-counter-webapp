@@ -185,6 +185,7 @@ class SQLiteDatabase:
                     profile_link TEXT NOT NULL,
                     status TEXT DEFAULT 'NEW',
                     topic TEXT DEFAULT '',
+                    telegram_user TEXT DEFAULT '',
                     added_at TEXT NOT NULL,
                     is_active BOOLEAN DEFAULT 1,
                     FOREIGN KEY (project_id) REFERENCES projects(id),
@@ -265,6 +266,16 @@ class SQLiteDatabase:
 
                 self.conn.commit()
                 logger.info("✅ Таблица account_daily_stats создана")
+
+            # Миграция: добавляем поле telegram_user в project_social_accounts если его нет
+            self.cursor.execute("PRAGMA table_info(project_social_accounts)")
+            columns = [column[1] for column in self.cursor.fetchall()]
+
+            if 'telegram_user' not in columns:
+                logger.info("Добавляю поле telegram_user в таблицу project_social_accounts...")
+                self.cursor.execute('ALTER TABLE project_social_accounts ADD COLUMN telegram_user TEXT DEFAULT ""')
+                self.conn.commit()
+                logger.info("✅ Поле telegram_user добавлено в таблицу project_social_accounts")
 
         except Exception as e:
             logger.error(f"Ошибка при миграции базы данных: {e}")
