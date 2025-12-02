@@ -889,7 +889,13 @@ function createDailyChart(history) {
     if (!canvas) return;
 
     // Подготавливаем данные из истории
-    const labels = history.map(item => item.date);
+    // Форматируем даты в короткий вид (ДД.ММ)
+    const labels = history.map(item => {
+        const date = new Date(item.date);
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        return `${day}.${month}`;
+    });
     const data = history.map(item => item.views);
 
     new Chart(canvas, {
@@ -920,8 +926,8 @@ function createDailyChart(history) {
                 x: {
                     ticks: {
                         color: '#fff',
-                        maxRotation: 45,
-                        minRotation: 45
+                        maxRotation: 0,
+                        minRotation: 0
                     },
                     grid: { display: false }
                 }
