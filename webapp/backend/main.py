@@ -829,9 +829,50 @@ async def get_project_accounts(
     platform: Optional[str] = None,
     user: dict = Depends(get_current_user)
 ):
-    """Получить все социальные аккаунты проекта"""
+    """Получить все социальные аккаунты проекта с метриками (видео/просмотры)"""
     accounts = project_manager.get_project_social_accounts(project_id, platform)
-    return {"success": True, "accounts": accounts}
+
+    # Получаем проект для доступа к Google Sheets
+    project = project_manager.get_project(project_id)
+
+    # Обогащаем данные аккаунтов метриками из Google Sheets или SQLite
+    enriched_accounts = []
+
+    # Пытаемся загрузить данные из Google Sheets
+    sheets_data = {}
+    if project and project_sheets:
+        try:
+            accounts_data = project_sheets.get_project_accounts(project['name'])
+            # Создаем словарь по ссылкам для быстрого поиска
+            for acc_data in accounts_data:
+                link = acc_data.get('Link', '')
+                sheets_data[link] = {
+                    'videos': int(acc_data.get('Videos', 0) or 0),
+                    'views': int(acc_data.get('Views', 0) or 0)
+                }
+        except Exception as e:
+            logger.warning(f"⚠️ Could not load metrics from sheets: {e}")
+
+    # Обогащаем каждый аккаунт
+    for account in accounts:
+        # Пытаемся найти метрики в Google Sheets
+        profile_link = account.get('profile_link', '')
+        metrics = sheets_data.get(profile_link)
+
+        # Если нет в Sheets, загружаем из последнего snapshot
+        if not metrics:
+            snapshots = project_manager.get_account_snapshots(account['id'], limit=1)
+            latest_snapshot = snapshots[0] if snapshots else {}
+            metrics = {
+                'videos': latest_snapshot.get('videos', 0),
+                'views': latest_snapshot.get('views', 0)
+            }
+
+        # Добавляем метрики к аккаунту
+        enriched_account = {**account, **metrics}
+        enriched_accounts.append(enriched_account)
+
+    return {"success": True, "accounts": enriched_accounts}
 
 @app.post("/api/projects/{project_id}/import_from_sheets")
 async def import_from_sheets(

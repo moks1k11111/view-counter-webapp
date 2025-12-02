@@ -2996,14 +2996,14 @@ async function loadProjectSocialAccounts(projectId, mode = 'user') {
                 console.log('🔍 Filtered accounts for user:', myTelegramUser, 'Count:', accounts.length);
             }
 
-            renderProjectSocialAccountsList(accounts);
+            renderProjectSocialAccountsList(accounts, mode);
         }
     } catch (error) {
         console.error('Failed to load social accounts:', error);
     }
 }
 
-function renderProjectSocialAccountsList(accounts) {
+function renderProjectSocialAccountsList(accounts, mode = 'user') {
     const accountsList = document.getElementById('profiles-list');
     const profilesCount = document.getElementById('profiles-count');
 
@@ -3086,28 +3086,41 @@ function renderProjectSocialAccountsList(accounts) {
                 }
             }
 
+            // Форматируем числа с разделителями тысяч
+            const formatNumber = (num) => {
+                return num ? num.toLocaleString('ru-RU') : '0';
+            };
+
             html += `
                 <div class="admin-user-item" style="margin-bottom: 10px;">
                     <div class="admin-user-info">
                         <div class="admin-user-details">
                             <div class="admin-user-name">${displayUsername}</div>
-                            <div class="admin-user-stats" style="display: flex; gap: 10px; align-items: center;">
+                            <div class="admin-user-stats" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
                                 <span style="background: ${statusColors[account.status]}; padding: 2px 8px; border-radius: 4px; font-size: 11px;">
                                     ${account.status}
                                 </span>
                                 ${account.topic ? `<span style="color: rgba(255,255,255,0.6);">${account.topic}</span>` : ''}
+                                <span style="color: rgba(255,255,255,0.8); font-size: 12px;">
+                                    <i class="fa-solid fa-video" style="color: #2196F3;"></i> ${formatNumber(account.videos || 0)}
+                                </span>
+                                <span style="color: rgba(255,255,255,0.8); font-size: 12px;">
+                                    <i class="fa-solid fa-eye" style="color: #4CAF50;"></i> ${formatNumber(account.views || 0)}
+                                </span>
                                 <a href="${account.profile_link}" target="_blank" style="color: #2196F3; text-decoration: none;">
                                     <i class="fa-solid fa-external-link"></i>
                                 </a>
                             </div>
                         </div>
                     </div>
+                    ${mode === 'admin' ? `
                     <button
                         onclick="deleteSocialAccount('${account.id}')"
                         style="background: #F44336; border: none; padding: 8px 12px; border-radius: 8px; color: white; cursor: pointer;"
                     >
                         <i class="fa-solid fa-trash"></i>
                     </button>
+                    ` : ''}
                 </div>
             `;
         });
