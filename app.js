@@ -868,7 +868,7 @@ function createProfilesSlide(analytics) {
     return `
         <div class="chart-slide">
             <h4>Топ аккаунтов по просмотрам</h4>
-            <canvas id="profiles-chart" width="300" height="200"></canvas>
+            <div id="profiles-leaderboard" style="padding: 20px 10px;"></div>
         </div>
     `;
 }
@@ -1003,13 +1003,13 @@ function createPlatformsChart(platformStats) {
 }
 
 function createProfilesChart(profiles) {
-    const canvas = document.getElementById('profiles-chart');
-    if (!canvas) return;
+    const leaderboard = document.getElementById('profiles-leaderboard');
+    if (!leaderboard) return;
 
-    // Фильтруем только профили с username соц сети (не telegram_user)
+    // Фильтруем только профили с username соц сети (не telegram_user и не Unknown)
     // и сортируем по просмотрам, берем топ 8
     const sortedProfiles = profiles
-        .filter(profile => profile.username && !profile.username.startsWith('@'))
+        .filter(profile => profile.username && profile.username !== 'Unknown' && !profile.username.startsWith('@'))
         .map(profile => ({
             username: profile.username,
             views: profile.total_views || 0,
@@ -1018,35 +1018,58 @@ function createProfilesChart(profiles) {
         .sort((a, b) => b.views - a.views)
         .slice(0, 8);
 
-    // Добавляем @ только если username не начинается с @
-    const labels = sortedProfiles.map(p => p.username.startsWith('@') ? p.username : `@${p.username}`);
-    const data = sortedProfiles.map(p => p.views);
+    if (sortedProfiles.length === 0) {
+        leaderboard.innerHTML = '<p style="text-align: center; color: rgba(255,255,255,0.5);">Нет данных</p>';
+        return;
+    }
 
-    new Chart(canvas, {
-        type: 'doughnut',
-        data: {
-            labels: labels,
-            datasets: [{
-                data: data,
-                backgroundColor: [
-                    'rgba(102, 126, 234, 0.8)',
-                    'rgba(76, 175, 80, 0.8)',
-                    'rgba(244, 67, 54, 0.8)',
-                    'rgba(255, 193, 7, 0.8)',
-                    'rgba(156, 39, 176, 0.8)',
-                    'rgba(255, 152, 0, 0.8)',
-                    'rgba(0, 188, 212, 0.8)',
-                    'rgba(233, 30, 99, 0.8)',
-                ]
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: { position: 'bottom', labels: { color: '#fff', font: { size: 9 } } }
-            }
-        }
+    // Иконки для позиций
+    const medals = ['🥇', '🥈', '🥉'];
+
+    // Цвета для платформ
+    const platformColors = {
+        'tiktok': '#00F876',
+        'instagram': '#d62976',
+        'facebook': '#1877f2',
+        'youtube': '#ff0000',
+        'threads': '#000000'
+    };
+
+    // Размеры текста для каждой позиции (уменьшаются)
+    const fontSizes = [22, 20, 18, 16, 15, 14, 13, 12];
+
+    let html = '<div style="display: flex; flex-direction: column; gap: 8px;">';
+
+    sortedProfiles.forEach((profile, index) => {
+        const position = index + 1;
+        const medal = medals[index] || `${position}.`;
+        const fontSize = fontSizes[index] || 12;
+        const platformColor = platformColors[profile.platform] || '#888';
+        const formattedViews = profile.views.toLocaleString('ru-RU');
+
+        html += `
+            <div style="
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 8px 12px;
+                background: rgba(255,255,255,0.05);
+                border-radius: 8px;
+                border-left: 3px solid ${platformColor};
+            ">
+                <span style="font-size: ${fontSize + 4}px; min-width: 30px;">${medal}</span>
+                <div style="flex: 1; display: flex; flex-direction: column; gap: 2px;">
+                    <span style="font-size: ${fontSize}px; font-weight: 600; color: #fff;">@${profile.username}</span>
+                    <span style="font-size: ${fontSize - 3}px; color: rgba(255,255,255,0.6);">
+                        <i class="fa-solid fa-eye"></i> ${formattedViews}
+                    </span>
+                </div>
+            </div>
+        `;
     });
+
+    html += '</div>';
+    leaderboard.innerHTML = html;
 }
 
 // Свайпер

@@ -436,13 +436,22 @@ async def get_project_analytics(
                 videos_value = account.get('Videos', 0)
                 logger.info(f"🔍 DEBUG: Videos field = {repr(videos_value)} (type: {type(videos_value).__name__})")
 
-                # Извлекаем username из URL
+                # Извлекаем username и определяем платформу из URL
                 url = account.get('Link', '')
                 username = 'Unknown'
-                if '/@' in url:
-                    # TikTok, Instagram: https://www.tiktok.com/@username
-                    username = url.split('/@')[1].split('?')[0].split('/')[0]
-                elif 'facebook.com/share/' in url or 'facebook.com/' in url:
+                platform = account.get('Platform', '').lower() if account.get('Platform') else None
+
+                # Определяем платформу и username из URL
+                if 'tiktok.com' in url:
+                    platform = platform or 'tiktok'
+                    if '/@' in url:
+                        username = url.split('/@')[1].split('?')[0].split('/')[0]
+                elif 'instagram.com' in url:
+                    platform = platform or 'instagram'
+                    if '/@' in url:
+                        username = url.split('/@')[1].split('?')[0].split('/')[0]
+                elif 'facebook.com' in url:
+                    platform = platform or 'facebook'
                     # Facebook: извлекаем ID или username
                     parts = url.split('/')
                     if 'share' in parts:
@@ -450,7 +459,19 @@ async def get_project_analytics(
                         if idx + 1 < len(parts):
                             username = parts[idx + 1].split('?')[0]
                     else:
-                        username = parts[-1].split('?')[0] if parts[-1] else parts[-2]
+                        username = parts[-1].split('?')[0] if parts[-1] and parts[-1] else (parts[-2] if len(parts) > 1 else 'Unknown')
+                elif 'youtube.com' in url or 'youtu.be' in url:
+                    platform = platform or 'youtube'
+                    if '/@' in url:
+                        username = url.split('/@')[1].split('?')[0].split('/')[0]
+                elif 'threads.net' in url:
+                    platform = platform or 'threads'
+                    if '/@' in url:
+                        username = url.split('/@')[1].split('?')[0].split('/')[0]
+
+                # Fallback если платформа не определена
+                if not platform:
+                    platform = 'tiktok'
 
                 all_profiles.append({
                     'telegram_user': account.get('@Username', ''),
@@ -461,7 +482,7 @@ async def get_project_analytics(
                     'comments': int(account.get('Comments', 0) or 0),
                     'videos': int(videos_value or 0),
                     'total_views': int(account.get('Views', 0) or 0),
-                    'platform': account.get('Platform', 'tiktok').lower(),
+                    'platform': platform,
                     'topic': account.get('Тематика', 'Не указано')
                 })
             logger.info(f"✅ Loaded {len(all_profiles)} profiles from Google Sheets for project '{project['name']}'")
@@ -480,9 +501,24 @@ async def get_project_analytics(
                 snapshots = project_manager.get_account_snapshots(account['id'], limit=1)
                 latest_snapshot = snapshots[0] if snapshots else {}
 
+                # Извлекаем username из URL (так же как для Sheets)
+                url = account.get('profile_link', '')
+                username = 'Unknown'
+                if '/@' in url:
+                    username = url.split('/@')[1].split('?')[0].split('/')[0]
+                elif 'facebook.com/share/' in url or 'facebook.com/' in url:
+                    parts = url.split('/')
+                    if 'share' in parts:
+                        idx = parts.index('share')
+                        if idx + 1 < len(parts):
+                            username = parts[idx + 1].split('?')[0]
+                    else:
+                        username = parts[-1].split('?')[0] if parts[-1] and parts[-1] else (parts[-2] if len(parts) > 1 else 'Unknown')
+
                 all_profiles.append({
-                    'telegram_user': account.get('username', 'Unknown'),
-                    'url': account.get('profile_link', ''),
+                    'telegram_user': account.get('telegram_user', 'Unknown'),
+                    'username': username,  # Username из соц сети
+                    'url': url,
                     'followers': latest_snapshot.get('followers', 0),
                     'likes': latest_snapshot.get('likes', 0),
                     'comments': latest_snapshot.get('comments', 0),
