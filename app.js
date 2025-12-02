@@ -2987,10 +2987,11 @@ async function loadProjectSocialAccounts(projectId, mode = 'user') {
 
                 console.log('🔍 DEBUG: My telegram_user:', myTelegramUser);
 
-                // Показываем ТОЛЬКО аккаунты где telegram_user точно совпадает
+                // Показываем аккаунты где telegram_user совпадает ИЛИ пустой (для обратной совместимости)
                 accounts = accounts.filter(account => {
-                    const match = account.telegram_user === myTelegramUser;
-                    console.log(`🔍 Account ${account.username}: telegram_user="${account.telegram_user}" -> ${match ? 'SHOW' : 'HIDE'}`);
+                    const accountTgUser = account.telegram_user || '';
+                    const match = accountTgUser === myTelegramUser || accountTgUser === '';
+                    console.log(`🔍 Account ${account.username}: telegram_user="${accountTgUser}" -> ${match ? 'SHOW' : 'HIDE'}`);
                     return match;
                 });
                 console.log('🔍 Filtered accounts for user:', myTelegramUser, 'Count:', accounts.length);
