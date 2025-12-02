@@ -1006,10 +1006,20 @@ function createProfilesChart(profiles) {
     const leaderboard = document.getElementById('profiles-leaderboard');
     if (!leaderboard) return;
 
-    // Фильтруем только профили с username соц сети (не telegram_user и не Unknown)
+    // Фильтруем только профили с username соц сети (не telegram_user)
     // и сортируем по просмотрам, берем топ 10
+    console.log('🔍 DEBUG: All profiles for leaderboard:', profiles);
+
     const sortedProfiles = profiles
-        .filter(profile => profile.username && profile.username !== 'Unknown' && !profile.username.startsWith('@'))
+        .filter(profile => {
+            // Исключаем только telegram usernames (начинаются с @)
+            // Показываем Unknown и все остальные
+            const isValid = profile.username && !profile.username.startsWith('@');
+            if (!isValid) {
+                console.log('🔍 Filtered out profile:', profile);
+            }
+            return isValid;
+        })
         .map(profile => ({
             username: profile.username,
             views: profile.total_views || 0,
@@ -1017,6 +1027,8 @@ function createProfilesChart(profiles) {
         }))
         .sort((a, b) => b.views - a.views)
         .slice(0, 10);
+
+    console.log('🔍 DEBUG: Sorted profiles for leaderboard:', sortedProfiles);
 
     if (sortedProfiles.length === 0) {
         leaderboard.innerHTML = '<p style="text-align: center; color: rgba(255,255,255,0.5);">Нет данных</p>';
