@@ -868,7 +868,7 @@ function createProfilesSlide(analytics) {
     return `
         <div class="chart-slide">
             <h4>Топ аккаунтов по просмотрам</h4>
-            <div id="profiles-leaderboard" style="padding: 20px 10px;"></div>
+            <div id="profiles-leaderboard" style="padding: 5px 10px; max-height: 280px; overflow-y: auto;"></div>
         </div>
     `;
 }
@@ -1036,14 +1036,14 @@ function createProfilesChart(profiles) {
     };
 
     // Размеры текста для каждой позиции (уменьшаются)
-    const fontSizes = [22, 20, 18, 16, 15, 14, 13, 12];
+    const fontSizes = [16, 15, 14, 13, 12, 11, 11, 10];
 
-    let html = '<div style="display: flex; flex-direction: column; gap: 8px;">';
+    let html = '<div style="display: flex; flex-direction: column; gap: 4px;">';
 
     sortedProfiles.forEach((profile, index) => {
         const position = index + 1;
         const medal = medals[index] || `${position}.`;
-        const fontSize = fontSizes[index] || 12;
+        const fontSize = fontSizes[index] || 10;
         const platformColor = platformColors[profile.platform] || '#888';
         const formattedViews = profile.views.toLocaleString('ru-RU');
 
@@ -1051,16 +1051,16 @@ function createProfilesChart(profiles) {
             <div style="
                 display: flex;
                 align-items: center;
-                gap: 10px;
-                padding: 8px 12px;
+                gap: 6px;
+                padding: 5px 8px;
                 background: rgba(255,255,255,0.05);
-                border-radius: 8px;
+                border-radius: 6px;
                 border-left: 3px solid ${platformColor};
             ">
-                <span style="font-size: ${fontSize + 4}px; min-width: 30px;">${medal}</span>
-                <div style="flex: 1; display: flex; flex-direction: column; gap: 2px;">
+                <span style="font-size: ${fontSize + 2}px; min-width: 22px;">${medal}</span>
+                <div style="flex: 1; display: flex; flex-direction: column; gap: 1px;">
                     <span style="font-size: ${fontSize}px; font-weight: 600; color: #fff;">@${profile.username}</span>
-                    <span style="font-size: ${fontSize - 3}px; color: rgba(255,255,255,0.6);">
+                    <span style="font-size: ${fontSize - 2}px; color: rgba(255,255,255,0.6);">
                         <i class="fa-solid fa-eye"></i> ${formattedViews}
                     </span>
                 </div>

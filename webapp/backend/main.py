@@ -437,20 +437,23 @@ async def get_project_analytics(
                 logger.info(f"🔍 DEBUG: Videos field = {repr(videos_value)} (type: {type(videos_value).__name__})")
 
                 # Извлекаем username и определяем платформу из URL
-                url = account.get('Link', '')
+                url = account.get('Link', '').strip()  # Убираем пробелы
+                url_lower = url.lower()  # Для проверки без учета регистра
                 username = 'Unknown'
                 platform = account.get('Platform', '').lower() if account.get('Platform') else None
 
-                # Определяем платформу и username из URL
-                if 'tiktok.com' in url:
+                logger.info(f"🔍 Processing account: url='{url}', platform_from_sheets='{platform}'")
+
+                # Определяем платформу и username из URL (без учета регистра)
+                if 'tiktok.com' in url_lower:
                     platform = platform or 'tiktok'
                     if '/@' in url:
                         username = url.split('/@')[1].split('?')[0].split('/')[0]
-                elif 'instagram.com' in url:
+                elif 'instagram.com' in url_lower:
                     platform = platform or 'instagram'
                     if '/@' in url:
                         username = url.split('/@')[1].split('?')[0].split('/')[0]
-                elif 'facebook.com' in url:
+                elif 'facebook.com' in url_lower or 'fb.com' in url_lower:
                     platform = platform or 'facebook'
                     # Facebook: извлекаем ID или username
                     parts = url.split('/')
@@ -460,11 +463,11 @@ async def get_project_analytics(
                             username = parts[idx + 1].split('?')[0]
                     else:
                         username = parts[-1].split('?')[0] if parts[-1] and parts[-1] else (parts[-2] if len(parts) > 1 else 'Unknown')
-                elif 'youtube.com' in url or 'youtu.be' in url:
+                elif 'youtube.com' in url_lower or 'youtu.be' in url_lower:
                     platform = platform or 'youtube'
                     if '/@' in url:
                         username = url.split('/@')[1].split('?')[0].split('/')[0]
-                elif 'threads.net' in url:
+                elif 'threads.net' in url_lower:
                     platform = platform or 'threads'
                     if '/@' in url:
                         username = url.split('/@')[1].split('?')[0].split('/')[0]
@@ -472,6 +475,9 @@ async def get_project_analytics(
                 # Fallback если платформа не определена
                 if not platform:
                     platform = 'tiktok'
+                    logger.warning(f"⚠️ Platform not detected from URL '{url}', defaulting to tiktok")
+
+                logger.info(f"✅ Final: username='{username}', platform='{platform}'")
 
                 all_profiles.append({
                     'telegram_user': account.get('@Username', ''),
