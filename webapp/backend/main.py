@@ -529,27 +529,16 @@ async def get_project_analytics(
     # Получаем историю просмотров проекта из SQLite
     daily_history = project_manager.get_project_daily_history(project_id, start_date, end_date)
 
-    # Если нет истории в SQLite, создаем простую историю из текущих данных
+    # Если нет истории в SQLite, показываем только текущую точку
     history = daily_history.get("history", [])
     growth_24h = daily_history.get("growth_24h", 0)
 
     if len(history) == 0 and total_views > 0:
-        # Создаем историю за последние 7 дней с симуляцией роста
-        from datetime import datetime, timedelta
-        today = datetime.now()
-        history = []
-        for i in range(6, -1, -1):
-            date = (today - timedelta(days=i)).strftime('%Y-%m-%d')
-            # Симуляция: показываем постепенный рост до текущего значения
-            views = int(total_views * (1 - (i * 0.1)))  # 10% роста каждый день
-            if views > 0:
-                history.append({"date": date, "views": views})
-
-        # Прирост за 24ч = разница между сегодня и вчера
-        if len(history) >= 2:
-            growth_24h = history[-1]["views"] - history[-2]["views"]
-        else:
-            growth_24h = int(total_views * 0.1)  # 10% от текущих просмотров
+        # Показываем только сегодняшнюю точку с реальными данными
+        from datetime import datetime
+        today = datetime.now().strftime('%Y-%m-%d')
+        history = [{"date": today, "views": total_views}]
+        growth_24h = 0  # Нет истории = нет прироста
 
     logger.info(f"📊 History: {len(history)} days, growth_24h: {growth_24h}")
 
@@ -641,27 +630,16 @@ async def get_my_analytics(
         # Получаем историю просмотров проекта
         daily_history = project_manager.get_project_daily_history(project_id)
 
-        # Если нет истории в SQLite, создаем простую историю из текущих данных
+        # Если нет истории в SQLite, показываем только текущую точку
         history = daily_history.get("history", [])
         growth_24h = daily_history.get("growth_24h", 0)
 
         if len(history) == 0 and total_views > 0:
-            # Создаем историю за последние 7 дней с симуляцией роста
-            from datetime import datetime, timedelta
-            today = datetime.now()
-            history = []
-            for i in range(6, -1, -1):
-                date = (today - timedelta(days=i)).strftime('%Y-%m-%d')
-                # Симуляция: показываем постепенный рост до текущего значения
-                views = int(total_views * (1 - (i * 0.1)))  # 10% роста каждый день
-                if views > 0:
-                    history.append({"date": date, "views": views})
-
-            # Прирост за 24ч = разница между сегодня и вчера
-            if len(history) >= 2:
-                growth_24h = history[-1]["views"] - history[-2]["views"]
-            else:
-                growth_24h = int(total_views * 0.1)  # 10% от текущих просмотров
+            # Показываем только сегодняшнюю точку с реальными данными
+            from datetime import datetime
+            today = datetime.now().strftime('%Y-%m-%d')
+            history = [{"date": today, "views": total_views}]
+            growth_24h = 0  # Нет истории = нет прироста
 
         return {
             "project": project,
