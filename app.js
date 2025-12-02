@@ -3060,11 +3060,37 @@ function renderProjectSocialAccountsList(accounts) {
         `;
 
         platformAccounts.forEach(account => {
+            // Извлекаем username из URL
+            let displayUsername = account.username;
+            const url = account.profile_link || '';
+
+            if (url.includes('/@')) {
+                // TikTok, Instagram: https://www.tiktok.com/@username
+                const parts = url.split('/@');
+                if (parts[1]) {
+                    displayUsername = parts[1].split('?')[0].split('/')[0];
+                }
+            } else if (url.includes('facebook.com/share/') || url.includes('facebook.com/')) {
+                // Facebook: извлекаем ID или username
+                const urlParts = url.split('/');
+                const shareIndex = urlParts.indexOf('share');
+                if (shareIndex !== -1 && urlParts[shareIndex + 1]) {
+                    displayUsername = urlParts[shareIndex + 1].split('?')[0];
+                } else {
+                    const lastPart = urlParts[urlParts.length - 1].split('?')[0];
+                    if (lastPart && lastPart !== '') {
+                        displayUsername = lastPart;
+                    } else if (urlParts[urlParts.length - 2]) {
+                        displayUsername = urlParts[urlParts.length - 2];
+                    }
+                }
+            }
+
             html += `
                 <div class="admin-user-item" style="margin-bottom: 10px;">
                     <div class="admin-user-info">
                         <div class="admin-user-details">
-                            <div class="admin-user-name">${account.username}</div>
+                            <div class="admin-user-name">${displayUsername}</div>
                             <div class="admin-user-stats" style="display: flex; gap: 10px; align-items: center;">
                                 <span style="background: ${statusColors[account.status]}; padding: 2px 8px; border-radius: 4px; font-size: 11px;">
                                     ${account.status}
