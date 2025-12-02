@@ -1007,7 +1007,7 @@ function createProfilesChart(profiles) {
     if (!leaderboard) return;
 
     // Фильтруем только профили с username соц сети (не telegram_user и не Unknown)
-    // и сортируем по просмотрам, берем топ 8
+    // и сортируем по просмотрам, берем топ 10
     const sortedProfiles = profiles
         .filter(profile => profile.username && profile.username !== 'Unknown' && !profile.username.startsWith('@'))
         .map(profile => ({
@@ -1016,7 +1016,7 @@ function createProfilesChart(profiles) {
             platform: profile.platform || 'unknown'
         }))
         .sort((a, b) => b.views - a.views)
-        .slice(0, 8);
+        .slice(0, 10);
 
     if (sortedProfiles.length === 0) {
         leaderboard.innerHTML = '<p style="text-align: center; color: rgba(255,255,255,0.5);">Нет данных</p>';
@@ -1036,9 +1036,9 @@ function createProfilesChart(profiles) {
     };
 
     // Размеры текста для каждой позиции (уменьшаются)
-    const fontSizes = [16, 15, 14, 13, 12, 11, 11, 10];
+    const fontSizes = [15, 14, 13, 12, 11, 10, 10, 9, 9, 9];
 
-    let html = '<div style="display: flex; flex-direction: column; gap: 4px;">';
+    let html = '<div style="display: flex; flex-direction: column; gap: 3px;">';
 
     sortedProfiles.forEach((profile, index) => {
         const position = index + 1;
@@ -1051,13 +1051,13 @@ function createProfilesChart(profiles) {
             <div style="
                 display: flex;
                 align-items: center;
-                gap: 6px;
-                padding: 5px 8px;
+                gap: 5px;
+                padding: 4px 6px;
                 background: rgba(255,255,255,0.05);
                 border-radius: 6px;
                 border-left: 3px solid ${platformColor};
             ">
-                <span style="font-size: ${fontSize + 2}px; min-width: 22px;">${medal}</span>
+                <span style="font-size: ${fontSize + 2}px; min-width: 20px;">${medal}</span>
                 <div style="flex: 1; display: flex; flex-direction: column; gap: 1px;">
                     <span style="font-size: ${fontSize}px; font-weight: 600; color: #fff;">@${profile.username}</span>
                     <span style="font-size: ${fontSize - 2}px; color: rgba(255,255,255,0.6);">
