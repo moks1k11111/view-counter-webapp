@@ -129,13 +129,14 @@ class ProjectSheetsManager:
             worksheet = self.spreadsheet.add_worksheet(
                 title=project_name,
                 rows=1000,
-                cols=12
+                cols=13
             )
 
             # Добавляем заголовки
             headers = [
                 "@Username",
                 "Link",
+                "Platform",
                 "Followers",
                 "Likes",
                 "Following",
@@ -148,7 +149,7 @@ class ProjectSheetsManager:
             worksheet.append_row(headers)
 
             # Форматируем заголовки
-            worksheet.format('A1:J1', {
+            worksheet.format('A1:K1', {
                 "textFormat": {"bold": True},
                 "horizontalAlignment": "CENTER",
                 "backgroundColor": {
@@ -199,6 +200,7 @@ class ProjectSheetsManager:
             row = [
                 telegram_user,                                # @Username - Telegram User
                 account_data.get('profile_link', ''),         # Link
+                account_data.get('platform', 'tiktok'),       # Platform
                 account_data.get('followers', 0),             # Followers
                 account_data.get('likes', 0),                 # Likes
                 account_data.get('following', 0),             # Following

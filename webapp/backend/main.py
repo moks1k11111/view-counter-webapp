@@ -993,6 +993,85 @@ async def import_from_sheets(
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Import failed: {str(e)}")
 
+@app.post("/api/projects/{project_id}/migrate_platform_column")
+async def migrate_platform_column(
+    project_id: str,
+    user: dict = Depends(get_current_user)
+):
+    """Добавить колонку Platform в существующий Google Sheet и заполнить на основе URL"""
+    logger.info(f"🔄 Starting platform column migration for project {project_id}")
+
+    # Get project
+    project = project_manager.get_project(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    if not project_sheets:
+        raise HTTPException(status_code=503, detail="Google Sheets not available")
+
+    try:
+        import gspread
+        worksheet = project_sheets.spreadsheet.worksheet(project['name'])
+
+        # Проверяем есть ли уже колонка Platform
+        headers = worksheet.row_values(1)
+        logger.info(f"📊 Current headers: {headers}")
+
+        if 'Platform' in headers:
+            logger.info("✅ Platform column already exists")
+            return {"success": True, "message": "Platform column already exists"}
+
+        # Вставляем колонку Platform после Link (позиция C)
+        worksheet.insert_cols([[]], col=3, value_input_option='RAW')
+
+        # Обновляем заголовок
+        worksheet.update_cell(1, 3, 'Platform')
+
+        # Получаем все строки с данными
+        all_rows = worksheet.get_all_values()
+
+        updated_count = 0
+        # Начинаем со 2-й строки (пропускаем заголовки)
+        for row_idx, row in enumerate(all_rows[1:], start=2):
+            if len(row) < 2:  # Нет Link
+                continue
+
+            url = row[1].strip().lower()  # Link в колонке B
+            platform = 'tiktok'  # Default
+
+            # Определяем платформу по URL
+            if 'tiktok.com' in url:
+                platform = 'tiktok'
+            elif 'instagram.com' in url:
+                platform = 'instagram'
+            elif 'facebook.com' in url or 'fb.com' in url:
+                platform = 'facebook'
+            elif 'youtube.com' in url or 'youtu.be' in url:
+                platform = 'youtube'
+            elif 'threads.net' in url:
+                platform = 'threads'
+
+            # Записываем платформу в колонку C
+            worksheet.update_cell(row_idx, 3, platform)
+            updated_count += 1
+            logger.info(f"✅ Row {row_idx}: {url[:50]} -> {platform}")
+
+        logger.info(f"✅ Migration completed: updated {updated_count} rows")
+
+        return {
+            "success": True,
+            "updated": updated_count,
+            "message": f"Platform column added and {updated_count} rows updated"
+        }
+
+    except gspread.exceptions.WorksheetNotFound:
+        raise HTTPException(status_code=404, detail=f"Worksheet {project['name']} not found")
+    except Exception as e:
+        logger.error(f"❌ Migration error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Migration failed: {str(e)}")
+
 @app.delete("/api/projects/{project_id}")
 async def delete_project(
     project_id: str,
