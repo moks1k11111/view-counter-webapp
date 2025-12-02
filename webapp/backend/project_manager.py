@@ -479,11 +479,11 @@ class ProjectManager:
         :return: Данные добавленного аккаунта
         """
         try:
-            # Check if account exists (regardless of is_active status)
+            # Check if account exists by profile_link (regardless of is_active status)
             self.db.cursor.execute('''
                 SELECT id, is_active, added_at FROM project_social_accounts
-                WHERE project_id = ? AND platform = ? AND username = ?
-            ''', (project_id, platform, username))
+                WHERE project_id = ? AND profile_link = ?
+            ''', (project_id, profile_link))
 
             existing = self.db.cursor.fetchone()
 

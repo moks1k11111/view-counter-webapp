@@ -189,7 +189,7 @@ class SQLiteDatabase:
                     added_at TEXT NOT NULL,
                     is_active BOOLEAN DEFAULT 1,
                     FOREIGN KEY (project_id) REFERENCES projects(id),
-                    UNIQUE(project_id, platform, username)
+                    UNIQUE(project_id, profile_link)
                 )
                 ''')
 
@@ -276,6 +276,54 @@ class SQLiteDatabase:
                 self.cursor.execute('ALTER TABLE project_social_accounts ADD COLUMN telegram_user TEXT DEFAULT ""')
                 self.conn.commit()
                 logger.info("✅ Поле telegram_user добавлено в таблицу project_social_accounts")
+
+            # Миграция: изменяем UNIQUE constraint на profile_link вместо username
+            # Проверяем текущие индексы таблицы
+            self.cursor.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='project_social_accounts'")
+            table_schema = self.cursor.fetchone()
+
+            # Если UNIQUE constraint все еще на (project_id, platform, username), пересоздаем таблицу
+            if table_schema and 'UNIQUE(project_id, platform, username)' in table_schema[0]:
+                logger.info("🔄 Мигрирую project_social_accounts: изменяю UNIQUE constraint на profile_link...")
+
+                # Создаем временную таблицу с новым constraint
+                self.cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS project_social_accounts_new (
+                        id TEXT PRIMARY KEY,
+                        project_id TEXT NOT NULL,
+                        platform TEXT NOT NULL,
+                        username TEXT NOT NULL,
+                        profile_link TEXT NOT NULL,
+                        status TEXT DEFAULT 'NEW',
+                        topic TEXT DEFAULT '',
+                        telegram_user TEXT DEFAULT '',
+                        added_at TEXT NOT NULL,
+                        is_active BOOLEAN DEFAULT 1,
+                        FOREIGN KEY (project_id) REFERENCES projects(id),
+                        UNIQUE(project_id, profile_link)
+                    )
+                ''')
+
+                # Копируем данные из старой таблицы
+                self.cursor.execute('''
+                    INSERT INTO project_social_accounts_new
+                    SELECT id, project_id, platform, username, profile_link, status, topic, telegram_user, added_at, is_active
+                    FROM project_social_accounts
+                ''')
+
+                # Удаляем старую таблицу
+                self.cursor.execute('DROP TABLE project_social_accounts')
+
+                # Переименовываем новую таблицу
+                self.cursor.execute('ALTER TABLE project_social_accounts_new RENAME TO project_social_accounts')
+
+                # Пересоздаем индекс
+                self.cursor.execute(
+                    'CREATE INDEX IF NOT EXISTS idx_social_accounts_project ON project_social_accounts(project_id)'
+                )
+
+                self.conn.commit()
+                logger.info("✅ UNIQUE constraint успешно изменен на (project_id, profile_link)")
 
         except Exception as e:
             logger.error(f"Ошибка при миграции базы данных: {e}")
