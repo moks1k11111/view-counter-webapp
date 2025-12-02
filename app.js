@@ -967,7 +967,7 @@ function createPlatformsChart(platformStats) {
 
     // Определяем цвета для каждой платформы
     const platformColors = {
-        'tiktok': '#25F4EE',      // Green (TikTok brand green)
+        'tiktok': '#00F876',      // Bright Green
         'instagram': '#d62976',   // Pink/Purple
         'facebook': '#1877f2',    // Blue
         'youtube': '#ff0000',     // Red
@@ -1000,17 +1000,20 @@ function createProfilesChart(profiles) {
     const canvas = document.getElementById('profiles-chart');
     if (!canvas) return;
 
-    // Сортируем профили по просмотрам и берем топ 8
+    // Фильтруем только профили с username соц сети (не telegram_user)
+    // и сортируем по просмотрам, берем топ 8
     const sortedProfiles = profiles
+        .filter(profile => profile.username && !profile.username.startsWith('@'))
         .map(profile => ({
-            username: profile.username || profile.telegram_user || 'Unknown',
+            username: profile.username,
             views: profile.total_views || 0,
             platform: profile.platform || 'unknown'
         }))
         .sort((a, b) => b.views - a.views)
         .slice(0, 8);
 
-    const labels = sortedProfiles.map(p => `@${p.username}`);
+    // Добавляем @ только если username не начинается с @
+    const labels = sortedProfiles.map(p => p.username.startsWith('@') ? p.username : `@${p.username}`);
     const data = sortedProfiles.map(p => p.views);
 
     new Chart(canvas, {

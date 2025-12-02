@@ -987,24 +987,37 @@ class ProjectManager:
                     "views": row[1]
                 })
 
-            # Вычисляем growth_24h для последней доступной даты
+            # Вычисляем growth_24h в реальном времени из snapshots за последние 24 часа
             growth_24h = 0
             if account_ids:
-                placeholders = ','.join('?' * len(account_ids))
-                query_growth = f'''
-                    SELECT SUM(views_growth) as total_growth
-                    FROM account_daily_stats
-                    WHERE account_id IN ({placeholders})
-                    AND date = (
-                        SELECT MAX(date) FROM account_daily_stats
-                        WHERE account_id IN ({placeholders})
-                    )
-                '''
-                params_growth = account_ids + account_ids
+                from datetime import datetime, timedelta
+                now = datetime.now()
+                twenty_four_hours_ago = (now - timedelta(hours=24)).isoformat()
 
-                self.db.cursor.execute(query_growth, params_growth)
-                result = self.db.cursor.fetchone()
-                growth_24h = result[0] if result and result[0] else 0
+                for account_id in account_ids:
+                    # Получаем самый последний snapshot
+                    self.db.cursor.execute('''
+                        SELECT views FROM account_snapshots
+                        WHERE account_id = ?
+                        ORDER BY snapshot_time DESC
+                        LIMIT 1
+                    ''', (account_id,))
+                    latest = self.db.cursor.fetchone()
+
+                    # Получаем snapshot ~24 часа назад
+                    self.db.cursor.execute('''
+                        SELECT views FROM account_snapshots
+                        WHERE account_id = ? AND snapshot_time <= ?
+                        ORDER BY snapshot_time DESC
+                        LIMIT 1
+                    ''', (account_id, twenty_four_hours_ago))
+                    prev = self.db.cursor.fetchone()
+
+                    if latest and prev:
+                        growth_24h += (latest[0] - prev[0])
+                    elif latest:
+                        # Если нет старого snapshot, весь прирост = текущие просмотры
+                        growth_24h += latest[0]
 
             logger.info(f"📊 История проекта {project_id}: {len(history)} дней, прирост 24ч: {growth_24h}")
             return {"history": history, "growth_24h": growth_24h}
