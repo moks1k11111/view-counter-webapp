@@ -436,9 +436,26 @@ async def get_project_analytics(
                 videos_value = account.get('Videos', 0)
                 logger.info(f"🔍 DEBUG: Videos field = {repr(videos_value)} (type: {type(videos_value).__name__})")
 
+                # Извлекаем username из URL
+                url = account.get('Link', '')
+                username = 'Unknown'
+                if '/@' in url:
+                    # TikTok, Instagram: https://www.tiktok.com/@username
+                    username = url.split('/@')[1].split('?')[0].split('/')[0]
+                elif 'facebook.com/share/' in url or 'facebook.com/' in url:
+                    # Facebook: извлекаем ID или username
+                    parts = url.split('/')
+                    if 'share' in parts:
+                        idx = parts.index('share')
+                        if idx + 1 < len(parts):
+                            username = parts[idx + 1].split('?')[0]
+                    else:
+                        username = parts[-1].split('?')[0] if parts[-1] else parts[-2]
+
                 all_profiles.append({
                     'telegram_user': account.get('@Username', ''),
-                    'url': account.get('Link', ''),
+                    'username': username,  # Username из соц сети
+                    'url': url,
                     'followers': int(account.get('Followers', 0) or 0),
                     'likes': int(account.get('Likes', 0) or 0),
                     'comments': int(account.get('Comments', 0) or 0),
@@ -582,9 +599,26 @@ async def get_my_analytics(
             # Конвертируем и фильтруем по пользователю
             for account in accounts_data:
                 if account.get('@Username', '') == telegram_user:
+                    # Извлекаем username из URL
+                    url = account.get('Link', '')
+                    username = 'Unknown'
+                    if '/@' in url:
+                        # TikTok, Instagram: https://www.tiktok.com/@username
+                        username = url.split('/@')[1].split('?')[0].split('/')[0]
+                    elif 'facebook.com/share/' in url or 'facebook.com/' in url:
+                        # Facebook: извлекаем ID или username
+                        parts = url.split('/')
+                        if 'share' in parts:
+                            idx = parts.index('share')
+                            if idx + 1 < len(parts):
+                                username = parts[idx + 1].split('?')[0]
+                        else:
+                            username = parts[-1].split('?')[0] if parts[-1] else parts[-2]
+
                     profiles.append({
                         'telegram_user': account.get('@Username', ''),
-                        'url': account.get('Link', ''),
+                        'username': username,  # Username из соц сети
+                        'url': url,
                         'followers': int(account.get('Followers', 0) or 0),
                         'likes': int(account.get('Likes', 0) or 0),
                         'comments': int(account.get('Comments', 0) or 0),
