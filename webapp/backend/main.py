@@ -504,13 +504,18 @@ async def get_project_analytics(
                                 username = parts[i + 1].lstrip('@')
                                 break
 
-                # Fallback на @Username из Google Sheets если не удалось извлечь
+                # Fallback на Username из Google Sheets (это username соц сети, не telegram)
                 if not username:
-                    telegram_username = account.get('@Username', '').strip()
-                    if telegram_username and not telegram_username.startswith('@'):
-                        username = telegram_username
-                    elif telegram_username:
-                        username = telegram_username[1:]  # Убираем @
+                    sheets_username = account.get('Username', '').strip()
+                    if sheets_username:
+                        username = sheets_username
+                    else:
+                        # Последний fallback на @Username (telegram user)
+                        telegram_username = account.get('@Username', '').strip()
+                        if telegram_username and not telegram_username.startswith('@'):
+                            username = telegram_username
+                        elif telegram_username:
+                            username = telegram_username[1:]  # Убираем @
 
                 # Финальный fallback
                 if not username:
@@ -1158,6 +1163,39 @@ async def migrate_platform_column(
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Migration failed: {str(e)}")
+
+@app.post("/api/projects/{project_id}/migrate_username_column")
+async def migrate_username_column(
+    project_id: str,
+    user: dict = Depends(get_current_user)
+):
+    """Добавить колонку Username в существующий Google Sheet и заполнить парсингом из Link"""
+    logger.info(f"🔄 Starting username column migration for project {project_id}")
+
+    # Get project
+    project = project_manager.get_project(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    if not project_sheets:
+        raise HTTPException(status_code=503, detail="Google Sheets not available")
+
+    try:
+        success = project_sheets.migrate_username_column(project['name'])
+
+        if success:
+            return {
+                "success": True,
+                "message": f"Username column migration completed for project {project['name']}"
+            }
+        else:
+            raise HTTPException(status_code=500, detail="Migration failed")
+
+    except Exception as e:
+        logger.error(f"❌ Username migration error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Username migration failed: {str(e)}")
 
 @app.delete("/api/projects/{project_id}")
 async def delete_project(

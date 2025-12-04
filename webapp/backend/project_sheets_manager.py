@@ -134,9 +134,10 @@ class ProjectSheetsManager:
 
             # Добавляем заголовки
             headers = [
-                "@Username",
+                "@Username",      # Telegram username
                 "Link",
                 "Platform",
+                "Username",       # Social media username (NEW)
                 "Followers",
                 "Likes",
                 "Following",
@@ -149,7 +150,7 @@ class ProjectSheetsManager:
             worksheet.append_row(headers)
 
             # Форматируем заголовки
-            worksheet.format('A1:K1', {
+            worksheet.format('A1:L1', {
                 "textFormat": {"bold": True},
                 "horizontalAlignment": "CENTER",
                 "backgroundColor": {
@@ -201,6 +202,7 @@ class ProjectSheetsManager:
                 telegram_user,                                # @Username - Telegram User
                 account_data.get('profile_link', ''),         # Link
                 account_data.get('platform', 'tiktok'),       # Platform
+                account_data.get('username', 'Unknown'),      # Username - Social media username (NEW)
                 account_data.get('followers', 0),             # Followers
                 account_data.get('likes', 0),                 # Likes
                 account_data.get('following', 0),             # Following
@@ -356,3 +358,129 @@ class ProjectSheetsManager:
         except Exception as e:
             logger.error(f"❌ Ошибка удаления аккаунта: {e}")
             return False
+
+    @retry_on_quota_error(max_retries=3, delay=5)
+    def migrate_username_column(self, project_name: str) -> bool:
+        """
+        Добавляет колонку Username в существующий лист и заполняет её парсингом из Link
+
+        :param project_name: Название проекта
+        :return: True если успешно
+        """
+        try:
+            worksheet = self.spreadsheet.worksheet(project_name)
+
+            # Получаем заголовки
+            headers = worksheet.row_values(1)
+            logger.info(f"🔍 Current headers: {headers}")
+
+            # Проверяем, есть ли уже колонка Username
+            if 'Username' in headers:
+                logger.info(f"⚠️ Колонка Username уже существует в {project_name}")
+                return True
+
+            # Находим индекс колонки Platform
+            if 'Platform' not in headers:
+                logger.error(f"❌ Колонка Platform не найдена в {project_name}")
+                return False
+
+            platform_index = headers.index('Platform') + 1  # +1 т.к. gspread использует 1-based index
+            username_col = platform_index + 1
+
+            # Вставляем новую колонку после Platform
+            worksheet.insert_cols([[]], col=username_col)
+            logger.info(f"✅ Вставлена новая колонка в позицию {username_col}")
+
+            # Устанавливаем заголовок
+            worksheet.update_cell(1, username_col, 'Username')
+            logger.info(f"✅ Установлен заголовок Username в колонку {username_col}")
+
+            # Получаем все данные
+            all_data = worksheet.get_all_values()
+
+            # Парсим username из Link для каждой строки
+            updates = []
+            for row_index, row in enumerate(all_data[1:], start=2):  # Пропускаем заголовок
+                if len(row) < 2:  # Нет Link
+                    continue
+
+                link = row[1] if len(row) > 1 else ''  # Link в колонке B (index 1)
+                if not link:
+                    continue
+
+                # Парсим username из URL
+                username = self._parse_username_from_url(link)
+
+                if username:
+                    updates.append(gspread.Cell(row_index, username_col, username))
+
+            # Обновляем все username'ы батчем
+            if updates:
+                worksheet.update_cells(updates)
+                logger.info(f"✅ Обновлено {len(updates)} username'ов в {project_name}")
+
+            return True
+
+        except gspread.exceptions.WorksheetNotFound:
+            logger.error(f"❌ Лист {project_name} не найден")
+            return False
+        except Exception as e:
+            logger.error(f"❌ Ошибка миграции колонки Username: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+    def _parse_username_from_url(self, url: str) -> str:
+        """
+        Парсит username из URL соц сети
+
+        :param url: URL профиля
+        :return: Username или 'Unknown'
+        """
+        url_lower = url.lower().strip()
+        username = None
+
+        try:
+            if 'tiktok.com' in url_lower:
+                if '/@' in url:
+                    username = url.split('/@')[1].split('?')[0].split('/')[0]
+            elif 'instagram.com' in url_lower:
+                clean_url = url.rstrip('/').split('?')[0]
+                parts = clean_url.split('/')
+                for i, part in enumerate(parts):
+                    if 'instagram.com' in part and i + 1 < len(parts):
+                        username = parts[i + 1].lstrip('@')
+                        break
+            elif 'facebook.com' in url_lower or 'fb.com' in url_lower:
+                clean_url = url.rstrip('/').split('?')[0]
+                parts = clean_url.split('/')
+                if 'share' in parts:
+                    idx = parts.index('share')
+                    if idx + 1 < len(parts):
+                        username = parts[idx + 1]
+                elif len(parts) > 0:
+                    for part in reversed(parts):
+                        if part and part not in ['facebook.com', 'www.facebook.com', 'fb.com']:
+                            username = part
+                            break
+            elif 'youtube.com' in url_lower or 'youtu.be' in url_lower:
+                if '/@' in url:
+                    username = url.split('/@')[1].split('?')[0].split('/')[0]
+                elif '/c/' in url_lower:
+                    username = url.split('/c/')[1].split('?')[0].split('/')[0]
+                elif '/channel/' in url_lower:
+                    username = url.split('/channel/')[1].split('?')[0].split('/')[0]
+            elif 'threads.net' in url_lower:
+                if '/@' in url:
+                    username = url.split('/@')[1].split('?')[0].split('/')[0]
+                else:
+                    clean_url = url.rstrip('/').split('?')[0]
+                    parts = clean_url.split('/')
+                    for i, part in enumerate(parts):
+                        if 'threads.net' in part and i + 1 < len(parts):
+                            username = parts[i + 1].lstrip('@')
+                            break
+        except Exception as e:
+            logger.warning(f"⚠️ Ошибка парсинга username из URL {url}: {e}")
+
+        return username or 'Unknown'
