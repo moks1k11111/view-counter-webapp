@@ -618,6 +618,19 @@ async def get_project_analytics(
 
     logger.info(f"🎯 FINAL ANALYTICS: total_views={total_views}, total_videos={total_videos}, total_profiles={total_profiles}")
 
+    # Устанавливаем start_date и end_date если они не заданы
+    if not start_date:
+        # Пытаемся взять из проекта
+        start_date = project.get('start_date')
+        # Если и в проекте нет, используем 30 дней назад
+        if not start_date:
+            from datetime import datetime, timedelta
+            start_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
+            logger.warning(f"⚠️ Project {project_id} has no start_date, using 30 days ago: {start_date}")
+
+    if not end_date:
+        end_date = project.get('end_date') or datetime.now().strftime('%Y-%m-%d')
+
     # Получаем историю просмотров проекта из SQLite
     daily_history = project_manager.get_project_daily_history(project_id, start_date, end_date)
 
