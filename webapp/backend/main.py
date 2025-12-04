@@ -1199,6 +1199,52 @@ async def migrate_username_column(
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Username migration failed: {str(e)}")
 
+@app.post("/api/migrate_all_usernames")
+async def migrate_all_usernames():
+    """Мигрировать колонку Username для ВСЕХ проектов (без авторизации, для одноразового запуска)"""
+    logger.info("🔄 Starting migration for ALL projects")
+
+    if not project_sheets:
+        raise HTTPException(status_code=503, detail="Google Sheets not available")
+
+    # Получаем все листы в таблице
+    try:
+        all_sheets = project_sheets.spreadsheet.worksheets()
+        results = []
+
+        for sheet in all_sheets:
+            project_name = sheet.title
+            logger.info(f"🔄 Migrating project: {project_name}")
+
+            try:
+                success = project_sheets.migrate_username_column(project_name)
+                results.append({
+                    "project": project_name,
+                    "success": success,
+                    "message": "Migration completed" if success else "Migration failed"
+                })
+            except Exception as e:
+                logger.error(f"❌ Error migrating {project_name}: {e}")
+                results.append({
+                    "project": project_name,
+                    "success": False,
+                    "error": str(e)
+                })
+
+        logger.info(f"✅ Migration completed for {len(results)} projects")
+
+        return {
+            "success": True,
+            "total_projects": len(results),
+            "results": results
+        }
+
+    except Exception as e:
+        logger.error(f"❌ Migration error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Migration failed: {str(e)}")
+
 @app.delete("/api/projects/{project_id}")
 async def delete_project(
     project_id: str,
