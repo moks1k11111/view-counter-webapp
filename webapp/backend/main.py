@@ -470,16 +470,17 @@ async def get_project_analytics(
                     # Facebook: извлекаем ID или username
                     # Убираем завершающий / и параметры
                     clean_url = url.rstrip('/').split('?')[0]
-                    parts = clean_url.split('/')
+                    # Убираем пустые части после split
+                    parts = [p for p in clean_url.split('/') if p]
 
                     if 'share' in parts:
                         idx = parts.index('share')
                         if idx + 1 < len(parts):
                             username = parts[idx + 1]
                     elif len(parts) > 0:
-                        # Берем последнюю непустую часть URL
+                        # Берем последнюю непустую часть URL, кроме доменов
                         for part in reversed(parts):
-                            if part and part not in ['facebook.com', 'www.facebook.com', 'fb.com']:
+                            if part and part not in ['facebook.com', 'www.facebook.com', 'fb.com', 'https:', 'http:']:
                                 username = part
                                 break
                 elif 'youtube.com' in url_lower or 'youtu.be' in url_lower:
@@ -565,7 +566,8 @@ async def get_project_analytics(
                 elif 'facebook.com' in url.lower() or 'fb.com' in url.lower():
                     # Facebook: улучшенная логика
                     clean_url = url.rstrip('/').split('?')[0]
-                    parts = clean_url.split('/')
+                    # Убираем пустые части после split
+                    parts = [p for p in clean_url.split('/') if p]
 
                     if 'share' in parts:
                         idx = parts.index('share')
@@ -573,7 +575,7 @@ async def get_project_analytics(
                             username = parts[idx + 1]
                     elif len(parts) > 0:
                         for part in reversed(parts):
-                            if part and part not in ['facebook.com', 'www.facebook.com', 'fb.com']:
+                            if part and part not in ['facebook.com', 'www.facebook.com', 'fb.com', 'https:', 'http:']:
                                 username = part
                                 break
 
