@@ -452,20 +452,32 @@ class ProjectSheetsManager:
                         username = parts[i + 1].lstrip('@')
                         break
             elif 'facebook.com' in url_lower or 'fb.com' in url_lower:
-                clean_url = url.rstrip('/').split('?')[0]
-                # Убираем пустые части после split
-                parts = [p for p in clean_url.split('/') if p]
+                # Проверяем формат profile.php?id=...
+                if 'profile.php?id=' in url_lower:
+                    # Извлекаем ID из параметра
+                    try:
+                        import urllib.parse
+                        parsed = urllib.parse.urlparse(url)
+                        params = urllib.parse.parse_qs(parsed.query)
+                        if 'id' in params:
+                            username = params['id'][0]
+                    except:
+                        pass
+                else:
+                    clean_url = url.rstrip('/').split('?')[0]
+                    # Убираем пустые части после split
+                    parts = [p for p in clean_url.split('/') if p]
 
-                if 'share' in parts:
-                    idx = parts.index('share')
-                    if idx + 1 < len(parts):
-                        username = parts[idx + 1]
-                elif len(parts) > 0:
-                    # Берем последнюю непустую часть, кроме доменов
-                    for part in reversed(parts):
-                        if part and part not in ['facebook.com', 'www.facebook.com', 'fb.com', 'https:', 'http:']:
-                            username = part
-                            break
+                    if 'share' in parts:
+                        idx = parts.index('share')
+                        if idx + 1 < len(parts):
+                            username = parts[idx + 1]
+                    elif len(parts) > 0:
+                        # Берем последнюю непустую часть, кроме доменов
+                        for part in reversed(parts):
+                            if part and part not in ['facebook.com', 'www.facebook.com', 'fb.com', 'https:', 'http:']:
+                                username = part
+                                break
             elif 'youtube.com' in url_lower or 'youtu.be' in url_lower:
                 if '/@' in url:
                     username = url.split('/@')[1].split('?')[0].split('/')[0]

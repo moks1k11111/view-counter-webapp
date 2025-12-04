@@ -467,22 +467,33 @@ async def get_project_analytics(
                             break
                 elif 'facebook.com' in url_lower or 'fb.com' in url_lower:
                     platform = platform or 'facebook'
-                    # Facebook: извлекаем ID или username
-                    # Убираем завершающий / и параметры
-                    clean_url = url.rstrip('/').split('?')[0]
-                    # Убираем пустые части после split
-                    parts = [p for p in clean_url.split('/') if p]
+                    # Facebook: проверяем формат profile.php?id=...
+                    if 'profile.php?id=' in url_lower:
+                        # Извлекаем ID из параметра
+                        try:
+                            import urllib.parse
+                            parsed = urllib.parse.urlparse(url)
+                            params = urllib.parse.parse_qs(parsed.query)
+                            if 'id' in params:
+                                username = params['id'][0]
+                        except:
+                            pass
+                    else:
+                        # Обычный формат facebook.com/share/ID или facebook.com/username
+                        clean_url = url.rstrip('/').split('?')[0]
+                        # Убираем пустые части после split
+                        parts = [p for p in clean_url.split('/') if p]
 
-                    if 'share' in parts:
-                        idx = parts.index('share')
-                        if idx + 1 < len(parts):
-                            username = parts[idx + 1]
-                    elif len(parts) > 0:
-                        # Берем последнюю непустую часть URL, кроме доменов
-                        for part in reversed(parts):
-                            if part and part not in ['facebook.com', 'www.facebook.com', 'fb.com', 'https:', 'http:']:
-                                username = part
-                                break
+                        if 'share' in parts:
+                            idx = parts.index('share')
+                            if idx + 1 < len(parts):
+                                username = parts[idx + 1]
+                        elif len(parts) > 0:
+                            # Берем последнюю непустую часть URL, кроме доменов
+                            for part in reversed(parts):
+                                if part and part not in ['facebook.com', 'www.facebook.com', 'fb.com', 'https:', 'http:']:
+                                    username = part
+                                    break
                 elif 'youtube.com' in url_lower or 'youtu.be' in url_lower:
                     platform = platform or 'youtube'
                     # YouTube URLs: youtube.com/@username или youtube.com/c/username
@@ -564,20 +575,32 @@ async def get_project_analytics(
                 if '/@' in url:
                     username = url.split('/@')[1].split('?')[0].split('/')[0]
                 elif 'facebook.com' in url.lower() or 'fb.com' in url.lower():
-                    # Facebook: улучшенная логика
-                    clean_url = url.rstrip('/').split('?')[0]
-                    # Убираем пустые части после split
-                    parts = [p for p in clean_url.split('/') if p]
+                    # Facebook: проверяем формат profile.php?id=...
+                    url_lower_local = url.lower()
+                    if 'profile.php?id=' in url_lower_local:
+                        try:
+                            import urllib.parse
+                            parsed = urllib.parse.urlparse(url)
+                            params = urllib.parse.parse_qs(parsed.query)
+                            if 'id' in params:
+                                username = params['id'][0]
+                        except:
+                            pass
+                    else:
+                        # Обычный формат
+                        clean_url = url.rstrip('/').split('?')[0]
+                        # Убираем пустые части после split
+                        parts = [p for p in clean_url.split('/') if p]
 
-                    if 'share' in parts:
-                        idx = parts.index('share')
-                        if idx + 1 < len(parts):
-                            username = parts[idx + 1]
-                    elif len(parts) > 0:
-                        for part in reversed(parts):
-                            if part and part not in ['facebook.com', 'www.facebook.com', 'fb.com', 'https:', 'http:']:
-                                username = part
-                                break
+                        if 'share' in parts:
+                            idx = parts.index('share')
+                            if idx + 1 < len(parts):
+                                username = parts[idx + 1]
+                        elif len(parts) > 0:
+                            for part in reversed(parts):
+                                if part and part not in ['facebook.com', 'www.facebook.com', 'fb.com', 'https:', 'http:']:
+                                    username = part
+                                    break
 
                 # Fallback на username из базы или telegram_user
                 if not username:
