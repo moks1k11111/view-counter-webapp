@@ -454,12 +454,16 @@ async def get_project_analytics(
                     # Instagram URLs: instagram.com/username/ или instagram.com/@username/
                     clean_url = url.rstrip('/').split('?')[0]
                     parts = clean_url.split('/')
+                    logger.info(f"🔍 Instagram URL parts: {parts}")
                     # Ищем часть после instagram.com
                     for i, part in enumerate(parts):
+                        logger.info(f"🔍 Checking part {i}: '{part}', contains instagram.com: {'instagram.com' in part}")
                         if 'instagram.com' in part and i + 1 < len(parts):
                             username_part = parts[i + 1]
+                            logger.info(f"🔍 Found username_part: '{username_part}'")
                             # Убираем @ если есть
                             username = username_part.lstrip('@')
+                            logger.info(f"🔍 Extracted Instagram username: '{username}'")
                             break
                 elif 'facebook.com' in url_lower or 'fb.com' in url_lower:
                     platform = platform or 'facebook'
