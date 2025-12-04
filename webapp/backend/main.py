@@ -961,10 +961,14 @@ async def add_social_account(
             # Создаем лист проекта если не существует
             project_sheets.create_project_sheet(project['name'])
 
+            # Парсим username из URL используя функцию из project_sheets_manager
+            parsed_username = project_sheets._parse_username_from_url(account.profile_link)
+            logger.info(f"📊 Parsed username from URL: '{parsed_username}' (original: '{account.username}')")
+
             # Добавляем аккаунт в лист С TELEGRAM USERNAME!
             logger.info(f"📊 Sending to Sheets: telegram_user = '{display_name}'")
             project_sheets.add_account_to_sheet(project['name'], {
-                'username': account.username,
+                'username': parsed_username,  # ← ИСПРАВЛЕНО: используем спарсенный username
                 'profile_link': account.profile_link,
                 'followers': 0,
                 'likes': 0,
@@ -974,9 +978,9 @@ async def add_social_account(
                 'status': account.status,
                 'topic': account.topic,
                 'platform': account.platform,
-                'telegram_user': display_name  # ← ИСПРАВЛЕНО: ДОБАВЛЕН TELEGRAM USER!
+                'telegram_user': display_name
             })
-            logger.info(f"✅ Added to Sheets: {account.username} by {display_name}")
+            logger.info(f"✅ Added to Sheets: {parsed_username} by {display_name}")
         except Exception as e:
             logger.error(f"⚠️  Ошибка добавления в Google Sheets: {e}")
 
