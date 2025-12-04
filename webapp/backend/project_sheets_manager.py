@@ -379,13 +379,17 @@ class ProjectSheetsManager:
                 logger.info(f"⚠️ Колонка Username уже существует в {project_name}")
                 return True
 
-            # Находим индекс колонки Platform
-            if 'Platform' not in headers:
-                logger.error(f"❌ Колонка Platform не найдена в {project_name}")
+            # Находим куда вставить колонку Username
+            # Если есть Platform - вставляем после неё, иначе после Link
+            if 'Platform' in headers:
+                platform_index = headers.index('Platform') + 1
+                username_col = platform_index + 1
+            elif 'Link' in headers:
+                link_index = headers.index('Link') + 1
+                username_col = link_index + 1
+            else:
+                logger.error(f"❌ Не найдена ни колонка Platform, ни Link в {project_name}")
                 return False
-
-            platform_index = headers.index('Platform') + 1  # +1 т.к. gspread использует 1-based index
-            username_col = platform_index + 1
 
             # Вставляем новую колонку после Platform
             worksheet.insert_cols([[]], col=username_col)
