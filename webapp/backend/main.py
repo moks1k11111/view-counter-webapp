@@ -451,8 +451,16 @@ async def get_project_analytics(
                         username = url.split('/@')[1].split('?')[0].split('/')[0]
                 elif 'instagram.com' in url_lower:
                     platform = platform or 'instagram'
-                    if '/@' in url:
-                        username = url.split('/@')[1].split('?')[0].split('/')[0]
+                    # Instagram URLs: instagram.com/username/ или instagram.com/@username/
+                    clean_url = url.rstrip('/').split('?')[0]
+                    parts = clean_url.split('/')
+                    # Ищем часть после instagram.com
+                    for i, part in enumerate(parts):
+                        if 'instagram.com' in part and i + 1 < len(parts):
+                            username_part = parts[i + 1]
+                            # Убираем @ если есть
+                            username = username_part.lstrip('@')
+                            break
                 elif 'facebook.com' in url_lower or 'fb.com' in url_lower:
                     platform = platform or 'facebook'
                     # Facebook: извлекаем ID или username
@@ -472,12 +480,25 @@ async def get_project_analytics(
                                 break
                 elif 'youtube.com' in url_lower or 'youtu.be' in url_lower:
                     platform = platform or 'youtube'
+                    # YouTube URLs: youtube.com/@username или youtube.com/c/username
                     if '/@' in url:
                         username = url.split('/@')[1].split('?')[0].split('/')[0]
+                    elif '/c/' in url_lower:
+                        username = url.split('/c/')[1].split('?')[0].split('/')[0]
+                    elif '/channel/' in url_lower:
+                        username = url.split('/channel/')[1].split('?')[0].split('/')[0]
                 elif 'threads.net' in url_lower:
                     platform = platform or 'threads'
+                    # Threads URLs: threads.net/@username
                     if '/@' in url:
                         username = url.split('/@')[1].split('?')[0].split('/')[0]
+                    else:
+                        clean_url = url.rstrip('/').split('?')[0]
+                        parts = clean_url.split('/')
+                        for i, part in enumerate(parts):
+                            if 'threads.net' in part and i + 1 < len(parts):
+                                username = parts[i + 1].lstrip('@')
+                                break
 
                 # Fallback на @Username из Google Sheets если не удалось извлечь
                 if not username:
