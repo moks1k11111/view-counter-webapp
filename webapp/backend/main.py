@@ -439,7 +439,7 @@ async def get_project_analytics(
                 # Извлекаем username и определяем платформу из URL
                 url = account.get('Link', '').strip()  # Убираем пробелы
                 url_lower = url.lower()  # Для проверки без учета регистра
-                username = 'Unknown'
+                username = None
                 platform = account.get('Platform', '').lower() if account.get('Platform') else None
 
                 logger.info(f"🔍 Processing account: url='{url}', platform_from_sheets='{platform}'")
@@ -456,13 +456,20 @@ async def get_project_analytics(
                 elif 'facebook.com' in url_lower or 'fb.com' in url_lower:
                     platform = platform or 'facebook'
                     # Facebook: извлекаем ID или username
-                    parts = url.split('/')
+                    # Убираем завершающий / и параметры
+                    clean_url = url.rstrip('/').split('?')[0]
+                    parts = clean_url.split('/')
+
                     if 'share' in parts:
                         idx = parts.index('share')
                         if idx + 1 < len(parts):
-                            username = parts[idx + 1].split('?')[0]
-                    else:
-                        username = parts[-1].split('?')[0] if parts[-1] and parts[-1] else (parts[-2] if len(parts) > 1 else 'Unknown')
+                            username = parts[idx + 1]
+                    elif len(parts) > 0:
+                        # Берем последнюю непустую часть URL
+                        for part in reversed(parts):
+                            if part and part not in ['facebook.com', 'www.facebook.com', 'fb.com']:
+                                username = part
+                                break
                 elif 'youtube.com' in url_lower or 'youtu.be' in url_lower:
                     platform = platform or 'youtube'
                     if '/@' in url:
@@ -471,6 +478,18 @@ async def get_project_analytics(
                     platform = platform or 'threads'
                     if '/@' in url:
                         username = url.split('/@')[1].split('?')[0].split('/')[0]
+
+                # Fallback на @Username из Google Sheets если не удалось извлечь
+                if not username:
+                    telegram_username = account.get('@Username', '').strip()
+                    if telegram_username and not telegram_username.startswith('@'):
+                        username = telegram_username
+                    elif telegram_username:
+                        username = telegram_username[1:]  # Убираем @
+
+                # Финальный fallback
+                if not username:
+                    username = 'Unknown'
 
                 # Fallback если платформа не определена
                 if not platform:
@@ -508,18 +527,32 @@ async def get_project_analytics(
                 latest_snapshot = snapshots[0] if snapshots else {}
 
                 # Извлекаем username из URL (так же как для Sheets)
-                url = account.get('profile_link', '')
-                username = 'Unknown'
+                url = account.get('profile_link', '').strip()
+                username = None
+
                 if '/@' in url:
                     username = url.split('/@')[1].split('?')[0].split('/')[0]
-                elif 'facebook.com/share/' in url or 'facebook.com/' in url:
-                    parts = url.split('/')
+                elif 'facebook.com' in url.lower() or 'fb.com' in url.lower():
+                    # Facebook: улучшенная логика
+                    clean_url = url.rstrip('/').split('?')[0]
+                    parts = clean_url.split('/')
+
                     if 'share' in parts:
                         idx = parts.index('share')
                         if idx + 1 < len(parts):
-                            username = parts[idx + 1].split('?')[0]
-                    else:
-                        username = parts[-1].split('?')[0] if parts[-1] and parts[-1] else (parts[-2] if len(parts) > 1 else 'Unknown')
+                            username = parts[idx + 1]
+                    elif len(parts) > 0:
+                        for part in reversed(parts):
+                            if part and part not in ['facebook.com', 'www.facebook.com', 'fb.com']:
+                                username = part
+                                break
+
+                # Fallback на username из базы или telegram_user
+                if not username:
+                    username = account.get('username') or account.get('telegram_user') or 'Unknown'
+                    # Убираем @ если есть
+                    if username and username.startswith('@'):
+                        username = username[1:]
 
                 all_profiles.append({
                     'telegram_user': account.get('telegram_user', 'Unknown'),
@@ -588,18 +621,34 @@ async def get_project_analytics(
     # Получаем историю просмотров проекта из SQLite
     daily_history = project_manager.get_project_daily_history(project_id, start_date, end_date)
 
-    # Если нет истории в SQLite, показываем только текущую точку
+    # Если нет истории в SQLite, создаем точки для периода проекта
     history = daily_history.get("history", [])
     growth_24h = daily_history.get("growth_24h", 0)
 
     if len(history) == 0 and total_views > 0:
-        # Показываем только сегодняшнюю точку с реальными данными
-        from datetime import datetime
-        today = datetime.now().strftime('%Y-%m-%d')
-        history = [{"date": today, "views": total_views}]
-        growth_24h = 0  # Нет истории = нет прироста
+        # Создаем историю: от start_date до сегодня с текущим значением
+        from datetime import datetime, timedelta
 
-    logger.info(f"📊 History: {len(history)} days, growth_24h: {growth_24h}")
+        start = datetime.strptime(start_date, '%Y-%m-%d')
+        end = datetime.now()
+
+        # Ограничиваем последние 30 дней для производительности
+        if (end - start).days > 30:
+            start = end - timedelta(days=30)
+
+        history = []
+        current = start
+        while current <= end:
+            history.append({
+                "date": current.strftime('%Y-%m-%d'),
+                "views": total_views  # Показываем текущее значение на все дни
+            })
+            current += timedelta(days=1)
+
+        growth_24h = 0  # Нет реальных исторических данных = нет прироста
+        logger.info(f"📊 Generated history for {len(history)} days with current views: {total_views}")
+    else:
+        logger.info(f"📊 Loaded real history: {len(history)} days, growth_24h: {growth_24h}")
 
     return {
         "project": project,
