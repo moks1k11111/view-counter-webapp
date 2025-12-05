@@ -987,6 +987,38 @@ class ProjectManager:
                     "views": row[1]
                 })
 
+            # Если нет данных в account_daily_stats, берем из account_snapshots
+            if not history:
+                logger.info(f"📊 No data in account_daily_stats, trying account_snapshots for project {project_id}...")
+
+                query = f'''
+                    SELECT DATE(snapshot_time) as date, SUM(views) as total_views
+                    FROM account_snapshots
+                    WHERE account_id IN ({placeholders})
+                '''
+                params = account_ids.copy()
+
+                if start_date:
+                    query += ' AND DATE(snapshot_time) >= ?'
+                    params.append(start_date)
+
+                if end_date:
+                    query += ' AND DATE(snapshot_time) <= ?'
+                    params.append(end_date)
+
+                query += ' GROUP BY DATE(snapshot_time) ORDER BY DATE(snapshot_time) ASC'
+
+                self.db.cursor.execute(query, params)
+                rows = self.db.cursor.fetchall()
+
+                for row in rows:
+                    history.append({
+                        "date": row[0],
+                        "views": int(row[1] or 0)
+                    })
+
+                logger.info(f"📊 Loaded {len(history)} days from account_snapshots")
+
             # Вычисляем growth_24h в реальном времени из snapshots за последние 24 часа
             growth_24h = 0
             if account_ids:
