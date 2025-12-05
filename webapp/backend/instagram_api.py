@@ -41,15 +41,16 @@ class InstagramAPI:
         logger.error(f"❌ Не удалось извлечь username из URL: {url}")
         raise ValueError("Не удалось извлечь username из URL")
     
-    def get_user_reels(self, username, amount=100, max_pages=50):
+    def get_user_reels(self, username, amount=100, max_pages=50, kpi_views=0):
         """
         Получение reels пользователя с пагинацией
-        
+
         Args:
             username: Instagram username (без @)
             amount: количество reels за один запрос
             max_pages: максимальное количество страниц пагинации
-        
+            kpi_views: минимальное количество просмотров для учета reels (0 = все reels)
+
         Returns:
             dict с reels и статистикой
         """
@@ -124,42 +125,58 @@ class InstagramAPI:
                     logger.error(f"Response: {response.text}")
                     break
             
-            # Подсчитываем статистику
+            # Подсчитываем статистику (с фильтрацией по KPI)
             total_views = 0
             total_likes = 0
             total_comments = 0
-            
+            reels_matching_kpi = 0  # Количество reels подходящих по KPI
+
             for i, reel_item in enumerate(all_reels, 1):
                 node = reel_item.get("node", {})
                 media = node.get("media", {})
-                
+
                 play_count = media.get("play_count", 0)
                 like_count = media.get("like_count", 0)
                 comment_count = media.get("comment_count", 0)
-                
+
+                # Фильтрация по KPI
+                if kpi_views > 0 and play_count < kpi_views:
+                    continue  # Пропускаем reels не подходящие по KPI
+
+                reels_matching_kpi += 1
                 total_views += play_count
                 total_likes += like_count
                 total_comments += comment_count
-                
+
                 if i <= 5 or i > len(all_reels) - 5:  # Показываем первые и последние 5
                     logger.info(f"  Reel {i}: 👁 {play_count:,} просмотров, ❤️ {like_count} лайков")
                 elif i == 6:
                     logger.info(f"  ... (reels 6-{len(all_reels)-5}) ...")
             
+            # Логирование с информацией о KPI фильтрации
+            filtered_count = len(all_reels) - reels_matching_kpi
+
             logger.info(f"\n{'='*60}")
             logger.info(f"📊 ИТОГОВАЯ СТАТИСТИКА:")
             logger.info(f"{'='*60}")
-            logger.info(f"🎬 Всего reels: {len(all_reels)}")
-            logger.info(f"👁 Всего просмотров: {total_views:,}")
+            logger.info(f"🎬 Всего reels получено: {len(all_reels)}")
+            if kpi_views > 0:
+                logger.info(f"📊 KPI фильтр: >= {kpi_views:,} просмотров")
+                logger.info(f"✅ Reels подходящих под KPI: {reels_matching_kpi}")
+                logger.info(f"❌ Отфильтровано reels: {filtered_count}")
+            else:
+                logger.info(f"🎬 Reels учтено: {reels_matching_kpi} (KPI отключен)")
+            logger.info(f"👁 Всего просмотров (по KPI): {total_views:,}")
             logger.info(f"❤️ Всего лайков: {total_likes:,}")
             logger.info(f"💬 Всего комментариев: {total_comments:,}")
             logger.info(f"{'='*60}\n")
-            
+
             return {
                 "success": True,
                 "username": username,
-                "reels_count": len(all_reels),
-                "total_views": total_views,
+                "reels_count": reels_matching_kpi,  # Количество reels подходящих по KPI
+                "total_reels_fetched": len(all_reels),  # Всего получено reels
+                "total_views": total_views,  # Просмотры по KPI
                 "total_likes": total_likes,
                 "total_comments": total_comments,
                 "reels": all_reels
@@ -174,10 +191,14 @@ class InstagramAPI:
                 "error": str(e)
             }
     
-    def get_profile_with_reels_stats(self, username):
+    def get_profile_with_reels_stats(self, username, kpi_views=0):
         """
         Получение полной статистики профиля
-        
+
+        Параметры:
+        - username: Instagram username
+        - kpi_views: минимальное количество просмотров для учета reels (0 = все reels)
+
         Возвращает:
         - username
         - количество reels
@@ -189,9 +210,9 @@ class InstagramAPI:
             logger.info(f"\n{'='*60}")
             logger.info(f"🔍 ПОЛУЧЕНИЕ СТАТИСТИКИ @{username}")
             logger.info(f"{'='*60}\n")
-            
+
             # Получаем reels (максимум 100 за запрос, 50 страниц = ~600 reels)
-            reels_data = self.get_user_reels(username, amount=100)
+            reels_data = self.get_user_reels(username, amount=100, kpi_views=kpi_views)
             
             if not reels_data.get("success"):
                 raise Exception(reels_data.get("error", "Failed to get reels"))
@@ -216,11 +237,16 @@ class InstagramAPI:
             logger.error(f"❌ Ошибка: {e}")
             raise
     
-    def get_instagram_data(self, url):
-        """Получение данных по Instagram URL"""
+    def get_instagram_data(self, url, kpi_views=0):
+        """
+        Получение данных по Instagram URL
+
+        :param url: URL профиля Instagram
+        :param kpi_views: минимальное количество просмотров для учета reels (0 = все reels)
+        """
         try:
             username = self.extract_username_from_url(url)
-            return self.get_profile_with_reels_stats(username)
+            return self.get_profile_with_reels_stats(username, kpi_views=kpi_views)
         except Exception as e:
             logger.error(f"❌ Ошибка обработки URL: {e}")
             raise

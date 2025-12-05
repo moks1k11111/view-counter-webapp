@@ -210,25 +210,26 @@ class TikTokAPI:
         
         return all_items
     
-    def get_user_profile_with_total_views(self, username, use_extended_pagination=True):
+    def get_user_profile_with_total_views(self, username, use_extended_pagination=True, kpi_views=0):
         """
         🔥 УЛУЧШЕННАЯ ВЕРСИЯ: Получение полной статистики профиля
-        
+
         Параметры:
         - use_extended_pagination: если True, использует расширенную пагинацию
+        - kpi_views: минимальное количество просмотров для учета видео (0 = все видео)
         """
         try:
             logger.info(f"\n{'='*60}")
             logger.info(f"ПОЛУЧЕНИЕ ПОЛНОЙ СТАТИСТИКИ ДЛЯ @{username}")
             logger.info(f"{'='*60}\n")
-            
+
             # Шаг 1: Получаем информацию о пользователе и secUid
             user_info = self.get_user_info(username)
             sec_uid = user_info.get("secUid")
-            
+
             if not sec_uid:
                 raise Exception("Не удалось получить secUid пользователя")
-            
+
             # Шаг 2: Получаем все посты с расширенной пагинацией (макс 500 видео)
             time.sleep(2)
             if use_extended_pagination:
@@ -236,16 +237,24 @@ class TikTokAPI:
             else:
                 # Старый метод (оставлен для совместимости)
                 items = self._get_user_posts_old(sec_uid)
-            
-            # Шаг 3: Суммируем просмотры по всем видео
+
+            # Шаг 3: Суммируем просмотры по всем видео (с фильтрацией по KPI)
             total_views = 0
             total_likes = 0
             total_comments = 0
             total_shares = 0
-            
+            videos_matching_kpi = 0  # Количество видео подходящих по KPI
+
             for item in items:
                 stats = item.get("stats", {})
-                total_views += stats.get("playCount", 0)
+                play_count = stats.get("playCount", 0)
+
+                # Фильтрация по KPI
+                if kpi_views > 0 and play_count < kpi_views:
+                    continue  # Пропускаем видео не подходящие по KPI
+
+                videos_matching_kpi += 1
+                total_views += play_count
                 total_likes += stats.get("diggCount", 0)
                 total_comments += stats.get("commentCount", 0)
                 total_shares += stats.get("shareCount", 0)
@@ -259,22 +268,32 @@ class TikTokAPI:
                 "followers": user_info.get("followerCount", 0),
                 "following": user_info.get("followingCount", 0),
                 "likes": user_info.get("heartCount", 0),  # Из API профиля (общее количество)
-                "videos": len(items),  # 🔥 РЕАЛЬНОЕ количество полученных видео (видимых)
-                "total_views": total_views,  # 🔥 Сумма просмотров по ПОЛУЧЕННЫМ видео
+                "videos": videos_matching_kpi,  # 🔥 Количество видео подходящих по KPI
+                "total_videos_fetched": len(items),  # Всего получено видео
+                "total_views": total_views,  # 🔥 Сумма просмотров по видео подходящим под KPI
                 "verified": user_info.get("verified", False),
                 "private": user_info.get("privateAccount", False),
                 "bio": user_info.get("signature", ""),
                 "avatar": user_info.get("avatarLarger", ""),
                 "timestamp": time.time()
             }
-            
+
+            # Логирование с информацией о KPI фильтрации
+            filtered_count = len(items) - videos_matching_kpi
+
             logger.info(f"\n{'='*60}")
             logger.info(f"✅ ИТОГОВАЯ СТАТИСТИКА @{username}:")
             logger.info(f"{'='*60}")
             logger.info(f"👥 Подписчиков: {result['followers']:,}")
             logger.info(f"👣 Подписок: {result['following']:,}")
-            logger.info(f"🎬 Видео (видимых): {result['videos']}")
-            logger.info(f"👁 Всего просмотров: {result['total_views']:,}")
+            logger.info(f"🎬 Всего видео получено: {len(items)}")
+            if kpi_views > 0:
+                logger.info(f"📊 KPI фильтр: >= {kpi_views:,} просмотров")
+                logger.info(f"✅ Видео подходящих под KPI: {videos_matching_kpi}")
+                logger.info(f"❌ Отфильтровано видео: {filtered_count}")
+            else:
+                logger.info(f"🎬 Видео учтено: {videos_matching_kpi} (KPI отключен)")
+            logger.info(f"👁 Всего просмотров (по KPI): {result['total_views']:,}")
             logger.info(f"❤️ Лайков (общее): {result['likes']:,}")
             logger.info(f"{'='*60}\n")
             
@@ -361,22 +380,27 @@ class TikTokAPI:
             logger.error(f"Ошибка: {e}")
             raise
     
-    def get_tiktok_data(self, url):
-        """Основной метод для получения данных TikTok по URL"""
+    def get_tiktok_data(self, url, kpi_views=0):
+        """
+        Основной метод для получения данных TikTok по URL
+
+        :param url: URL профиля или видео TikTok
+        :param kpi_views: минимальное количество просмотров для учета видео (0 = все видео)
+        """
         logger.info(f"Получение данных TikTok для URL: {url}")
-        
+
         if not self.is_valid_tiktok_url(url):
             raise ValueError("Неверный URL TikTok")
-        
+
         # Извлекаем информацию о пользователе/видео из URL
         info = self.extract_user_info(url)
-        
+
         # В зависимости от типа URL вызываем соответствующий метод
         if info["type"] == "profile":
-            return self.get_user_profile_with_total_views(info["username"], use_extended_pagination=True)
+            return self.get_user_profile_with_total_views(info["username"], use_extended_pagination=True, kpi_views=kpi_views)
         elif info["type"] == "video":
             return self.get_video_info(info["video_id"])
-        
+
         raise ValueError("Неподдерживаемый тип URL TikTok")
 
 

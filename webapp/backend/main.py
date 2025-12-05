@@ -1171,9 +1171,28 @@ async def refresh_project_stats(
         raise HTTPException(status_code=503, detail="Stats API clients not available")
 
     try:
+        # Получаем KPI проекта
+        kpi_views = project.get('kpi_views', 1000)
+        logger.info(f"📊 Project KPI: >= {kpi_views:,} просмотров на видео")
+
         # Получаем все аккаунты проекта
         accounts = project_manager.get_project_social_accounts(project_id)
         logger.info(f"📊 Found {len(accounts)} accounts in project")
+
+        # Подсчитываем количество аккаунтов по платформам для прогресс-бара
+        platform_stats = {}
+        for platform in request.platforms:
+            if request.platforms[platform]:
+                count = sum(1 for acc in accounts if acc.get('platform', 'tiktok').lower() == platform)
+                platform_stats[platform] = {'total': count, 'processed': 0, 'updated': 0, 'failed': 0}
+
+        # Логируем прогресс-бар заголовок
+        logger.info(f"\n{'='*70}")
+        logger.info(f"📊 ПРОГРЕСС-БАР ОБНОВЛЕНИЯ СТАТИСТИКИ")
+        logger.info(f"{'='*70}")
+        for platform, stats in platform_stats.items():
+            logger.info(f"   {platform.upper()}: 0/{stats['total']} аккаунтов")
+        logger.info(f"{'='*70}\n")
 
         updated_count = 0
         failed_count = 0
@@ -1194,13 +1213,15 @@ async def refresh_project_stats(
             try:
                 stats = None
 
-                # Получаем статистику в зависимости от платформы
+                # Получаем статистику в зависимости от платформы (с KPI фильтрацией)
                 if platform == 'tiktok' and tiktok_api:
-                    stats = tiktok_api.get_tiktok_data(profile_link)
+                    stats = tiktok_api.get_tiktok_data(profile_link, kpi_views=kpi_views)
                 elif platform == 'instagram' and instagram_api:
-                    stats = instagram_api.get_instagram_data(profile_link)
+                    stats = instagram_api.get_instagram_data(profile_link, kpi_views=kpi_views)
                 else:
                     logger.warning(f"⚠️ Platform {platform} not supported yet")
+                    if platform in platform_stats:
+                        platform_stats[platform]['processed'] += 1
                     continue
 
                 if stats:
@@ -1229,7 +1250,22 @@ async def refresh_project_stats(
                     )
 
                     updated_count += 1
+
+                    # Обновляем прогресс-бар
+                    if platform in platform_stats:
+                        platform_stats[platform]['processed'] += 1
+                        platform_stats[platform]['updated'] += 1
+
                     logger.info(f"✅ Updated {username}: {stats.get('total_views', 0)} views")
+
+                    # Логируем прогресс-бар после каждого обновления
+                    logger.info(f"\n{'='*70}")
+                    logger.info(f"📊 ПРОГРЕСС ОБНОВЛЕНИЯ:")
+                    logger.info(f"{'='*70}")
+                    for plt, pstats in platform_stats.items():
+                        progress_percent = (pstats['processed'] / pstats['total'] * 100) if pstats['total'] > 0 else 0
+                        logger.info(f"   {plt.upper()}: {pstats['processed']}/{pstats['total']} ({progress_percent:.0f}%) | ✅ {pstats['updated']} | ❌ {pstats['failed']}")
+                    logger.info(f"{'='*70}\n")
 
                     # Задержка между аккаунтами (уменьшили с 2 до 1 сек)
                     import time
@@ -1237,18 +1273,44 @@ async def refresh_project_stats(
 
             except Exception as e:
                 failed_count += 1
+
+                # Обновляем прогресс-бар
+                if platform in platform_stats:
+                    platform_stats[platform]['processed'] += 1
+                    platform_stats[platform]['failed'] += 1
+
                 error_msg = f"Failed to update {username}: {str(e)}"
                 errors.append(error_msg)
                 logger.error(f"❌ {error_msg}")
+
+                # Логируем прогресс-бар после ошибки
+                logger.info(f"\n{'='*70}")
+                logger.info(f"📊 ПРОГРЕСС ОБНОВЛЕНИЯ:")
+                logger.info(f"{'='*70}")
+                for plt, pstats in platform_stats.items():
+                    progress_percent = (pstats['processed'] / pstats['total'] * 100) if pstats['total'] > 0 else 0
+                    logger.info(f"   {plt.upper()}: {pstats['processed']}/{pstats['total']} ({progress_percent:.0f}%) | ✅ {pstats['updated']} | ❌ {pstats['failed']}")
+                logger.info(f"{'='*70}\n")
+
                 continue
 
         logger.info(f"✅ Stats refresh completed: {updated_count} updated, {failed_count} failed")
+
+        # Финальный прогресс-бар
+        logger.info(f"\n{'='*70}")
+        logger.info(f"📊 ИТОГОВЫЙ ПРОГРЕСС:")
+        logger.info(f"{'='*70}")
+        for plt, pstats in platform_stats.items():
+            logger.info(f"   {plt.upper()}: {pstats['total']} аккаунтов | ✅ {pstats['updated']} успешно | ❌ {pstats['failed']} ошибок")
+        logger.info(f"{'='*70}\n")
 
         return {
             "success": True,
             "updated_count": updated_count,
             "failed_count": failed_count,
             "total_accounts": len(accounts),
+            "platform_stats": platform_stats,  # Статистика по платформам
+            "kpi_views": kpi_views,  # KPI проекта
             "errors": errors[:5]  # Показываем первые 5 ошибок
         }
 
