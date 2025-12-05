@@ -1,11 +1,11 @@
 // ==================== CONFIGURATION ====================
-// Version: 1.3.0 - Updated 2025-12-05 - Fixed back navigation
+// Version: 1.4.0 - Updated 2025-12-05 - Fixed back navigation to track actual page ID
 const API_BASE_URL = 'https://view-counter-api.onrender.com';
 const ADMIN_IDS = [873564841]; // ID администраторов
 let currentUser = null;
 let currentProjects = [];
 let isAdmin = false;
-let projectOpenedFrom = 'home'; // 'home' or 'admin' - откуда открыли проект
+let projectOpenedFrom = 'home-page'; // Stores actual page ID: 'home-page', 'projects-page', 'project-management-page', etc.
 
 // ==================== TELEGRAM WEBAPP INITIALIZATION ====================
 const tg = window.Telegram?.WebApp || { initData: '', ready: () => {}, expand: () => {} };
@@ -539,8 +539,11 @@ async function openProject(projectId, mode = 'user') {
     currentProjectMode = mode;
 
     // Запоминаем откуда открыли проект для правильной навигации "Назад"
-    projectOpenedFrom = (mode === 'admin') ? 'admin' : 'home';
-    console.log('🔍 [Navigation] Opening project:', projectId, 'mode:', mode, '→ projectOpenedFrom:', projectOpenedFrom);
+    // Определяем какая страница сейчас активна
+    const currentPage = document.querySelector('.page:not(.hidden)');
+    const currentPageId = currentPage ? currentPage.id : 'home-page';
+    projectOpenedFrom = currentPageId;
+    console.log('🔍 [Navigation] Opening project:', projectId, 'mode:', mode, 'from page:', currentPageId, '→ projectOpenedFrom:', projectOpenedFrom);
 
     try {
         // Загружаем данные проекта в зависимости от режима
@@ -653,11 +656,15 @@ function closeProjectDetails() {
     document.getElementById('project-details-page').classList.add('hidden');
 
     // Возвращаемся на ту страницу откуда пришли
-    if (projectOpenedFrom === 'admin') {
-        console.log('🔙 [Navigation] Returning to admin panel');
-        document.getElementById('project-management-page').classList.remove('hidden');
+    // Поддерживаем все возможные страницы: home-page, projects-page, project-management-page
+    const pageToShow = document.getElementById(projectOpenedFrom);
+
+    if (pageToShow) {
+        console.log('🔙 [Navigation] Returning to page:', projectOpenedFrom);
+        pageToShow.classList.remove('hidden');
     } else {
-        console.log('🔙 [Navigation] Returning to home page');
+        // Fallback на home-page если страница не найдена
+        console.log('🔙 [Navigation] Page not found, returning to home-page');
         document.getElementById('home-page').classList.remove('hidden');
     }
 }
