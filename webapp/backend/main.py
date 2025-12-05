@@ -1346,6 +1346,22 @@ async def save_daily_snapshots():
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Daily snapshots failed: {str(e)}")
 
+@app.get("/api/list_all_projects")
+async def list_all_projects():
+    """Показать все проекты с ID (без авторизации, для дебага)"""
+    projects = project_manager.get_all_projects()
+
+    result = []
+    for project in projects:
+        result.append({
+            "id": project['id'],
+            "name": project['name'],
+            "is_active": project.get('is_active', True),
+            "is_finished": project.get('is_finished', False)
+        })
+
+    return {"success": True, "projects": result}
+
 @app.post("/api/projects/{project_id}/generate_test_history")
 async def generate_test_history(
     project_id: str,
