@@ -711,54 +711,73 @@
                 <button class="modal-close-btn" onclick="closeRefreshStatsModal()">
                     <i class="fa-solid fa-times"></i>
                 </button>
-                <h2 class="modal-title">Обновить статистику</h2>
-                <p class="modal-description">Выберите платформы для обновления</p>
 
-                <div style="margin-bottom: 20px;">
-                    <div class="social-toggle-item">
-                        <span>📱 TikTok</span>
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="refresh-tiktok" checked>
-                            <span class="toggle-slider"></span>
-                        </label>
+                <!-- Шаг 1: Выбор платформ -->
+                <div id="refresh-step-1">
+                    <h2 class="modal-title">Обновить статистику</h2>
+                    <p class="modal-description">Выберите платформы для обновления</p>
+
+                    <div style="margin-bottom: 20px;">
+                        <div class="social-toggle-item">
+                            <span>📱 TikTok</span>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="refresh-tiktok" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="social-toggle-item">
+                            <span>📷 Instagram</span>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="refresh-instagram" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="social-toggle-item">
+                            <span>👤 Facebook</span>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="refresh-facebook">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="social-toggle-item">
+                            <span>🎬 YouTube</span>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="refresh-youtube">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="social-toggle-item">
+                            <span>🧵 Threads</span>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="refresh-threads">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
                     </div>
 
-                    <div class="social-toggle-item">
-                        <span>📷 Instagram</span>
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="refresh-instagram" checked>
-                            <span class="toggle-slider"></span>
-                        </label>
-                    </div>
-
-                    <div class="social-toggle-item">
-                        <span>👤 Facebook</span>
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="refresh-facebook">
-                            <span class="toggle-slider"></span>
-                        </label>
-                    </div>
-
-                    <div class="social-toggle-item">
-                        <span>🎬 YouTube</span>
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="refresh-youtube">
-                            <span class="toggle-slider"></span>
-                        </label>
-                    </div>
-
-                    <div class="social-toggle-item">
-                        <span>🧵 Threads</span>
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="refresh-threads">
-                            <span class="toggle-slider"></span>
-                        </label>
-                    </div>
+                    <button class="btn-primary" onclick="submitRefreshStats()">
+                        <i class="fa-solid fa-rotate"></i> Обновить статистику
+                    </button>
                 </div>
 
-                <button class="btn-primary" onclick="submitRefreshStats()">
-                    <i class="fa-solid fa-rotate"></i> Обновить статистику
-                </button>
+                <!-- Шаг 2: Прогресс обновления -->
+                <div id="refresh-step-2" class="hidden">
+                    <h2 class="modal-title">Обновление статистики...</h2>
+                    <p class="modal-description" style="margin-bottom: 24px;">Пожалуйста, подождите. Это может занять несколько минут.</p>
+
+                    <!-- Прогресс-бары для каждой платформы -->
+                    <div id="platform-progress-bars" style="display: flex; flex-direction: column; gap: 16px;">
+                        <!-- Прогресс-бары будут добавлены динамически через JS -->
+                    </div>
+
+                    <button class="btn-secondary" onclick="closeRefreshStatsModal()" style="margin-top: 24px; display: none;" id="close-progress-btn">
+                        Закрыть
+                    </button>
+                </div>
             </div>
         </div>
     </div>

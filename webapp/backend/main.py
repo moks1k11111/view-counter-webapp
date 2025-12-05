@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional, List, Dict
 from datetime import datetime, timedelta
@@ -11,6 +12,7 @@ import json
 import asyncio
 import logging
 from urllib.parse import parse_qsl
+from collections import defaultdict
 
 # Telegram Bot Imports
 from telegram import Update, WebAppInfo, KeyboardButton, ReplyKeyboardMarkup
@@ -65,6 +67,10 @@ except Exception as e:
     sheets_db = None
 
 project_manager = ProjectManager(db)
+
+# Глобальное хранилище прогресса обновления статистики
+# Формат: {project_id: {platform: {total, processed, updated, failed}}}
+refresh_progress = defaultdict(lambda: defaultdict(lambda: {'total': 0, 'processed': 0, 'updated': 0, 'failed': 0}))
 
 # Инициализация Google Sheets для проектов
 try:
@@ -1146,6 +1152,60 @@ async def import_from_sheets(
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Import failed: {str(e)}")
 
+@app.get("/api/projects/{project_id}/refresh_stats/stream")
+async def refresh_stats_stream(
+    project_id: str,
+    user: dict = Depends(get_current_user)
+):
+    """SSE endpoint для стриминга прогресса обновления статистики"""
+    logger.info(f"📡 Client connected to progress stream for project {project_id}")
+
+    async def event_generator():
+        """Генератор событий прогресса"""
+        try:
+            last_progress = None
+            while True:
+                # Получаем текущий прогресс
+                current_progress = dict(refresh_progress.get(project_id, {}))
+
+                # Отправляем обновление только если прогресс изменился
+                if current_progress != last_progress:
+                    data = json.dumps(current_progress)
+                    yield f"data: {data}\n\n"
+                    last_progress = current_progress.copy()
+
+                    # Проверяем завершение - все платформы обработаны
+                    all_done = all(
+                        stats['processed'] >= stats['total']
+                        for stats in current_progress.values()
+                        if stats['total'] > 0
+                    )
+
+                    if all_done and len(current_progress) > 0:
+                        # Отправляем финальное событие
+                        yield f"data: {json.dumps({'status': 'completed'})}\n\n"
+                        logger.info(f"✅ Progress stream completed for project {project_id}")
+                        break
+
+                # Ждем перед следующей проверкой
+                await asyncio.sleep(0.5)
+
+        except asyncio.CancelledError:
+            logger.info(f"❌ Client disconnected from progress stream for project {project_id}")
+            # Очищаем прогресс при отключении
+            if project_id in refresh_progress:
+                del refresh_progress[project_id]
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"  # Отключаем буферизацию для Nginx
+        }
+    )
+
 @app.post("/api/projects/{project_id}/refresh_stats")
 async def refresh_project_stats(
     project_id: str,
@@ -1186,6 +1246,9 @@ async def refresh_project_stats(
                 count = sum(1 for acc in accounts if acc.get('platform', 'tiktok').lower() == platform)
                 platform_stats[platform] = {'total': count, 'processed': 0, 'updated': 0, 'failed': 0}
 
+        # Инициализируем прогресс в глобальном хранилище
+        refresh_progress[project_id] = platform_stats.copy()
+
         # Логируем прогресс-бар заголовок
         logger.info(f"\n{'='*70}")
         logger.info(f"📊 ПРОГРЕСС-БАР ОБНОВЛЕНИЯ СТАТИСТИКИ")
@@ -1222,6 +1285,9 @@ async def refresh_project_stats(
                     logger.warning(f"⚠️ Platform {platform} not supported yet")
                     if platform in platform_stats:
                         platform_stats[platform]['processed'] += 1
+                        platform_stats[platform]['failed'] += 1
+                        # Обновляем глобальный прогресс
+                        refresh_progress[project_id][platform] = platform_stats[platform].copy()
                     continue
 
                 if stats:
@@ -1255,6 +1321,8 @@ async def refresh_project_stats(
                     if platform in platform_stats:
                         platform_stats[platform]['processed'] += 1
                         platform_stats[platform]['updated'] += 1
+                        # Обновляем глобальный прогресс
+                        refresh_progress[project_id][platform] = platform_stats[platform].copy()
 
                     logger.info(f"✅ Updated {username}: {stats.get('total_views', 0)} views")
 
@@ -1278,6 +1346,8 @@ async def refresh_project_stats(
                 if platform in platform_stats:
                     platform_stats[platform]['processed'] += 1
                     platform_stats[platform]['failed'] += 1
+                    # Обновляем глобальный прогресс
+                    refresh_progress[project_id][platform] = platform_stats[platform].copy()
 
                 error_msg = f"Failed to update {username}: {str(e)}"
                 errors.append(error_msg)

@@ -749,6 +749,20 @@ function openRefreshStatsModal() {
 
 function closeRefreshStatsModal() {
     document.getElementById('refresh-stats-modal').classList.add('hidden');
+
+    // Закрываем SSE соединение если оно открыто
+    if (window.currentProgressStream) {
+        window.currentProgressStream.close();
+        window.currentProgressStream = null;
+    }
+
+    // Сбрасываем модальное окно к первому шагу
+    setTimeout(() => {
+        document.getElementById('refresh-step-1').classList.remove('hidden');
+        document.getElementById('refresh-step-2').classList.add('hidden');
+        document.getElementById('close-progress-btn').style.display = 'none';
+        document.getElementById('platform-progress-bars').innerHTML = '';
+    }, 300);
 }
 
 async function submitRefreshStats() {
@@ -774,23 +788,142 @@ async function submitRefreshStats() {
         return;
     }
 
-    try {
-        closeRefreshStatsModal();
-        showSuccess('⏳ Обновление статистики... Это может занять несколько минут');
+    // Переключаем на второй шаг - показываем прогресс
+    document.getElementById('refresh-step-1').classList.add('hidden');
+    document.getElementById('refresh-step-2').classList.remove('hidden');
 
-        const response = await apiCall(`/api/projects/${projectId}/refresh_stats`, {
-            method: 'POST',
-            body: JSON.stringify({ platforms })
-        });
+    // Создаем прогресс-бары для выбранных платформ
+    createProgressBars(platforms);
 
+    // Подключаемся к SSE для получения прогресса
+    connectToProgressStream(projectId);
+
+    // Запускаем обновление статистики (не ждем завершения)
+    apiCall(`/api/projects/${projectId}/refresh_stats`, {
+        method: 'POST',
+        body: JSON.stringify({ platforms })
+    }).then(async (response) => {
+        // Показываем кнопку закрытия
+        document.getElementById('close-progress-btn').style.display = 'block';
         showSuccess(`✅ Статистика обновлена! Обновлено аккаунтов: ${response.updated_count}`);
 
         // Перезагружаем данные проекта
         await openProject(projectId, currentProjectMode);
-
-    } catch (error) {
+    }).catch(error => {
         console.error('Failed to refresh stats:', error);
         showError('Не удалось обновить статистику: ' + error.message);
+        document.getElementById('close-progress-btn').style.display = 'block';
+    });
+}
+
+function createProgressBars(platforms) {
+    const container = document.getElementById('platform-progress-bars');
+    container.innerHTML = '';
+
+    const platformIcons = {
+        tiktok: '📱',
+        instagram: '📷',
+        facebook: '👤',
+        youtube: '🎬',
+        threads: '🧵'
+    };
+
+    const platformNames = {
+        tiktok: 'TikTok',
+        instagram: 'Instagram',
+        facebook: 'Facebook',
+        youtube: 'YouTube',
+        threads: 'Threads'
+    };
+
+    // Создаем прогресс-бар для каждой выбранной платформы
+    for (const [platform, enabled] of Object.entries(platforms)) {
+        if (!enabled) continue;
+
+        const progressDiv = document.createElement('div');
+        progressDiv.id = `progress-${platform}`;
+        progressDiv.style.cssText = 'background: rgba(255,255,255,0.05); border-radius: 12px; padding: 16px;';
+
+        progressDiv.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span style="font-weight: 600; font-size: 14px;">
+                    ${platformIcons[platform]} ${platformNames[platform]}
+                </span>
+                <span id="progress-text-${platform}" style="font-size: 13px; color: #aaa;">
+                    0/0 (0%)
+                </span>
+            </div>
+            <div style="background: rgba(255,255,255,0.1); border-radius: 8px; height: 8px; overflow: hidden;">
+                <div id="progress-bar-${platform}" style="background: linear-gradient(90deg, #a78bfa 0%, #c084fc 100%); height: 100%; width: 0%; transition: width 0.3s ease;"></div>
+            </div>
+            <div style="display: flex; gap: 16px; margin-top: 8px; font-size: 12px; color: #aaa;">
+                <span>✅ <span id="progress-success-${platform}">0</span></span>
+                <span>❌ <span id="progress-failed-${platform}">0</span></span>
+            </div>
+        `;
+
+        container.appendChild(progressDiv);
+    }
+}
+
+function connectToProgressStream(projectId) {
+    const eventSource = new EventSource(`${API_BASE_URL}/api/projects/${projectId}/refresh_stats/stream`, {
+        withCredentials: true
+    });
+
+    eventSource.onmessage = (event) => {
+        try {
+            const data = JSON.parse(event.data);
+
+            // Проверяем на завершение
+            if (data.status === 'completed') {
+                eventSource.close();
+                return;
+            }
+
+            // Обновляем прогресс-бары
+            for (const [platform, stats] of Object.entries(data)) {
+                updateProgressBar(platform, stats);
+            }
+        } catch (error) {
+            console.error('Error parsing SSE data:', error);
+        }
+    };
+
+    eventSource.onerror = (error) => {
+        console.error('SSE connection error:', error);
+        eventSource.close();
+    };
+
+    // Сохраняем ссылку для закрытия при необходимости
+    window.currentProgressStream = eventSource;
+}
+
+function updateProgressBar(platform, stats) {
+    const { total, processed, updated, failed } = stats;
+    const percent = total > 0 ? Math.round((processed / total) * 100) : 0;
+
+    // Обновляем текст прогресса
+    const textEl = document.getElementById(`progress-text-${platform}`);
+    if (textEl) {
+        textEl.textContent = `${processed}/${total} (${percent}%)`;
+    }
+
+    // Обновляем ширину прогресс-бара
+    const barEl = document.getElementById(`progress-bar-${platform}`);
+    if (barEl) {
+        barEl.style.width = `${percent}%`;
+    }
+
+    // Обновляем счетчики успеха/ошибок
+    const successEl = document.getElementById(`progress-success-${platform}`);
+    if (successEl) {
+        successEl.textContent = updated;
+    }
+
+    const failedEl = document.getElementById(`progress-failed-${platform}`);
+    if (failedEl) {
+        failedEl.textContent = failed;
     }
 }
 
