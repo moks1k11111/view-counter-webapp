@@ -1610,6 +1610,79 @@ async def update_project_target_views(project_id: str, target_views: int):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/api/projects/{project_id}/clear_snapshots")
+async def clear_project_snapshots(project_id: str, keep_last_n: int = 0):
+    """Clear snapshots for a project, optionally keeping last N snapshots per account"""
+    try:
+        # Get project info
+        project = project_manager.get_project(project_id)
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+
+        # Get accounts for this project
+        project_manager.db.cursor.execute('''
+            SELECT id FROM project_social_accounts
+            WHERE project_id = ? AND is_active = 1
+        ''', (project_id,))
+        account_ids = [row[0] for row in project_manager.db.cursor.fetchall()]
+
+        if not account_ids:
+            raise HTTPException(status_code=400, detail="No accounts found for project")
+
+        total_deleted = 0
+
+        if keep_last_n == 0:
+            # Delete all snapshots for these accounts
+            placeholders = ','.join('?' * len(account_ids))
+            project_manager.db.cursor.execute(f'''
+                DELETE FROM account_snapshots
+                WHERE account_id IN ({placeholders})
+            ''', account_ids)
+            total_deleted = project_manager.db.cursor.rowcount
+        else:
+            # Keep last N snapshots per account
+            for account_id in account_ids:
+                # Get IDs to keep
+                project_manager.db.cursor.execute(f'''
+                    SELECT id FROM account_snapshots
+                    WHERE account_id = ?
+                    ORDER BY snapshot_time DESC
+                    LIMIT {keep_last_n}
+                ''', (account_id,))
+                keep_ids = [row[0] for row in project_manager.db.cursor.fetchall()]
+
+                if keep_ids:
+                    keep_placeholders = ','.join('?' * len(keep_ids))
+                    project_manager.db.cursor.execute(f'''
+                        DELETE FROM account_snapshots
+                        WHERE account_id = ? AND id NOT IN ({keep_placeholders})
+                    ''', [account_id] + keep_ids)
+                else:
+                    # No snapshots to keep, delete all
+                    project_manager.db.cursor.execute('''
+                        DELETE FROM account_snapshots
+                        WHERE account_id = ?
+                    ''', (account_id,))
+
+                total_deleted += project_manager.db.cursor.rowcount
+
+        project_manager.db.conn.commit()
+
+        return {
+            "success": True,
+            "message": f"Deleted {total_deleted} snapshots for project {project['name']}",
+            "project_id": project_id,
+            "project_name": project['name'],
+            "snapshots_deleted": total_deleted,
+            "kept_per_account": keep_last_n
+        }
+
+    except Exception as e:
+        logger.error(f"❌ Clear snapshots error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.delete("/api/projects/{project_id}")
 async def delete_project(
     project_id: str,
