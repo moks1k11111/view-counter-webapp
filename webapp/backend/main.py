@@ -1469,6 +1469,61 @@ async def generate_test_history(
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Test history generation failed: {str(e)}")
 
+@app.get("/api/projects/{project_id}/debug_snapshots")
+async def debug_project_snapshots(project_id: str):
+    """Debug endpoint to check snapshots and dates for a project"""
+    try:
+        # Get project info
+        project = project_manager.get_project(project_id)
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+
+        # Get accounts for this project
+        project_manager.db.cursor.execute('''
+            SELECT id, username, profile_link, platform
+            FROM project_social_accounts
+            WHERE project_id = ? AND is_active = 1
+        ''', (project_id,))
+        accounts = [{'id': row[0], 'username': row[1], 'link': row[2], 'platform': row[3]}
+                   for row in project_manager.db.cursor.fetchall()]
+
+        # Get snapshot date range for each account
+        snapshot_info = []
+        for account in accounts:
+            project_manager.db.cursor.execute('''
+                SELECT
+                    MIN(DATE(snapshot_time)) as first_date,
+                    MAX(DATE(snapshot_time)) as last_date,
+                    COUNT(*) as snapshot_count
+                FROM account_snapshots
+                WHERE account_id = ?
+            ''', (account['id'],))
+            result = project_manager.db.cursor.fetchone()
+            snapshot_info.append({
+                'account': account['username'],
+                'platform': account['platform'],
+                'first_snapshot': result[0] if result else None,
+                'last_snapshot': result[1] if result else None,
+                'snapshot_count': result[2] if result else 0
+            })
+
+        return {
+            "project": {
+                "id": project['id'],
+                "name": project['name'],
+                "start_date": project.get('start_date'),
+                "end_date": project.get('end_date')
+            },
+            "accounts": snapshot_info,
+            "total_accounts": len(accounts)
+        }
+
+    except Exception as e:
+        logger.error(f"❌ Debug endpoint error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.delete("/api/projects/{project_id}")
 async def delete_project(
     project_id: str,
