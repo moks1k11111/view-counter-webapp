@@ -1346,6 +1346,113 @@ async def save_daily_snapshots():
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Daily snapshots failed: {str(e)}")
 
+@app.post("/api/projects/{project_id}/generate_test_history")
+async def generate_test_history(
+    project_id: str,
+    days: int = 14
+):
+    """
+    Генерация тестовых исторических данных для проекта (для демо/тестирования)
+
+    :param project_id: ID проекта
+    :param days: Количество дней истории (по умолчанию 14)
+    """
+    logger.info(f"📊 Generating test history for project {project_id} ({days} days)")
+
+    if not project_sheets:
+        raise HTTPException(status_code=503, detail="Google Sheets not available")
+
+    project = project_manager.get_project(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    try:
+        from datetime import datetime, timedelta
+        import random
+
+        # Получаем текущие данные из Google Sheets
+        accounts_data = project_sheets.get_project_accounts(project['name'])
+
+        results = {
+            "project": project['name'],
+            "days_generated": days,
+            "accounts_processed": 0,
+            "snapshots_created": 0
+        }
+
+        # Получаем аккаунты из SQLite
+        sqlite_accounts = project_manager.get_project_social_accounts(project_id)
+
+        for account_data in accounts_data:
+            profile_link = account_data.get('Link', '').strip()
+            if not profile_link:
+                continue
+
+            # Находим соответствующий аккаунт в SQLite
+            matching_account = next((acc for acc in sqlite_accounts if acc['profile_link'] == profile_link), None)
+            if not matching_account:
+                continue
+
+            results["accounts_processed"] += 1
+
+            # Текущие значения из Sheets
+            current_followers = int(account_data.get('Followers', 0) or 0)
+            current_likes = int(account_data.get('Likes', 0) or 0)
+            current_videos = int(account_data.get('Videos', 0) or 0)
+            current_views = int(account_data.get('Views', 0) or 0)
+
+            # Генерируем историю от (days) дней назад до сегодня
+            for day_offset in range(days, -1, -1):
+                snapshot_date = datetime.now() - timedelta(days=day_offset)
+
+                # Рассчитываем значения для этого дня (симуляция роста)
+                # Чем дальше в прошлое, тем меньше значения
+                progress = 1 - (day_offset / days)  # 0 в начале, 1 сегодня
+
+                # Добавляем случайность для реалистичности (±10%)
+                random_factor = 1 + random.uniform(-0.1, 0.1)
+
+                day_followers = int(current_followers * progress * random_factor)
+                day_likes = int(current_likes * progress * random_factor)
+                day_videos = int(current_videos * progress * random_factor)
+                day_views = int(current_views * progress * random_factor)
+
+                # Сохраняем snapshot
+                success = project_manager.add_account_snapshot(
+                    account_id=matching_account['id'],
+                    followers=day_followers,
+                    likes=day_likes,
+                    comments=0,
+                    videos=day_videos,
+                    views=day_views
+                )
+
+                if success:
+                    results["snapshots_created"] += 1
+                    # Обновляем время snapshot в базе на правильную дату
+                    project_manager.db.cursor.execute('''
+                        UPDATE account_snapshots
+                        SET snapshot_time = ?
+                        WHERE account_id = ? AND snapshot_time = (
+                            SELECT MAX(snapshot_time) FROM account_snapshots WHERE account_id = ?
+                        )
+                    ''', (snapshot_date.isoformat(), matching_account['id'], matching_account['id']))
+                    project_manager.db.conn.commit()
+
+        logger.info(f"✅ Test history generated: {results['snapshots_created']} snapshots for {results['accounts_processed']} accounts")
+
+        return {
+            "success": True,
+            "message": f"Generated {results['snapshots_created']} test snapshots across {days} days for {results['accounts_processed']} accounts",
+            **results
+        }
+
+    except Exception as e:
+        logger.error(f"❌ Test history generation error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Test history generation failed: {str(e)}")
+
 @app.delete("/api/projects/{project_id}")
 async def delete_project(
     project_id: str,
