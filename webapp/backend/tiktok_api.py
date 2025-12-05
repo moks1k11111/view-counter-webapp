@@ -121,7 +121,7 @@ class TikTokAPI:
             logger.error(f"Ошибка запроса: {e}")
             raise
     
-    def get_user_posts_with_full_pagination(self, sec_uid, max_videos=100, max_retries=3):
+    def get_user_posts_with_full_pagination(self, sec_uid, max_videos=500, max_retries=10):
         """
         🔥 УЛУЧШЕННАЯ ВЕРСИЯ: Получение ВСЕХ постов с расширенной пагинацией
         
@@ -229,10 +229,10 @@ class TikTokAPI:
             if not sec_uid:
                 raise Exception("Не удалось получить secUid пользователя")
             
-            # Шаг 2: Получаем все посты с расширенной пагинацией (макс 100 видео)
+            # Шаг 2: Получаем все посты с расширенной пагинацией (макс 500 видео)
             time.sleep(2)
             if use_extended_pagination:
-                items = self.get_user_posts_with_full_pagination(sec_uid, max_videos=100)
+                items = self.get_user_posts_with_full_pagination(sec_uid, max_videos=500)
             else:
                 # Старый метод (оставлен для совместимости)
                 items = self._get_user_posts_old(sec_uid)
