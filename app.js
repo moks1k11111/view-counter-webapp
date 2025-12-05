@@ -1,5 +1,5 @@
 // ==================== CONFIGURATION ====================
-// Version: 1.4.0 - Updated 2025-12-05 - Fixed back navigation to track actual page ID
+// Version: 1.5.0 - Updated 2025-12-05 - Added stats refresh feature with platform selection
 const API_BASE_URL = 'https://view-counter-api.onrender.com';
 const ADMIN_IDS = [873564841]; // ID администраторов
 let currentUser = null;
@@ -737,7 +737,61 @@ async function finishProject(id) {
 }
 
 async function refreshProjectStats() {
-    showSuccess('🚧 Функция "Обновить статистику" пока не реализована');
+    // Открываем модальное окно выбора платформ
+    openRefreshStatsModal();
+}
+
+// ==================== REFRESH STATS MODAL ====================
+
+function openRefreshStatsModal() {
+    document.getElementById('refresh-stats-modal').classList.remove('hidden');
+}
+
+function closeRefreshStatsModal() {
+    document.getElementById('refresh-stats-modal').classList.add('hidden');
+}
+
+async function submitRefreshStats() {
+    const projectId = window.currentProjectId;
+
+    if (!projectId) {
+        showError('Проект не выбран');
+        return;
+    }
+
+    // Собираем выбранные платформы
+    const platforms = {
+        tiktok: document.getElementById('refresh-tiktok').checked,
+        instagram: document.getElementById('refresh-instagram').checked,
+        facebook: document.getElementById('refresh-facebook').checked,
+        youtube: document.getElementById('refresh-youtube').checked,
+        threads: document.getElementById('refresh-threads').checked
+    };
+
+    // Проверяем что хотя бы одна платформа выбрана
+    if (!Object.values(platforms).some(v => v)) {
+        showError('Выберите хотя бы одну платформу');
+        return;
+    }
+
+    try {
+        closeRefreshStatsModal();
+        showSuccess('⏳ Обновление статистики... Это может занять несколько минут');
+
+        const response = await apiCall(`/api/projects/${projectId}/refresh_stats`, {
+            method: 'POST',
+            body: JSON.stringify({ platforms })
+        });
+
+        showSuccess(`✅ Статистика обновлена! Обновлено аккаунтов: ${response.updated_count}`);
+
+        // Перезагружаем данные проекта
+        await openProject(projectId, currentProjectMode);
+
+    } catch (error) {
+        console.error('Failed to refresh stats:', error);
+        showError('Не удалось обновить статистику: ' + error.message);
+    }
 }
 
 // ==================== END ADMIN PROJECT CONTROLS ====================

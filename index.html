@@ -703,6 +703,64 @@
                 <button class="btn-primary" onclick="submitUserToProject()">Добавить пользователя</button>
             </div>
         </div>
+
+        <!-- Модальное окно выбора платформ для обновления статистики -->
+        <div id="refresh-stats-modal" class="modal hidden">
+            <div class="modal-overlay" onclick="closeRefreshStatsModal()"></div>
+            <div class="modal-content">
+                <button class="modal-close-btn" onclick="closeRefreshStatsModal()">
+                    <i class="fa-solid fa-times"></i>
+                </button>
+                <h2 class="modal-title">Обновить статистику</h2>
+                <p class="modal-description">Выберите платформы для обновления</p>
+
+                <div style="margin-bottom: 20px;">
+                    <div class="social-toggle-item">
+                        <span>📱 TikTok</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="refresh-tiktok" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="social-toggle-item">
+                        <span>📷 Instagram</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="refresh-instagram" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="social-toggle-item">
+                        <span>👤 Facebook</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="refresh-facebook">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="social-toggle-item">
+                        <span>🎬 YouTube</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="refresh-youtube">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="social-toggle-item">
+                        <span>🧵 Threads</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="refresh-threads">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <button class="btn-primary" onclick="submitRefreshStats()">
+                    <i class="fa-solid fa-rotate"></i> Обновить статистику
+                </button>
+            </div>
+        </div>
     </div>
 
     <script src="app.js"></script>
