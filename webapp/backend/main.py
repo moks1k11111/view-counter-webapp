@@ -1205,13 +1205,17 @@ async def refresh_project_stats(
 
                 if stats:
                     # Обновляем в Google Sheets
+                    stats_dict = {
+                        'followers': stats.get('followers', 0),
+                        'likes': stats.get('likes', stats.get('total_likes', 0)),
+                        'videos': stats.get('videos', stats.get('reels', 0)),
+                        'views': stats.get('total_views', 0),
+                        'comments': 0  # Не все API возвращают комментарии
+                    }
                     project_sheets.update_account_stats(
                         project_name=project['name'],
-                        profile_link=profile_link,
-                        followers=stats.get('followers', 0),
-                        likes=stats.get('likes', stats.get('total_likes', 0)),
-                        videos=stats.get('videos', stats.get('reels', 0)),
-                        views=stats.get('total_views', 0)
+                        username=username,
+                        stats=stats_dict
                     )
 
                     # Создаем snapshot в SQLite
