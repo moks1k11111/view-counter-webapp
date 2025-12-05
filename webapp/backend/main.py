@@ -23,7 +23,14 @@ from database_sheets import SheetsDatabase
 from database_sqlite import SQLiteDatabase
 from project_manager import ProjectManager
 from project_sheets_manager import ProjectSheetsManager
-from config import TELEGRAM_TOKEN, DEFAULT_GOOGLE_SHEETS_NAME, GOOGLE_SHEETS_CREDENTIALS, GOOGLE_SHEETS_CREDENTIALS_JSON, ADMIN_IDS
+from config import (
+    TELEGRAM_TOKEN, DEFAULT_GOOGLE_SHEETS_NAME, GOOGLE_SHEETS_CREDENTIALS,
+    GOOGLE_SHEETS_CREDENTIALS_JSON, ADMIN_IDS,
+    RAPIDAPI_KEY, RAPIDAPI_HOST, RAPIDAPI_BASE_URL,
+    INSTAGRAM_RAPIDAPI_KEY, INSTAGRAM_RAPIDAPI_HOST, INSTAGRAM_BASE_URL
+)
+from tiktok_api import TikTokAPI
+from instagram_api import InstagramAPI
 
 # WebApp Config
 WEBAPP_URL = "https://moks1k11111.github.io/view-counter-webapp/index.html"
@@ -65,6 +72,16 @@ try:
 except Exception as e:
     print(f"⚠️  Project Sheets Manager не подключен: {e}")
     project_sheets = None
+
+# Инициализация API клиентов для обновления статистики
+try:
+    tiktok_api = TikTokAPI(api_key=RAPIDAPI_KEY, api_host=RAPIDAPI_HOST, base_url=RAPIDAPI_BASE_URL)
+    instagram_api = InstagramAPI(api_key=INSTAGRAM_RAPIDAPI_KEY, api_host=INSTAGRAM_RAPIDAPI_HOST, base_url=INSTAGRAM_BASE_URL)
+    logger.info("✅ TikTok and Instagram API clients initialized")
+except Exception as e:
+    logger.error(f"⚠️  Failed to initialize API clients: {e}")
+    tiktok_api = None
+    instagram_api = None
 
 # ============ TELEGRAM BOT LOGIC ============
 
@@ -191,6 +208,9 @@ class AccountSnapshot(BaseModel):
 
 class AddUserToProject(BaseModel):
     username: str
+
+class RefreshStatsRequest(BaseModel):
+    platforms: Dict[str, bool]  # {"tiktok": True, "instagram": True, ...}
 
 # ============ Telegram WebApp Аутентификация ============
 
@@ -1125,6 +1145,114 @@ async def import_from_sheets(
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Import failed: {str(e)}")
+
+@app.post("/api/projects/{project_id}/refresh_stats")
+async def refresh_project_stats(
+    project_id: str,
+    request: RefreshStatsRequest,
+    user: dict = Depends(get_current_user)
+):
+    """Обновить статистику для выбранных платформ через API"""
+    logger.info(f"🔄 Starting stats refresh for project {project_id}, platforms: {request.platforms}")
+
+    # Проверка что пользователь - админ
+    if user['id'] not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Only admins can refresh stats")
+
+    # Get project
+    project = project_manager.get_project(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    if not project_sheets:
+        raise HTTPException(status_code=503, detail="Google Sheets not available")
+
+    if not tiktok_api and not instagram_api:
+        raise HTTPException(status_code=503, detail="Stats API clients not available")
+
+    try:
+        # Получаем все аккаунты проекта
+        accounts = project_manager.get_project_social_accounts(project_id)
+        logger.info(f"📊 Found {len(accounts)} accounts in project")
+
+        updated_count = 0
+        failed_count = 0
+        errors = []
+
+        for account in accounts:
+            platform = account.get('platform', 'tiktok').lower()
+            profile_link = account.get('profile_link', '')
+            username = account.get('username', '')
+
+            # Пропускаем если платформа не выбрана для обновления
+            if not request.platforms.get(platform, False):
+                logger.info(f"⏭️ Skipping {platform} account {username} (platform not selected)")
+                continue
+
+            logger.info(f"🔄 Updating {platform} account: {username}")
+
+            try:
+                stats = None
+
+                # Получаем статистику в зависимости от платформы
+                if platform == 'tiktok' and tiktok_api:
+                    stats = tiktok_api.get_tiktok_data(profile_link)
+                elif platform == 'instagram' and instagram_api:
+                    stats = instagram_api.get_instagram_data(profile_link)
+                else:
+                    logger.warning(f"⚠️ Platform {platform} not supported yet")
+                    continue
+
+                if stats:
+                    # Обновляем в Google Sheets
+                    project_sheets.update_account_stats(
+                        project_name=project['name'],
+                        profile_link=profile_link,
+                        followers=stats.get('followers', 0),
+                        likes=stats.get('likes', stats.get('total_likes', 0)),
+                        videos=stats.get('videos', stats.get('reels', 0)),
+                        views=stats.get('total_views', 0)
+                    )
+
+                    # Создаем snapshot в SQLite
+                    project_manager.add_account_snapshot(
+                        account_id=account['id'],
+                        followers=stats.get('followers', 0),
+                        likes=stats.get('likes', stats.get('total_likes', 0)),
+                        comments=0,
+                        videos=stats.get('videos', stats.get('reels', 0)),
+                        views=stats.get('total_views', 0)
+                    )
+
+                    updated_count += 1
+                    logger.info(f"✅ Updated {username}: {stats.get('total_views', 0)} views")
+
+                    # Задержка между запросами чтобы не нарваться на rate limit
+                    import time
+                    time.sleep(2)
+
+            except Exception as e:
+                failed_count += 1
+                error_msg = f"Failed to update {username}: {str(e)}"
+                errors.append(error_msg)
+                logger.error(f"❌ {error_msg}")
+                continue
+
+        logger.info(f"✅ Stats refresh completed: {updated_count} updated, {failed_count} failed")
+
+        return {
+            "success": True,
+            "updated_count": updated_count,
+            "failed_count": failed_count,
+            "total_accounts": len(accounts),
+            "errors": errors[:5]  # Показываем первые 5 ошибок
+        }
+
+    except Exception as e:
+        logger.error(f"❌ Stats refresh error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Stats refresh failed: {str(e)}")
 
 @app.post("/api/projects/{project_id}/migrate_platform_column")
 async def migrate_platform_column(
