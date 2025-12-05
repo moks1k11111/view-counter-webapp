@@ -41,7 +41,7 @@ class InstagramAPI:
         logger.error(f"❌ Не удалось извлечь username из URL: {url}")
         raise ValueError("Не удалось извлечь username из URL")
     
-    def get_user_reels(self, username, amount=100, max_pages=5):
+    def get_user_reels(self, username, amount=100, max_pages=50):
         """
         Получение reels пользователя с пагинацией
         
@@ -190,7 +190,7 @@ class InstagramAPI:
             logger.info(f"🔍 ПОЛУЧЕНИЕ СТАТИСТИКИ @{username}")
             logger.info(f"{'='*60}\n")
             
-            # Получаем reels (максимум 100 за запрос, 5 страниц = ~500 reels)
+            # Получаем reels (максимум 100 за запрос, 50 страниц = ~600 reels)
             reels_data = self.get_user_reels(username, amount=100)
             
             if not reels_data.get("success"):
