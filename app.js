@@ -5,6 +5,7 @@ const ADMIN_IDS = [873564841]; // ID администраторов
 let currentUser = null;
 let currentProjects = [];
 let isAdmin = false;
+let projectOpenedFrom = 'home'; // 'home' or 'admin' - откуда открыли проект
 
 // ==================== TELEGRAM WEBAPP INITIALIZATION ====================
 const tg = window.Telegram?.WebApp || { initData: '', ready: () => {}, expand: () => {} };
@@ -537,6 +538,9 @@ async function openProject(projectId, mode = 'user') {
     currentProjectId = projectId;
     currentProjectMode = mode;
 
+    // Запоминаем откуда открыли проект для правильной навигации "Назад"
+    projectOpenedFrom = (mode === 'admin') ? 'admin' : 'home';
+
     try {
         // Загружаем данные проекта в зависимости от режима
         let analytics;
@@ -645,7 +649,13 @@ async function openProject(projectId, mode = 'user') {
 
 function closeProjectDetails() {
     document.getElementById('project-details-page').classList.add('hidden');
-    document.getElementById('home-page').classList.remove('hidden');
+
+    // Возвращаемся на ту страницу откуда пришли
+    if (projectOpenedFrom === 'admin') {
+        document.getElementById('project-management-page').classList.remove('hidden');
+    } else {
+        document.getElementById('home-page').classList.remove('hidden');
+    }
 }
 
 // ==================== ADMIN PROJECT CONTROLS ====================
@@ -2317,10 +2327,8 @@ async function openProjectDetailsFromAdmin(projectId) {
     await loadProjectDetailsForAdmin(projectId);
 }
 
-function closeProjectDetails() {
-    document.getElementById('project-details-page').classList.add('hidden');
-    document.getElementById('project-management-page').classList.remove('hidden');
-}
+// closeProjectDetails() - moved to common functions section (line 650)
+// Navigation now handled dynamically based on projectOpenedFrom variable
 
 async function loadProjectDetailsForAdmin(projectId) {
     try {
