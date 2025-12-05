@@ -247,21 +247,23 @@ class ProjectSheetsManager:
             row_number = cell.row
 
             # Обновляем статистику
+            # Структура: @Username | Link | Platform | Username | Followers | Likes | Following | Videos | Views | Last Update | Status | Тематика
+            #            1          | 2    | 3        | 4        | 5         | 6     | 7         | 8      | 9     | 10          | 11     | 12
             updates = []
             if 'followers' in stats:
-                updates.append(gspread.Cell(row_number, 3, stats['followers']))
+                updates.append(gspread.Cell(row_number, 5, stats['followers']))
             if 'likes' in stats:
-                updates.append(gspread.Cell(row_number, 4, stats['likes']))
+                updates.append(gspread.Cell(row_number, 6, stats['likes']))
             if 'following' in stats:
-                updates.append(gspread.Cell(row_number, 5, stats['following']))
+                updates.append(gspread.Cell(row_number, 7, stats.get('following', 0)))
             if 'videos' in stats:
-                updates.append(gspread.Cell(row_number, 6, stats['videos']))
+                updates.append(gspread.Cell(row_number, 8, stats['videos']))
             if 'views' in stats:
-                updates.append(gspread.Cell(row_number, 7, stats['views']))
+                updates.append(gspread.Cell(row_number, 9, stats['views']))
 
             # Обновляем время
             updates.append(gspread.Cell(
-                row_number, 8,
+                row_number, 10,
                 datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             ))
 
