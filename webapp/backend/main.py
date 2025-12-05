@@ -694,27 +694,18 @@ async def get_project_analytics(
     growth_24h = daily_history.get("growth_24h", 0)
 
     if len(history) == 0 and total_views > 0:
-        # Создаем историю: от start_date до сегодня с текущим значением
-        from datetime import datetime, timedelta
+        # Нет исторических данных - показываем только текущую точку
+        from datetime import datetime
+        today = datetime.now().strftime('%Y-%m-%d')
 
-        start = datetime.strptime(start_date, '%Y-%m-%d')
-        end = datetime.now()
+        history = [{
+            "date": today,
+            "views": total_views
+        }]
+        growth_24h = 0
 
-        # Ограничиваем последние 30 дней для производительности
-        if (end - start).days > 30:
-            start = end - timedelta(days=30)
-
-        history = []
-        current = start
-        while current <= end:
-            history.append({
-                "date": current.strftime('%Y-%m-%d'),
-                "views": total_views  # Показываем текущее значение на все дни
-            })
-            current += timedelta(days=1)
-
-        growth_24h = 0  # Нет реальных исторических данных = нет прироста
-        logger.info(f"📊 Generated history for {len(history)} days with current views: {total_views}")
+        logger.warning(f"⚠️ No historical data available. Showing only current point: {today} with {total_views} views")
+        logger.info(f"💡 To enable historical chart, add daily snapshots using POST /api/accounts/{{account_id}}/snapshot")
     else:
         logger.info(f"📊 Loaded real history: {len(history)} days, growth_24h: {growth_24h}")
 
