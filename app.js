@@ -1,10 +1,11 @@
 // ==================== CONFIGURATION ====================
-// Version: 1.2.0 - Updated 2025-11-26
+// Version: 1.4.0 - Updated 2025-12-05 - Fixed back navigation to track actual page ID
 const API_BASE_URL = 'https://view-counter-api.onrender.com';
 const ADMIN_IDS = [873564841]; // ID администраторов
 let currentUser = null;
 let currentProjects = [];
 let isAdmin = false;
+let projectOpenedFrom = 'home-page'; // Stores actual page ID: 'home-page', 'projects-page', 'project-management-page', etc.
 
 // ==================== TELEGRAM WEBAPP INITIALIZATION ====================
 const tg = window.Telegram?.WebApp || { initData: '', ready: () => {}, expand: () => {} };
@@ -34,7 +35,17 @@ async function apiCall(endpoint, options = {}) {
         if (!response.ok) {
             const errorText = await response.text();
             console.error('API Error Response:', response.status, errorText);
-            throw new Error(`API Error (${response.status}): ${errorText || response.statusText}`);
+
+            // Пытаемся распарсить JSON ошибку для извлечения detail
+            let errorMessage;
+            try {
+                const errorJson = JSON.parse(errorText);
+                errorMessage = errorJson.detail || errorJson.message || errorText;
+            } catch (e) {
+                errorMessage = errorText || response.statusText;
+            }
+
+            throw new Error(errorMessage);
         }
 
         return await response.json();
@@ -48,16 +59,63 @@ async function apiCall(endpoint, options = {}) {
 // ==================== UI FUNCTIONS ====================
 function showError(message) {
     console.error('Error:', message);
-    // You can add a toast notification here later
+
+    // Create toast notification
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+        padding: 15px 25px;
+        border-radius: 12px;
+        z-index: 9999;
+        font-weight: 600;
+        box-shadow: 0 10px 30px rgba(245, 87, 108, 0.3);
+        max-width: 80%;
+        text-align: center;
+    `;
+    notification.textContent = message;
+    document.body.appendChild(notification);
+
+    // Remove after 4 seconds
+    setTimeout(() => {
+        notification.remove();
+    }, 4000);
 }
 
 function formatNumber(num) {
-    if (num >= 1000000) {
-        return (num / 1000000).toFixed(1) + 'M';
-    } else if (num >= 1000) {
-        return (num / 1000).toFixed(1) + 'K';
+    // Показываем точное число без округления с разделителями тысяч
+    return num.toLocaleString('en-US');
+}
+
+function renderPlatformIcons(allowedPlatforms) {
+    // Генерирует HTML для иконок социальных сетей на основе allowed_platforms
+    if (!allowedPlatforms) {
+        // Если не указано, показываем все
+        allowedPlatforms = { tiktok: true, instagram: true, facebook: true, youtube: true, threads: true };
     }
-    return num.toString();
+
+    let iconsHTML = '';
+    if (allowedPlatforms.tiktok) {
+        iconsHTML += '<div class="platform-icon tiktok" title="TikTok"><i class="fa-brands fa-tiktok"></i></div>';
+    }
+    if (allowedPlatforms.instagram) {
+        iconsHTML += '<div class="platform-icon instagram" title="Instagram"><i class="fa-brands fa-instagram"></i></div>';
+    }
+    if (allowedPlatforms.youtube) {
+        iconsHTML += '<div class="platform-icon youtube" title="YouTube"><i class="fa-brands fa-youtube"></i></div>';
+    }
+    if (allowedPlatforms.facebook) {
+        iconsHTML += '<div class="platform-icon facebook" title="Facebook"><i class="fa-brands fa-facebook"></i></div>';
+    }
+    if (allowedPlatforms.threads) {
+        iconsHTML += '<div class="platform-icon threads" title="Threads"><i class="fa-brands fa-threads"></i></div>';
+    }
+
+    return iconsHTML;
 }
 
 function calculateDaysRemaining(endDate) {
@@ -242,8 +300,13 @@ async function renderProjects(projects) {
         return;
     }
 
-    // Fetch analytics for each project
+    // Fetch analytics ONLY for accessible projects
     const projectsWithStats = await Promise.all(projects.map(async (project) => {
+        if (project.has_access === false) {
+            // Для недоступных проектов не загружаем аналитику
+            return { ...project, total_views: 0 };
+        }
+
         try {
             const analytics = await apiCall(`/api/projects/${project.id}/analytics`);
             return { ...project, total_views: analytics.total_views || 0 };
@@ -254,17 +317,62 @@ async function renderProjects(projects) {
     }));
 
     projectsList.innerHTML = projectsWithStats.map((project, index) => {
+        const hasAccess = project.has_access !== false;
+        const isFinished = project.is_active === 0 || project.is_active === false;
+
+        // Determine lock icon and styling
+        let lockIcon, cardOpacity, clickHandler, cursorStyle, lockedClass, grayscaleFilter;
+
+        if (isFinished) {
+            // Finished project: show finish flag, grayscale, read-only
+            lockIcon = '🏁';
+            cardOpacity = '0.7';
+            clickHandler = hasAccess ? `onclick="openProject('${project.id}', 'user')"` : `onclick="showAccessDenied()"`;
+            cursorStyle = 'cursor: pointer;';
+            lockedClass = 'project-card-finished';
+            grayscaleFilter = 'filter: grayscale(100%);';
+        } else if (!hasAccess) {
+            // No access: show lock, reduced opacity, disabled
+            lockIcon = '🔒';
+            cardOpacity = '0.6';
+            clickHandler = `onclick="showAccessDenied()"`;
+            cursorStyle = 'cursor: not-allowed;';
+            lockedClass = 'project-card-locked';
+            grayscaleFilter = '';
+        } else {
+            // Active project with access: normal
+            lockIcon = '🔓';
+            cardOpacity = '1';
+            clickHandler = `onclick="openProject('${project.id}', 'user')"`;
+            cursorStyle = 'cursor: pointer;';
+            lockedClass = '';
+            grayscaleFilter = '';
+        }
+
         const progress = project.target_views > 0 ? Math.round((project.total_views / project.target_views) * 100) : 0;
         const daysRemaining = calculateDaysRemaining(project.end_date);
-        const daysText = daysRemaining === 1 ? 'day left' : daysRemaining < 0 ? 'Expired' : `${daysRemaining} days left`;
-        const daysClass = daysRemaining < 7 ? 'days-urgent' : daysRemaining < 14 ? 'days-warning' : 'days-normal';
+
+        // Determine days text based on finish status
+        let daysText, daysClass;
+        if (isFinished) {
+            daysText = '🏁 Завершен';
+            daysClass = 'days-finished';
+        } else {
+            daysText = daysRemaining === 1 ? 'day left' : daysRemaining < 0 ? 'Expired' : `${daysRemaining} days left`;
+            daysClass = daysRemaining < 7 ? 'days-urgent' : daysRemaining < 14 ? 'days-warning' : 'days-normal';
+        }
+
+        // Display name: backend already masks data for locked projects
+        const displayName = project.name;
+        const displayGeo = project.geo || 'Global';
 
         return `
-            <div class="project-card" onclick="openProject('${project.id}')">
+            <div class="project-card ${lockedClass}" ${clickHandler} style="opacity: ${cardOpacity}; ${cursorStyle} ${grayscaleFilter}">
                 <div class="project-header">
                     <div class="project-header-left">
-                        <h3 class="project-name">${project.name}</h3>
-                        <span class="project-geo">${project.geo || 'Global'}</span>
+                        <span style="font-size: 20px; margin-right: 8px;" title="${isFinished ? 'Проект завершен' : hasAccess ? 'Доступ разрешен' : 'Доступ закрыт'}">${lockIcon}</span>
+                        <h3 class="project-name">${displayName}</h3>
+                        <span class="project-geo">${displayGeo}</span>
                     </div>
                     <div class="project-days ${daysClass}">
                         <span class="days-icon">⏱</span>
@@ -275,31 +383,27 @@ async function renderProjects(projects) {
                     <div class="project-chart">
                         <canvas id="chart-total-${index}" width="100" height="100"></canvas>
                         <div class="chart-center-text">
-                            <div class="chart-percentage">${progress}%</div>
+                            <div class="chart-percentage">${hasAccess ? progress : 0}%</div>
                             <div class="chart-label">Progress</div>
                         </div>
                     </div>
                     <div class="project-stats-vertical">
                         <div class="stat">
                             <div class="stat-label">Total Views</div>
-                            <div class="stat-value">${formatNumber(project.total_views)}</div>
+                            <div class="stat-value">${hasAccess ? formatNumber(project.total_views) : '***'}</div>
                         </div>
                         <div class="stat">
                             <div class="stat-label">Target</div>
-                            <div class="stat-value">${formatNumber(project.target_views)}</div>
+                            <div class="stat-value">${hasAccess ? formatNumber(project.target_views) : '***'}</div>
                         </div>
                         <div class="stat">
                             <div class="stat-label">KPI</div>
-                            <div class="stat-value">от ${formatNumber(project.kpi_views || 1000)}</div>
+                            <div class="stat-value">${hasAccess ? 'от ' + formatNumber(project.kpi_views || 1000) : '***'}</div>
                         </div>
                     </div>
                     <div class="last-update-text">${formatLastUpdate(project.last_update)}</div>
                     <div class="project-platforms">
-                        <div class="platform-icon tiktok" title="TikTok"><i class="fa-brands fa-tiktok"></i></div>
-                        <div class="platform-icon instagram" title="Instagram"><i class="fa-brands fa-instagram"></i></div>
-                        <div class="platform-icon youtube" title="YouTube"><i class="fa-brands fa-youtube"></i></div>
-                        <div class="platform-icon facebook" title="Facebook"><i class="fa-brands fa-facebook"></i></div>
-                        <div class="platform-icon threads" title="Threads"><i class="fa-brands fa-threads"></i></div>
+                        ${renderPlatformIcons(project.allowed_platforms)}
                     </div>
                 </div>
             </div>
@@ -309,10 +413,16 @@ async function renderProjects(projects) {
     // Render charts after DOM update
     setTimeout(() => {
         projectsWithStats.forEach((project, index) => {
-            const progress = project.target_views > 0 ? Math.round((project.total_views / project.target_views) * 100) : 0;
+            const hasAccess = project.has_access !== false;
+            const progress = hasAccess && project.target_views > 0 ? Math.round((project.total_views / project.target_views) * 100) : 0;
             createProgressChart(`chart-total-${index}`, progress);
         });
     }, 0);
+}
+
+// Функция для показа сообщения о запрете доступа
+function showAccessDenied() {
+    alert('Доступ к этому проекту закрыт. Обратитесь к администратору.');
 }
 
 // Render projects with MY PERSONAL stats
@@ -324,13 +434,16 @@ async function renderMyProjects(projects) {
         return;
     }
 
-    if (projects.length === 0) {
+    // Фильтруем только проекты с доступом для "Мои проекты"
+    const accessibleProjects = projects.filter(p => p.has_access !== false);
+
+    if (accessibleProjects.length === 0) {
         myProjectsList.innerHTML = '<div class="no-projects">No projects yet</div>';
         return;
     }
 
-    // Fetch MY analytics for each project
-    const projectsWithMyStats = await Promise.all(projects.map(async (project) => {
+    // Fetch MY analytics for each accessible project
+    const projectsWithMyStats = await Promise.all(accessibleProjects.map(async (project) => {
         try {
             const myAnalytics = await apiCall(`/api/my-analytics?project_id=${project.id}`);
             return { ...project, my_views: myAnalytics.total_views || 0 };
@@ -340,10 +453,16 @@ async function renderMyProjects(projects) {
         }
     }));
 
-    myProjectsList.innerHTML = projectsWithMyStats.map((project, index) => `
-        <div class="project-card-detailed" onclick="openProject('${project.id}')">
+    myProjectsList.innerHTML = projectsWithMyStats.map((project, index) => {
+        const isFinished = project.is_active === 0 || project.is_active === false;
+        const cardOpacity = isFinished ? '0.7' : '1';
+        const grayscaleFilter = isFinished ? 'filter: grayscale(100%);' : '';
+        const finishedBadge = isFinished ? '<span style="color: #4CAF50; margin-left: 8px; font-size: 14px;">🏁 Завершен</span>' : '';
+
+        return `
+        <div class="project-card-detailed" onclick="openProject('${project.id}', 'user')" style="opacity: ${cardOpacity}; ${grayscaleFilter}">
             <div class="project-header">
-                <h3 class="project-name">${project.name}</h3>
+                <h3 class="project-name">${project.name}${finishedBadge}</h3>
                 <span class="project-geo">${project.geo || 'Global'}</span>
             </div>
 
@@ -364,15 +483,12 @@ async function renderMyProjects(projects) {
                 <div class="chart-legend">Last 7 days activity</div>
                 <div class="last-update-text">${formatLastUpdate(project.last_update)}</div>
                 <div class="project-platforms">
-                    <div class="platform-icon tiktok" title="TikTok"><i class="fa-brands fa-tiktok"></i></div>
-                    <div class="platform-icon instagram" title="Instagram"><i class="fa-brands fa-instagram"></i></div>
-                    <div class="platform-icon youtube" title="YouTube"><i class="fa-brands fa-youtube"></i></div>
-                    <div class="platform-icon facebook" title="Facebook"><i class="fa-brands fa-facebook"></i></div>
-                    <div class="platform-icon threads" title="Threads"><i class="fa-brands fa-threads"></i></div>
+                    ${renderPlatformIcons(project.allowed_platforms)}
                 </div>
             </div>
         </div>
-    `).join('');
+    `;
+    }).join('');
 
     // Render bar charts after DOM update
     setTimeout(() => {
@@ -414,12 +530,33 @@ let currentProjectData = null;
 let currentSwipeIndex = 0;
 let swipeStartX = 0;
 
-async function openProject(projectId) {
-    console.log('Opening project:', projectId);
+async function openProject(projectId, mode = 'user') {
+    console.log('Opening project:', projectId, 'mode:', mode);
+
+    // Set global project ID and mode for use in modals/wizards and date filtering
+    window.currentProjectId = projectId;
+    currentProjectId = projectId;
+    currentProjectMode = mode;
+
+    // Запоминаем откуда открыли проект для правильной навигации "Назад"
+    // Определяем какая страница сейчас активна
+    const currentPage = document.querySelector('.page:not(.hidden)');
+    const currentPageId = currentPage ? currentPage.id : 'home-page';
+    projectOpenedFrom = currentPageId;
+    console.log('🔍 [Navigation] Opening project:', projectId, 'mode:', mode, 'from page:', currentPageId, '→ projectOpenedFrom:', projectOpenedFrom);
 
     try {
-        // Загружаем данные проекта
-        const analytics = await apiCall(`/api/projects/${projectId}/analytics`);
+        // Загружаем данные проекта в зависимости от режима
+        let analytics;
+        if (mode === 'user') {
+            // Пользовательский режим: показываем только статистику пользователя
+            analytics = await apiCall(`/api/my-analytics?project_id=${projectId}`);
+            console.log('🔍 DEBUG FRONTEND openProject (user mode): My analytics =', JSON.stringify(analytics, null, 2));
+        } else {
+            // Админ режим: показываем статистику всех
+            analytics = await apiCall(`/api/projects/${projectId}/analytics`);
+            console.log('🔍 DEBUG FRONTEND openProject (admin mode): Full analytics =', JSON.stringify(analytics, null, 2));
+        }
         currentProjectData = analytics;
 
         // Показываем страницу детальной аналитики
@@ -427,7 +564,76 @@ async function openProject(projectId) {
         document.getElementById('project-details-page').classList.remove('hidden');
 
         // Обновляем заголовок
-        document.getElementById('project-details-name').textContent = analytics.project.name;
+        const isFinished = analytics.project.is_active === 0 || analytics.project.is_active === false;
+        const projectTitle = isFinished
+            ? `${analytics.project.name} 🏁`
+            : analytics.project.name;
+        document.getElementById('project-details-name').textContent = projectTitle;
+
+        // Динамически рендерим кнопки в зависимости от режима и статуса проекта
+        const actionsContainer = document.getElementById('project-header-actions');
+        if (actionsContainer) {
+            if (isFinished) {
+                // Завершенный проект: показываем только индикатор "Только для чтения"
+                actionsContainer.innerHTML = `
+                    <div style="padding: 8px 16px; font-size: 14px; color: #999; background: rgba(96, 125, 139, 0.1); border-radius: 8px; display: flex; align-items: center; gap: 8px;">
+                        <i class="fa-solid fa-lock"></i>
+                        <span>Только для чтения</span>
+                    </div>
+                `;
+            } else if (mode === 'admin') {
+                // Админ режим (активный проект): кнопки "Импорт из Google" и "Добавить участника"
+                actionsContainer.innerHTML = `
+                    <button class="btn-secondary" onclick="importFromSheets()" style="padding: 8px 16px; font-size: 14px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 50%); color: white; border: none; border-radius: 8px; cursor: pointer;">
+                        <i class="fa-solid fa-download"></i> Импорт из Google
+                    </button>
+                    <button class="btn-primary" onclick="openAddUserToProjectModal()" style="padding: 8px 16px; font-size: 14px;">
+                        <i class="fa-solid fa-user-plus"></i> Добавить участника
+                    </button>
+                `;
+            } else {
+                // Пользовательский режим (активный проект): кнопка "Добавить аккаунт"
+                actionsContainer.innerHTML = `
+                    <button class="btn-primary" onclick="openAddSocialAccountModal()" style="padding: 8px 16px; font-size: 14px;">
+                        <i class="fa-solid fa-plus"></i> Добавить аккаунт
+                    </button>
+                `;
+            }
+        }
+
+        // Показать/скрыть контроллы администратора проекта
+        // Показываем ТОЛЬКО в режиме 'admin'
+        const adminProjectControls = document.getElementById('admin-project-controls');
+        if (adminProjectControls) {
+            if (mode === 'admin' && currentUser && ADMIN_IDS.includes(currentUser.id)) {
+                adminProjectControls.classList.remove('hidden');
+                // Скрыть кнопку "Завершить" если проект уже завершен
+                const finishButton = adminProjectControls.querySelector('button[onclick*="finishProject"]');
+                if (finishButton) {
+                    if (isFinished) {
+                        finishButton.style.display = 'none';
+                    } else {
+                        finishButton.style.display = '';
+                    }
+                }
+            } else {
+                adminProjectControls.classList.add('hidden');
+            }
+        }
+
+        // Показать/скрыть секции участников в зависимости от режима
+        const participantsCard = document.getElementById('participants-card');
+        const participantsSection = document.getElementById('participants-section');
+
+        if (mode === 'user') {
+            // В пользовательском режиме скрываем информацию об участниках
+            if (participantsCard) participantsCard.style.display = 'none';
+            if (participantsSection) participantsSection.style.display = 'none';
+        } else {
+            // В админском режиме показываем участников
+            if (participantsCard) participantsCard.style.display = '';
+            if (participantsSection) participantsSection.style.display = '';
+        }
 
         // Отображаем суммарную статистику
         displaySummaryStats(analytics);
@@ -435,8 +641,9 @@ async function openProject(projectId) {
         // Создаем слайды с диаграммами
         createChartSlides(analytics);
 
-        // Отображаем список профилей
-        displayProfiles(analytics);
+        // Загружаем и отображаем социальные аккаунты в аккордеоне
+        // В режиме user передаем флаг для фильтрации только своих аккаунтов
+        await loadProjectSocialAccounts(projectId, mode);
 
     } catch (error) {
         console.error('Failed to load project details:', error);
@@ -445,26 +652,130 @@ async function openProject(projectId) {
 }
 
 function closeProjectDetails() {
+    console.log('🔙 [Navigation] Closing project details, projectOpenedFrom:', projectOpenedFrom);
     document.getElementById('project-details-page').classList.add('hidden');
-    document.getElementById('home-page').classList.remove('hidden');
+
+    // Возвращаемся на ту страницу откуда пришли
+    // Поддерживаем все возможные страницы: home-page, projects-page, project-management-page
+    const pageToShow = document.getElementById(projectOpenedFrom);
+
+    if (pageToShow) {
+        console.log('🔙 [Navigation] Returning to page:', projectOpenedFrom);
+        pageToShow.classList.remove('hidden');
+    } else {
+        // Fallback на home-page если страница не найдена
+        console.log('🔙 [Navigation] Page not found, returning to home-page');
+        document.getElementById('home-page').classList.remove('hidden');
+    }
 }
 
-function displaySummaryStats(analytics) {
-    const { project, total_views, users_stats } = analytics;
+// ==================== ADMIN PROJECT CONTROLS ====================
 
-    // Вычисляем количество профилей и видео
-    const profilesCount = Object.keys(users_stats || {}).length;
-    const totalVideos = 0; // TODO: добавить подсчет видео когда данные будут доступны
+async function deleteProject(id) {
+    const projectId = id || window.currentProjectId;
+    if (!projectId) {
+        showError('Проект не выбран');
+        return;
+    }
+
+    // Подтверждение удаления
+    if (!confirm('Вы точно хотите удалить проект и все данные? Это действие нельзя отменить.')) {
+        return;
+    }
+
+    try {
+        const response = await apiCall(`/api/projects/${projectId}`, {
+            method: 'DELETE'
+        });
+
+        if (response.success) {
+            showSuccess('Проект удален');
+            closeProjectDetails();
+            // Reload page to refresh project list
+            setTimeout(() => window.location.reload(), 1000);
+        } else {
+            showError(response.message || 'Не удалось удалить проект');
+        }
+    } catch (error) {
+        console.error('Error deleting project:', error);
+        showError('Ошибка при удалении проекта');
+    }
+}
+
+async function finishProject(id) {
+    const projectId = id || window.currentProjectId;
+    if (!projectId) {
+        showError('Проект не выбран');
+        return;
+    }
+
+    // Подтверждение завершения
+    if (!confirm('Завершить проект? Он станет недоступен для редактирования.')) {
+        return;
+    }
+
+    try {
+        const response = await apiCall(`/api/projects/${projectId}/finish`, {
+            method: 'POST'
+        });
+
+        if (response.success) {
+            showSuccess('Проект завершен');
+            // Reload project details
+            if (isAdmin) {
+                await loadProjectDetailsForAdmin(projectId);
+            } else {
+                await openProject(projectId, 'user');
+            }
+        } else {
+            showError(response.message || 'Не удалось завершить проект');
+        }
+    } catch (error) {
+        console.error('Error finishing project:', error);
+        showError('Ошибка при завершении проекта');
+    }
+}
+
+async function refreshProjectStats() {
+    showSuccess('🚧 Функция "Обновить статистику" пока не реализована');
+}
+
+// ==================== END ADMIN PROJECT CONTROLS ====================
+
+function displaySummaryStats(analytics) {
+    const { project, total_views, total_videos, total_profiles, users_stats, topic_stats, growth_24h } = analytics;
+
+    // Используем данные из API
+    const profilesCount = total_profiles || Object.keys(users_stats || {}).length;
+    const videosCount = total_videos || 0;
+
+    // Рассчитываем количество тематик
+    const totalTopics = Object.keys(topic_stats || {}).length;
+
+    // Рассчитываем количество участников
+    const totalParticipants = Object.keys(users_stats || {}).length;
 
     // Процент выполнения
     const progress = project.target_views > 0
         ? Math.round((total_views / project.target_views) * 100)
         : 0;
 
+    console.log('🔍 DEBUG displaySummaryStats: total_videos =', total_videos, 'videosCount =', videosCount);
+    console.log('🔍 DEBUG displaySummaryStats: total_profiles =', total_profiles, 'profilesCount =', profilesCount);
+
     document.getElementById('detail-total-views').textContent = formatNumber(total_views);
     document.getElementById('detail-progress').textContent = `${progress}%`;
-    document.getElementById('detail-total-videos').textContent = totalVideos;
+    document.getElementById('detail-total-videos').textContent = videosCount;
     document.getElementById('detail-total-profiles').textContent = profilesCount;
+    document.getElementById('detail-total-topics').textContent = totalTopics;
+    document.getElementById('detail-total-participants').textContent = totalParticipants;
+
+    // Прирост за 24 часа
+    const growth24hValue = growth_24h || 0;
+    const growth24hElement = document.getElementById('pd-growth-24h');
+    growth24hElement.textContent = formatNumber(growth24hValue);
+    // Зеленый цвет если прирост > 0
+    growth24hElement.style.color = growth24hValue > 0 ? '#4CAF50' : '#fff';
 }
 
 function createChartSlides(analytics) {
@@ -477,8 +788,8 @@ function createChartSlides(analytics) {
 
     const slides = [];
 
-    // Слайд 1: Столбчатая диаграмма по неделям
-    slides.push(createWeeklyViewsSlide(analytics));
+    // Слайд 1: Линейная диаграмма просмотров по дням
+    slides.push(createDailyViewsSlide(analytics));
 
     // Слайд 2: Круговая диаграмма тематик
     slides.push(createTopicsSlide(analytics));
@@ -507,13 +818,53 @@ function createChartSlides(analytics) {
     setTimeout(() => renderAllCharts(analytics), 100);
 }
 
-function createWeeklyViewsSlide(analytics) {
+function createDailyViewsSlide(analytics) {
     return `
         <div class="chart-slide">
-            <h4>Просмотры по неделям</h4>
-            <canvas id="weekly-chart" width="300" height="200"></canvas>
+            <h4>Просмотры по дням</h4>
+            <canvas id="daily-chart" width="300" height="200"></canvas>
         </div>
     `;
+}
+
+// Date filter function
+async function applyDateFilter() {
+    if (!currentProjectId) return;
+
+    const startDate = document.getElementById('analytics-start-date').value;
+    const endDate = document.getElementById('analytics-end-date').value;
+
+    try {
+        // Build URL with date parameters
+        let url;
+        if (currentProjectMode === 'user') {
+            url = `/api/my-analytics?project_id=${currentProjectId}`;
+        } else {
+            url = `/api/projects/${currentProjectId}/analytics`;
+        }
+
+        // Add date parameters if set
+        const params = [];
+        if (startDate) params.push(`start_date=${startDate}`);
+        if (endDate) params.push(`end_date=${endDate}`);
+
+        if (params.length > 0) {
+            url += (url.includes('?') ? '&' : '?') + params.join('&');
+        }
+
+        const analytics = await apiCall(url);
+        currentProjectData = analytics;
+
+        // Re-render stats and charts
+        displaySummaryStats(analytics);
+        createChartSlides(analytics);
+
+        // Reload accounts list
+        loadProjectSocialAccounts(currentProjectId, currentProjectMode);
+    } catch (error) {
+        console.error('Error applying date filter:', error);
+        showToast('Ошибка применения фильтра дат');
+    }
 }
 
 function createTopicsSlide(analytics) {
@@ -537,49 +888,70 @@ function createPlatformsSlide(analytics) {
 function createProfilesSlide(analytics) {
     return `
         <div class="chart-slide">
-            <h4>Топ профилей по просмотрам</h4>
-            <canvas id="profiles-chart" width="300" height="200"></canvas>
+            <h4>Топ аккаунтов по просмотрам</h4>
+            <div id="profiles-leaderboard" style="padding: 5px 10px; max-height: 280px; overflow-y: auto;"></div>
         </div>
     `;
 }
 
 function renderAllCharts(analytics) {
-    // Еженедельная статистика (заглушка)
-    const weeklyData = [
-        { week: 'Нед 1', views: Math.floor(analytics.total_views * 0.1) },
-        { week: 'Нед 2', views: Math.floor(analytics.total_views * 0.15) },
-        { week: 'Нед 3', views: Math.floor(analytics.total_views * 0.2) },
-        { week: 'Нед 4', views: Math.floor(analytics.total_views * 0.25) },
-    ];
+    // Используем данные истории из API
+    const dailyHistory = analytics.history || [];
+    const profiles = analytics.profiles || [];
 
-    createWeeklyChart(weeklyData);
+    createDailyChart(dailyHistory);
     createTopicsChart(analytics.topic_stats);
     createPlatformsChart(analytics.platform_stats);
-    createProfilesChart(analytics.users_stats);
+    createProfilesChart(profiles);
 }
 
-function createWeeklyChart(data) {
-    const canvas = document.getElementById('weekly-chart');
+function createDailyChart(history) {
+    const canvas = document.getElementById('daily-chart');
     if (!canvas) return;
 
+    // Подготавливаем данные из истории
+    // Форматируем даты в короткий вид (ДД.ММ)
+    const labels = history.map(item => {
+        const date = new Date(item.date);
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        return `${day}.${month}`;
+    });
+    const data = history.map(item => item.views);
+
     new Chart(canvas, {
-        type: 'bar',
+        type: 'line',
         data: {
-            labels: data.map(d => d.week),
+            labels: labels,
             datasets: [{
                 label: 'Просмотры',
-                data: data.map(d => d.views),
-                backgroundColor: 'rgba(102, 126, 234, 0.7)',
-                borderColor: 'rgba(102, 126, 234, 1)',
-                borderWidth: 2
+                data: data,
+                backgroundColor: 'rgba(167, 139, 250, 0.3)', // Purple gradient fill
+                borderColor: 'rgba(167, 139, 250, 1)', // Purple line
+                borderWidth: 2,
+                fill: true,
+                tension: 0.4 // Smooth curve
             }]
         },
         options: {
             responsive: true,
-            plugins: { legend: { display: false } },
+            plugins: {
+                legend: { display: false }
+            },
             scales: {
-                y: { beginAtZero: true, ticks: { color: '#fff' }, grid: { color: 'rgba(255,255,255,0.1)' } },
-                x: { ticks: { color: '#fff' }, grid: { display: false } }
+                y: {
+                    beginAtZero: true,
+                    ticks: { color: '#fff' },
+                    grid: { color: 'rgba(255,255,255,0.1)' }
+                },
+                x: {
+                    ticks: {
+                        color: '#fff',
+                        maxRotation: 0,
+                        minRotation: 0
+                    },
+                    grid: { display: false }
+                }
             }
         }
     });
@@ -620,8 +992,18 @@ function createPlatformsChart(platformStats) {
     const canvas = document.getElementById('platforms-chart');
     if (!canvas) return;
 
+    // Определяем цвета для каждой платформы
+    const platformColors = {
+        'tiktok': '#00F876',      // Bright Green
+        'instagram': '#d62976',   // Pink/Purple
+        'facebook': '#1877f2',    // Blue
+        'youtube': '#ff0000',     // Red
+        'threads': '#000000'      // Black
+    };
+
     const labels = Object.keys(platformStats);
     const data = Object.values(platformStats);
+    const colors = labels.map(platform => platformColors[platform] || '#888888');
 
     new Chart(canvas, {
         type: 'doughnut',
@@ -629,12 +1011,7 @@ function createPlatformsChart(platformStats) {
             labels: labels,
             datasets: [{
                 data: data,
-                backgroundColor: [
-                    'rgba(0, 242, 234, 0.8)',  // TikTok
-                    'rgba(131, 58, 180, 0.8)', // Instagram
-                    'rgba(255, 0, 0, 0.8)',    // YouTube
-                    'rgba(24, 119, 242, 0.8)', // Facebook
-                ]
+                backgroundColor: colors
             }]
         },
         options: {
@@ -646,39 +1023,86 @@ function createPlatformsChart(platformStats) {
     });
 }
 
-function createProfilesChart(usersStats) {
-    const canvas = document.getElementById('profiles-chart');
-    if (!canvas) return;
+function createProfilesChart(profiles) {
+    const leaderboard = document.getElementById('profiles-leaderboard');
+    if (!leaderboard) return;
 
-    const sortedUsers = Object.entries(usersStats)
-        .sort((a, b) => b[1].total_views - a[1].total_views)
-        .slice(0, 5);
+    // Фильтруем только профили с username соц сети (не telegram_user)
+    // и сортируем по просмотрам, берем топ 10
+    console.log('🔍 DEBUG: All profiles for leaderboard:', profiles);
 
-    const labels = sortedUsers.map(([name]) => name);
-    const data = sortedUsers.map(([, stats]) => stats.total_views);
-
-    new Chart(canvas, {
-        type: 'doughnut',
-        data: {
-            labels: labels,
-            datasets: [{
-                data: data,
-                backgroundColor: [
-                    'rgba(102, 126, 234, 0.8)',
-                    'rgba(76, 175, 80, 0.8)',
-                    'rgba(244, 67, 54, 0.8)',
-                    'rgba(255, 193, 7, 0.8)',
-                    'rgba(156, 39, 176, 0.8)',
-                ]
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: { position: 'bottom', labels: { color: '#fff', font: { size: 9 } } }
+    const sortedProfiles = profiles
+        .filter(profile => {
+            // Исключаем только telegram usernames (начинаются с @)
+            // Показываем Unknown и все остальные
+            const isValid = profile.username && !profile.username.startsWith('@');
+            if (!isValid) {
+                console.log('🔍 Filtered out profile:', profile);
             }
-        }
+            return isValid;
+        })
+        .map(profile => ({
+            username: profile.username,
+            views: profile.total_views || 0,
+            platform: profile.platform || 'unknown'
+        }))
+        .sort((a, b) => b.views - a.views)
+        .slice(0, 10);
+
+    console.log('🔍 DEBUG: Sorted profiles for leaderboard:', sortedProfiles);
+
+    if (sortedProfiles.length === 0) {
+        leaderboard.innerHTML = '<p style="text-align: center; color: rgba(255,255,255,0.5);">Нет данных</p>';
+        return;
+    }
+
+    // Иконки для позиций
+    const medals = ['🥇', '🥈', '🥉'];
+
+    // Цвета для платформ
+    const platformColors = {
+        'tiktok': '#00F876',
+        'instagram': '#d62976',
+        'facebook': '#1877f2',
+        'youtube': '#ff0000',
+        'threads': '#000000'
+    };
+
+    // Размеры текста для каждой позиции (уменьшаются)
+    const fontSizes = [15, 14, 13, 12, 11, 10, 10, 9, 9, 9];
+
+    let html = '<div style="display: flex; flex-direction: column; gap: 3px;">';
+
+    sortedProfiles.forEach((profile, index) => {
+        const position = index + 1;
+        const medal = medals[index] || `${position}.`;
+        const fontSize = fontSizes[index] || 10;
+        const platformColor = platformColors[profile.platform] || '#888';
+        const formattedViews = profile.views.toLocaleString('ru-RU');
+
+        html += `
+            <div style="
+                display: flex;
+                align-items: center;
+                gap: 5px;
+                padding: 4px 6px;
+                background: rgba(255,255,255,0.05);
+                border-radius: 6px;
+                border-left: 3px solid ${platformColor};
+            ">
+                <span style="font-size: ${fontSize + 2}px; min-width: 20px;">${medal}</span>
+                <div style="flex: 1; display: flex; flex-direction: column; gap: 1px;">
+                    <span style="font-size: ${fontSize}px; font-weight: 600; color: #fff;">@${profile.username}</span>
+                    <span style="font-size: ${fontSize - 2}px; color: rgba(255,255,255,0.6);">
+                        <i class="fa-solid fa-eye"></i> ${formattedViews}
+                    </span>
+                </div>
+            </div>
+        `;
     });
+
+    html += '</div>';
+    leaderboard.innerHTML = html;
 }
 
 // Свайпер
@@ -735,32 +1159,6 @@ function updateSlidePosition() {
     document.querySelectorAll('.swiper-dot').forEach((dot, i) => {
         dot.classList.toggle('active', i === currentSwipeIndex);
     });
-}
-
-function displayProfiles(analytics) {
-    const profilesList = document.getElementById('profiles-list');
-    const profilesCount = document.getElementById('profiles-count');
-
-    const users = Object.entries(analytics.users_stats || {});
-    profilesCount.textContent = users.length;
-
-    if (users.length === 0) {
-        profilesList.innerHTML = '<p class="no-profiles">Нет профилей</p>';
-        return;
-    }
-
-    const profilesHTML = users.map(([userName, stats]) => `
-        <div class="profile-item">
-            <div class="profile-info">
-                <div class="profile-name">${userName}</div>
-                <div class="profile-stats">
-                    <span>Просмотры: ${formatNumber(stats.total_views)}</span>
-                </div>
-            </div>
-        </div>
-    `).join('');
-
-    profilesList.innerHTML = profilesHTML;
 }
 
 function toggleProfiles() {
@@ -936,6 +1334,33 @@ function showSuccess(message) {
     }, 3000);
 }
 
+function showWarning(message) {
+    // Create warning notification (yellow/blue)
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: linear-gradient(135deg, #ffd89b 0%, #19547b 100%);
+        color: white;
+        padding: 15px 25px;
+        border-radius: 12px;
+        z-index: 9999;
+        font-weight: 600;
+        box-shadow: 0 10px 30px rgba(255, 216, 155, 0.3);
+        max-width: 80%;
+        text-align: center;
+    `;
+    notification.textContent = message;
+    document.body.appendChild(notification);
+
+    // Remove after 3 seconds
+    setTimeout(() => {
+        notification.remove();
+    }, 3000);
+}
+
 // ==================== SIDEBAR ====================
 function openSidebar() {
     const sidebar = document.getElementById('sidebar');
@@ -1019,12 +1444,16 @@ async function init() {
         // Initialize Telegram
         initTelegramApp();
 
-        // Load user data and projects
+        // Load user data
         const data = await apiCall('/api/me');
         currentUser = data.user;
-        currentProjects = data.projects || [];
 
         console.log('User:', currentUser);
+
+        // Load ALL projects (including those without access, for display on home page)
+        const projectsData = await apiCall('/api/projects');
+        currentProjects = projectsData.projects || [];
+
         console.log('Projects:', currentProjects);
 
         // Check if user is admin
@@ -1043,7 +1472,7 @@ async function init() {
             usernameElement.textContent = currentUser.first_name || 'User';
         }
 
-        // Render projects
+        // Render projects (includes locked projects with masked data)
         renderProjects(currentProjects);
 
         // Load analytics in background (non-blocking)
@@ -1055,7 +1484,9 @@ async function init() {
                 totalViewsElement.textContent = formatNumber(statsData.total_views || 0);
             }
             if (totalProjectsElement) {
-                totalProjectsElement.textContent = currentProjects.length;
+                // Показываем только проекты с доступом
+                const accessibleProjectsCount = currentProjects.filter(p => p.has_access !== false).length;
+                totalProjectsElement.textContent = accessibleProjectsCount;
             }
         }).catch(err => console.error('Failed to load analytics:', err));
 
@@ -1153,14 +1584,6 @@ async function loadAdminData() {
         });
 
         let totalUsers = uniqueUsers.size;
-
-        // Если нет реальных данных, используем тестовые
-        if (totalUsers === 0) {
-            console.log('No real data, using test data for admin stats');
-            totalUsers = 25; // 25 тестовых пользователей
-            totalProfiles = 427; // Сумма всех профилей тестовых пользователей
-            totalViews = 3567800; // Сумма всех тестовых просмотров
-        }
 
         // Обновляем UI с проверками
         const adminTotalUsersEl = document.getElementById('admin-total-users');
@@ -1755,13 +2178,6 @@ function closeProjectManagement() {
 // Debug logger
 function debugLog(message, data = null) {
     console.log(message, data);
-    const debugPanel = document.getElementById('debug-panel');
-    if (debugPanel) {
-        const time = new Date().toLocaleTimeString();
-        const logEntry = `[${time}] ${message}${data ? ': ' + JSON.stringify(data) : ''}`;
-        debugPanel.innerHTML += `<div style="margin: 5px 0; font-size: 12px; font-family: monospace;">${logEntry}</div>`;
-        debugPanel.scrollTop = debugPanel.scrollHeight;
-    }
 }
 
 async function loadProjectManagementList() {
@@ -1786,16 +2202,9 @@ async function loadProjectManagementList() {
         let projects = currentProjects || [];
         if (projects.length === 0) {
             debugLog('📥 currentProjects пуст, загружаем из API');
-            const response = await fetch(`${API_BASE_URL}/api/projects`, {
-                headers: { 'X-Telegram-Init-Data': window.initData }
-            });
-            if (response.ok) {
-                projects = await response.json();
-                currentProjects = projects;
-                debugLog('✅ Проекты загружены из API', { count: projects.length });
-            } else {
-                throw new Error(`API Error: ${response.status}`);
-            }
+            projects = await apiCall('/api/projects');
+            currentProjects = projects;
+            debugLog('✅ Проекты загружены из API', { count: projects.length });
         }
 
         debugLog('✅ Используем проекты из currentProjects', { count: projects.length, projects });
@@ -1818,7 +2227,7 @@ async function loadProjectManagementList() {
 
             try {
                 const response = await fetch(`${API_BASE_URL}/api/projects/${project.id}/analytics`, {
-                    headers: { 'X-Telegram-Init-Data': window.initData }
+                    headers: { 'X-Telegram-Init-Data': tg.initData }
                 });
 
                 if (response.ok) {
@@ -1831,7 +2240,8 @@ async function loadProjectManagementList() {
                         totalViews: analytics.total_views || 0,
                         progress: analytics.progress_percent || 0,
                         usersCount: Object.keys(analytics.users_stats || {}).length,
-                        profilesCount: Object.values(analytics.users_stats || {}).reduce((sum, user) => sum + (user.profiles_count || 0), 0)
+                        profilesCount: Object.values(analytics.users_stats || {}).reduce((sum, user) => sum + (user.profiles_count || 0), 0),
+                        isFinished: project.is_finished || false
                     });
                 } else {
                     // Если analytics не загрузился, добавляем проект с нулевыми данными
@@ -1844,7 +2254,8 @@ async function loadProjectManagementList() {
                         totalViews: 0,
                         progress: 0,
                         usersCount: 0,
-                        profilesCount: 0
+                        profilesCount: 0,
+                        isFinished: project.is_finished || false
                     });
                 }
             } catch (error) {
@@ -1858,7 +2269,8 @@ async function loadProjectManagementList() {
                     totalViews: 0,
                     progress: 0,
                     usersCount: 0,
-                    profilesCount: 0
+                    profilesCount: 0,
+                    isFinished: project.is_finished || false
                 });
             }
         }
@@ -1888,6 +2300,9 @@ function renderProjectManagementList(projects) {
     projects.sort((a, b) => b.totalViews - a.totalViews);
 
     const projectsHTML = projects.map(project => {
+        // Определяем статус завершенности проекта
+        const finishedBadge = project.isFinished ? '<span style="color: #4CAF50; margin-left: 8px;">🏁 Завершен</span>' : '';
+
         return `
             <div class="admin-user-item" onclick="openProjectDetailsFromAdmin('${project.id}')">
                 <div class="admin-user-info">
@@ -1895,7 +2310,7 @@ function renderProjectManagementList(projects) {
                         <i class="fa-solid fa-folder-open"></i>
                     </div>
                     <div class="admin-user-details">
-                        <div class="admin-user-name">${project.name}</div>
+                        <div class="admin-user-name">${project.name}${finishedBadge}</div>
                         <div class="admin-user-stats">
                             ${formatNumber(project.totalViews)} просмотров • ${project.progress}% • KPI от ${formatNumber(project.kpiViews)} • ${project.usersCount} участников • ${project.profilesCount} профилей
                         </div>
@@ -1916,31 +2331,37 @@ function renderProjectManagementList(projects) {
 }
 
 async function openProjectDetailsFromAdmin(projectId) {
-    document.querySelectorAll('.page').forEach(page => page.classList.add('hidden'));
-    document.getElementById('project-details-page').classList.remove('hidden');
+    // Use openProject with 'admin' mode for dynamic button rendering
+    await openProject(projectId, 'admin');
+
+    // Load additional admin-specific data
     await loadProjectDetailsForAdmin(projectId);
 }
 
-function closeProjectDetails() {
-    document.getElementById('project-details-page').classList.add('hidden');
-    document.getElementById('project-management-page').classList.remove('hidden');
-}
+// closeProjectDetails() - moved to common functions section (line 650)
+// Navigation now handled dynamically based on projectOpenedFrom variable
 
 async function loadProjectDetailsForAdmin(projectId) {
     try {
         // Сохраняем ID текущего проекта
+        window.currentProjectId = projectId;
         currentProjectId = projectId;
 
         // Загружаем детальную информацию о проекте
         const analyticsResponse = await fetch(`${API_BASE_URL}/api/projects/${projectId}/analytics`, {
-            headers: { 'X-Telegram-Init-Data': window.initData }
+            headers: { 'X-Telegram-Init-Data': tg.initData }
         });
 
         if (!analyticsResponse.ok) {
-            throw new Error('Failed to load project analytics');
+            const errorText = await analyticsResponse.text();
+            console.error(`Analytics API error (${analyticsResponse.status}):`, errorText);
+            throw new Error(`Failed to load project analytics: ${analyticsResponse.status} - ${errorText}`);
         }
 
         const analytics = await analyticsResponse.json();
+        console.log('✅ Analytics loaded successfully:', analytics);
+        console.log('🔍 DEBUG: analytics.total_videos =', analytics.total_videos);
+        console.log('🔍 DEBUG: analytics.total_profiles =', analytics.total_profiles);
         currentProjectDetailsData = analytics;
 
         // Обновляем название проекта
@@ -1954,7 +2375,9 @@ async function loadProjectDetailsForAdmin(projectId) {
         const usersCount = Object.keys(analytics.users_stats || {}).length;
         document.getElementById('pd-total-users').textContent = usersCount;
 
-        const totalProfiles = Object.values(analytics.users_stats || {}).reduce((sum, user) => sum + (user.profiles_count || 0), 0);
+        // Используем total_profiles из API вместо подсчета из users_stats
+        const totalProfiles = analytics.total_profiles || Object.values(analytics.users_stats || {}).reduce((sum, user) => sum + (user.profiles_count || 0), 0);
+        console.log('🔍 DEBUG: totalProfiles =', totalProfiles);
         document.getElementById('pd-total-profiles').textContent = totalProfiles;
 
         // Подсчитываем количество уникальных тематик
@@ -1968,6 +2391,8 @@ async function loadProjectDetailsForAdmin(projectId) {
 
         // Подсчитываем общее количество видео (если есть в аналитике)
         const totalVideos = analytics.total_videos || 0;
+        console.log('🔍 DEBUG FRONTEND: analytics.total_videos =', analytics.total_videos);
+        console.log('🔍 DEBUG FRONTEND: totalVideos =', totalVideos);
         document.getElementById('pd-total-videos').textContent = totalVideos;
 
         // Обновляем прогресс бар
@@ -1981,7 +2406,7 @@ async function loadProjectDetailsForAdmin(projectId) {
 
     } catch (error) {
         console.error('Failed to load project details:', error);
-        showError('Не удалось загрузить детали проекта');
+        showError(`Не удалось загрузить детали проекта: ${error.message}`);
     }
 }
 
@@ -2032,6 +2457,63 @@ function renderProjectUsersList(usersStats) {
     usersList.innerHTML = usersHTML;
 }
 
+// Импорт данных из Google Sheets в БД
+async function importFromSheets() {
+    if (!currentProjectId) {
+        showError('Проект не выбран');
+        return;
+    }
+
+    try {
+        // Показываем индикатор загрузки
+        const importButton = event.target.closest('button');
+        const originalText = importButton.innerHTML;
+        importButton.disabled = true;
+        importButton.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Импорт...';
+
+        // Вызываем API
+        const response = await apiCall(`/api/projects/${currentProjectId}/import_from_sheets`, {
+            method: 'POST'
+        });
+
+        if (response.success) {
+            showSuccess(`Импортировано: ${response.updated} обновлено, ${response.skipped} пропущено из ${response.total}`);
+
+            // Обновляем данные проекта
+            await loadProjectDetailsForAdmin(currentProjectId);
+        } else {
+            showError(response.message || 'Не удалось импортировать данные');
+        }
+
+        // Восстанавливаем кнопку
+        importButton.disabled = false;
+        importButton.innerHTML = originalText;
+
+    } catch (error) {
+        console.error('Failed to import from sheets:', error);
+
+        // Восстанавливаем кнопку
+        if (event && event.target) {
+            const importButton = event.target.closest('button');
+            if (importButton) {
+                importButton.disabled = false;
+                importButton.innerHTML = '<i class="fa-solid fa-download"></i> Импорт из Google';
+            }
+        }
+
+        const errorMessage = error.message || '';
+        if (errorMessage.includes('503')) {
+            showError('Google Sheets не подключен');
+        } else if (errorMessage.includes('403')) {
+            showError('У вас нет доступа к этому проекту');
+        } else if (errorMessage.includes('404')) {
+            showError('Проект не найден');
+        } else {
+            showError('Ошибка при импорте данных');
+        }
+    }
+}
+
 // Модалка добавления проекта
 function openAddProjectModal() {
     document.getElementById('add-project-modal').classList.remove('hidden');
@@ -2048,6 +2530,7 @@ function openAddProjectModal() {
     document.getElementById('toggle-instagram').checked = true;
     document.getElementById('toggle-facebook').checked = true;
     document.getElementById('toggle-youtube').checked = true;
+    document.getElementById('toggle-threads').checked = true;
 }
 
 function closeAddProjectModal() {
@@ -2065,7 +2548,8 @@ async function submitNewProject() {
         tiktok: document.getElementById('toggle-tiktok').checked,
         instagram: document.getElementById('toggle-instagram').checked,
         facebook: document.getElementById('toggle-facebook').checked,
-        youtube: document.getElementById('toggle-youtube').checked
+        youtube: document.getElementById('toggle-youtube').checked,
+        threads: document.getElementById('toggle-threads').checked
     };
 
     // Валидация
@@ -2109,9 +2593,9 @@ async function submitNewProject() {
             closeAddProjectModal();
             showSuccess(`Проект "${projectName}" создан успешно!`);
 
-            // Перезагружаем данные пользователя и проекты
-            const data = await apiCall('/api/me');
-            currentProjects = data.projects || [];
+            // Перезагружаем все проекты (включая недоступные)
+            const projectsData = await apiCall('/api/projects');
+            currentProjects = projectsData.projects || [];
 
             // Обновляем UI
             renderProjects(currentProjects);
@@ -2156,97 +2640,436 @@ window.filterUserManagementList = filterUserManagementList;
 window.openAddProfileModal = openAddProfileModal;
 // ==================== SOCIAL ACCOUNTS MANAGEMENT ====================
 let currentProjectId = null;
+let currentProjectMode = 'user'; // Track current project viewing mode
+
+// Wizard state
+let wizardData = {
+    platform: '',
+    username: '',
+    profileLink: '',
+    status: '',
+    topic: ''
+};
 
 function openAddSocialAccountModal() {
     document.getElementById('add-social-account-modal').classList.remove('hidden');
 
-    // Очищаем поля
-    document.getElementById('social-account-platform').value = '';
-    document.getElementById('social-account-username').value = '';
-    document.getElementById('social-account-link').value = '';
-    document.getElementById('social-account-status').value = 'NEW';
-    document.getElementById('social-account-topic').value = '';
-    document.getElementById('social-account-custom-topic').classList.add('hidden');
+    // Reset wizard to step 1
+    document.getElementById('profile-step-1').classList.remove('hidden');
+    document.getElementById('profile-step-2').classList.add('hidden');
+    document.getElementById('profile-step-3').classList.add('hidden');
+    document.getElementById('profile-step-4').classList.add('hidden');
+
+    // Clear input
+    document.getElementById('profile-url-input').value = '';
+
+    // Reset wizard data
+    wizardData = {
+        platform: '',
+        username: '',
+        profileLink: '',
+        status: '',
+        topic: ''
+    };
 }
 
 function closeAddSocialAccountModal() {
     document.getElementById('add-social-account-modal').classList.add('hidden');
 }
 
-async function submitSocialAccount() {
-    const platform = document.getElementById('social-account-platform').value;
-    const username = document.getElementById('social-account-username').value.trim();
-    const profileLink = document.getElementById('social-account-link').value.trim();
-    const status = document.getElementById('social-account-status').value;
-    let topic = document.getElementById('social-account-topic').value;
+// Step 1 -> Step 2: Auto-detect platform and username from URL
+function goToStep2() {
+    const urlInput = document.getElementById('profile-url-input').value.trim();
 
-    // Если выбрана своя тематика
-    if (topic === 'custom') {
-        topic = document.getElementById('social-account-custom-topic').value.trim();
-    }
-
-    // Валидация
-    if (!platform) {
-        showError('Пожалуйста, выберите платформу');
+    if (!urlInput) {
+        showError('Пожалуйста, введите ссылку');
         return;
     }
 
-    if (!username) {
-        showError('Пожалуйста, введите username');
-        return;
-    }
-
-    if (!profileLink) {
-        showError('Пожалуйста, введите ссылку на профиль');
-        return;
-    }
+    // Auto-detection logic
+    let platform = '';
+    let username = '';
+    let profileLink = urlInput;
 
     try {
-        const response = await apiCall(`/api/projects/${currentProjectId}/accounts`, {
+        const url = new URL(urlInput);
+        const hostname = url.hostname.toLowerCase();
+
+        // Detect platform
+        if (hostname.includes('tiktok.com')) {
+            platform = 'tiktok';
+            // Extract username: tiktok.com/@username
+            const match = url.pathname.match(/@([^/?]+)/);
+            username = match ? match[1] : '';
+        } else if (hostname.includes('instagram.com')) {
+            platform = 'instagram';
+            // Extract username: instagram.com/username or instagram.com/username/
+            const match = url.pathname.match(/^\/([^/?]+)/);
+            username = match ? match[1] : '';
+        } else if (hostname.includes('youtube.com') || hostname.includes('youtu.be')) {
+            platform = 'youtube';
+            // Extract channel name from various YouTube URL formats
+            const channelMatch = url.pathname.match(/\/(c|channel|user|@)\/([^/?]+)/);
+            username = channelMatch ? channelMatch[2] : '';
+        } else if (hostname.includes('facebook.com') || hostname.includes('fb.com')) {
+            platform = 'facebook';
+            // Extract username
+            const match = url.pathname.match(/^\/([^/?]+)/);
+            username = match ? match[1] : '';
+        } else {
+            showError('Неподдерживаемая платформа. Используйте TikTok, Instagram, YouTube или Facebook');
+            return;
+        }
+
+        if (!username) {
+            showError('Не удалось извлечь username из ссылки');
+            return;
+        }
+
+        // Save to wizard data
+        wizardData.platform = platform;
+        wizardData.username = username;
+        wizardData.profileLink = profileLink;
+
+        // Update username display in Step 2
+        document.getElementById('profile-ready-username').textContent = `@${username}`;
+
+        // Move to step 2
+        document.getElementById('profile-step-1').classList.add('hidden');
+        document.getElementById('profile-step-2').classList.remove('hidden');
+
+    } catch (error) {
+        showError('Некорректная ссылка. Введите полный URL (например: https://tiktok.com/@username)');
+        return;
+    }
+}
+
+// Step 2 -> Step 3: Select status
+function selectStatus(status) {
+    wizardData.status = status;
+
+    // Move to step 3
+    document.getElementById('profile-step-2').classList.add('hidden');
+    document.getElementById('profile-step-3').classList.remove('hidden');
+}
+
+// Step 3 -> Submit: Select topic and submit
+function selectTopic(topic) {
+    wizardData.topic = topic;
+
+    // Submit the account
+    submitSocialAccount();
+}
+
+// Step 3 -> Step 4: Open custom topic input
+function openCustomTopic() {
+    document.getElementById('profile-step-3').classList.add('hidden');
+    document.getElementById('profile-step-4').classList.remove('hidden');
+    document.getElementById('profile-custom-topic-input').value = '';
+    document.getElementById('profile-custom-topic-input').focus();
+}
+
+// Step 4 -> Submit: Custom topic
+function submitCustomTopic() {
+    const customTopic = document.getElementById('profile-custom-topic-input').value.trim();
+
+    if (!customTopic) {
+        showError('Пожалуйста, введите название тематики');
+        return;
+    }
+
+    wizardData.topic = customTopic;
+
+    // Submit the account
+    submitSocialAccount();
+}
+
+// Final submission
+async function submitSocialAccount() {
+    // Use global currentProjectId (set by openProject)
+    const projectId = window.currentProjectId || currentProjectId;
+
+    if (!projectId) {
+        console.error('Internal Error: No Project ID set');
+        showError('Internal Error: No Project ID. Please reopen the project.');
+        return;
+    }
+
+    // Автоматически определяем telegram_user из текущего пользователя
+    let telegramUser = 'Unknown'; // Default fallback
+    if (currentUser) {
+        if (currentUser.username) {
+            telegramUser = `@${currentUser.username}`;
+        } else if (currentUser.first_name) {
+            telegramUser = currentUser.first_name;
+        } else if (currentUser.id) {
+            telegramUser = `ID:${currentUser.id}`;
+        }
+    }
+
+    console.log('🔍 FRONTEND DEBUG: Auto-detected telegram_user =', telegramUser);
+    console.log('🔍 FRONTEND DEBUG: Profile username (from link) =', wizardData.username);
+
+    const requestBody = {
+        platform: wizardData.platform,
+        username: wizardData.username,  // Username профиля соц. сети (извлечен из ссылки)
+        profile_link: wizardData.profileLink,
+        status: wizardData.status,
+        topic: wizardData.topic || '',
+        telegram_user: telegramUser  // Telegram username текущего пользователя
+    };
+
+    console.log('🔍 FRONTEND DEBUG: Full request body =', requestBody);
+
+    try {
+        const response = await apiCall(`/api/projects/${projectId}/accounts`, {
             method: 'POST',
-            body: JSON.stringify({
-                platform,
-                username,
-                profile_link: profileLink,
-                status,
-                topic: topic || ''
-            })
+            body: JSON.stringify(requestBody)
         });
 
         if (response.success) {
-            showSuccess('Аккаунт успешно добавлен');
+            showSuccess('Аккаунт добавлен');
             closeAddSocialAccountModal();
 
             // Обновляем список
-            await loadProjectSocialAccounts(currentProjectId);
+            await loadProjectSocialAccounts(projectId);
         } else {
             showError('Не удалось добавить аккаунт');
         }
     } catch (error) {
         console.error('Failed to add social account:', error);
-        showError('Ошибка при добавлении аккаунта');
+        // Проверяем, если это ошибка дубликата
+        if (error.message && error.message.includes('уже добавлен')) {
+            showSuccess('Такой аккаунт уже добавлен');
+            closeAddSocialAccountModal();
+        } else {
+            showError(error.message || 'Ошибка при добавлении аккаунта');
+        }
     }
 }
 
-async function loadProjectSocialAccounts(projectId) {
+// Функции для добавления пользователя в проект
+function openAddUserToProjectModal() {
+    if (!currentProjectId) {
+        showError('Проект не выбран');
+        return;
+    }
+
+    document.getElementById('add-user-to-project-modal').classList.remove('hidden');
+    document.getElementById('add-user-username').value = '';
+}
+
+function closeAddUserToProjectModal() {
+    document.getElementById('add-user-to-project-modal').classList.add('hidden');
+}
+
+async function submitUserToProject() {
+    const usernameInput = document.getElementById('add-user-username').value.trim();
+
+    // Валидация
+    if (!usernameInput) {
+        showError('Пожалуйста, введите username');
+        return;
+    }
+
+    if (!currentProjectId) {
+        showError('Проект не выбран');
+        return;
+    }
+
+    // Strip @ from username if present
+    const username = usernameInput.startsWith('@') ? usernameInput.substring(1) : usernameInput;
+
+    try {
+        const response = await apiCall(`/api/projects/${currentProjectId}/users`, {
+            method: 'POST',
+            body: JSON.stringify({
+                username: username
+            })
+        });
+
+        // Success: user was added successfully
+        if (response.success) {
+            showSuccess('Пользователь добавлен');
+            closeAddUserToProjectModal();
+
+            // Обновляем детали проекта
+            await loadProjectDetailsForAdmin(currentProjectId);
+        } else {
+            showError(response.error || 'Не удалось добавить пользователя');
+        }
+    } catch (error) {
+        console.error('Failed to add user to project:', error);
+
+        // Handle specific error cases
+        const errorMessage = error.message || '';
+
+        // Try to parse the error detail from FastAPI JSON response
+        let errorDetail = '';
+        try {
+            const match = errorMessage.match(/API Error \(\d+\): (.+)/);
+            if (match && match[1]) {
+                const parsedError = JSON.parse(match[1]);
+                errorDetail = parsedError.detail || '';
+            }
+        } catch (e) {
+            errorDetail = errorMessage;
+        }
+
+        // User already in project - show success/info notification and close modal (success behavior)
+        if (errorMessage.includes('400') || errorMessage.includes('409') ||
+            errorDetail.toLowerCase().includes('already in this project') ||
+            errorDetail.toLowerCase().includes('already in project') ||
+            errorDetail.toLowerCase().includes('user already in project')) {
+            showSuccess('Пользователь уже добавлен');
+            closeAddUserToProjectModal();
+            // Reload project data to ensure UI is in sync
+            await loadProjectDetailsForAdmin(currentProjectId);
+            return;
+        }
+
+        // Other error cases
+        if (errorMessage.includes('404') || errorDetail.toLowerCase().includes('not found')) {
+            showError('Пользователь не найден. Попросите их запустить бота командой /start');
+        } else if (errorMessage.includes('403') || errorDetail.toLowerCase().includes('access denied')) {
+            showError('У вас нет доступа к этому проекту');
+        } else {
+            showError(errorDetail || 'Ошибка при добавлении пользователя');
+        }
+    }
+}
+
+// Regular user view - Add user modal functions
+function openAddUserModal() {
+    document.getElementById('add-user-modal').classList.remove('hidden');
+    document.getElementById('add-user-username-regular').value = '';
+    document.getElementById('add-user-username-regular').focus();
+}
+
+function closeAddUserModal() {
+    document.getElementById('add-user-modal').classList.add('hidden');
+}
+
+async function submitUserToProjectRegular() {
+    const usernameInput = document.getElementById('add-user-username-regular').value.trim();
+
+    // Валидация
+    if (!usernameInput) {
+        showError('Пожалуйста, введите username');
+        return;
+    }
+
+    if (!currentProjectId) {
+        showError('Проект не выбран');
+        return;
+    }
+
+    // Strip @ from username if present
+    const username = usernameInput.startsWith('@') ? usernameInput.substring(1) : usernameInput;
+
+    try {
+        const response = await apiCall(`/api/projects/${currentProjectId}/users`, {
+            method: 'POST',
+            body: JSON.stringify({
+                username: username
+            })
+        });
+
+        // Success: user was added successfully
+        if (response.success) {
+            showSuccess('Пользователь добавлен');
+            closeAddUserModal();
+
+            // Обновляем детали проекта
+            await loadProjectDetails(currentProjectId);
+        } else {
+            showError(response.error || 'Не удалось добавить пользователя');
+        }
+    } catch (error) {
+        console.error('Failed to add user to project:', error);
+
+        // Handle specific error cases
+        const errorMessage = error.message || '';
+
+        // Try to parse the error detail from FastAPI JSON response
+        let errorDetail = '';
+        try {
+            const match = errorMessage.match(/API Error \(\d+\): (.+)/);
+            if (match && match[1]) {
+                const parsedError = JSON.parse(match[1]);
+                errorDetail = parsedError.detail || '';
+            }
+        } catch (e) {
+            errorDetail = errorMessage;
+        }
+
+        // User already in project - show success/info notification and close modal (success behavior)
+        if (errorDetail.toLowerCase().includes('already in this project') ||
+            errorDetail.toLowerCase().includes('already in project')) {
+            showSuccess('Пользователь уже в проекте');
+            closeAddUserModal();
+            // Reload project data to ensure UI is in sync
+            await loadProjectDetails(currentProjectId);
+            return;
+        }
+
+        // Other error cases
+        if (errorMessage.includes('404') || errorDetail.toLowerCase().includes('not found')) {
+            showError('Пользователь не найден. Попросите их запустить бота командой /start');
+        } else if (errorMessage.includes('403') || errorDetail.toLowerCase().includes('access denied')) {
+            showError('У вас нет доступа к этому проекту');
+        } else {
+            showError(errorDetail || 'Ошибка при добавлении пользователя');
+        }
+    }
+}
+
+async function loadProjectSocialAccounts(projectId, mode = 'user') {
     try {
         const response = await apiCall(`/api/projects/${projectId}/accounts`);
 
         if (response.success) {
-            renderProjectSocialAccountsList(response.accounts);
+            let accounts = response.accounts;
+            console.log('🔍 DEBUG: Total accounts from API:', accounts.length);
+            console.log('🔍 DEBUG: All accounts:', accounts);
+
+            // В режиме user фильтруем только аккаунты текущего пользователя
+            if (mode === 'user' && currentUser) {
+                const myTelegramUser = currentUser.username
+                    ? `@${currentUser.username}`
+                    : currentUser.first_name || `ID:${currentUser.id}`;
+
+                console.log('🔍 DEBUG: My telegram_user:', myTelegramUser);
+
+                // Показываем аккаунты где telegram_user совпадает ИЛИ пустой (для обратной совместимости)
+                accounts = accounts.filter(account => {
+                    const accountTgUser = account.telegram_user || '';
+                    const match = accountTgUser === myTelegramUser || accountTgUser === '';
+                    console.log(`🔍 Account ${account.username}: telegram_user="${accountTgUser}" -> ${match ? 'SHOW' : 'HIDE'}`);
+                    return match;
+                });
+                console.log('🔍 Filtered accounts for user:', myTelegramUser, 'Count:', accounts.length);
+            }
+
+            renderProjectSocialAccountsList(accounts, mode);
         }
     } catch (error) {
         console.error('Failed to load social accounts:', error);
     }
 }
 
-function renderProjectSocialAccountsList(accounts) {
-    const accountsList = document.getElementById('project-social-accounts-list');
+function renderProjectSocialAccountsList(accounts, mode = 'user') {
+    const accountsList = document.getElementById('profiles-list');
+    const profilesCount = document.getElementById('profiles-count');
 
     if (!accounts || accounts.length === 0) {
-        accountsList.innerHTML = '<div class="empty-state">Нет социальных аккаунтов</div>';
+        accountsList.innerHTML = '<p class="no-profiles">Нет социальных аккаунтов</p>';
+        profilesCount.textContent = '0';
         return;
     }
+
+    // Обновляем счетчик
+    profilesCount.textContent = accounts.length;
 
     // Группируем по платформам
     const groupedAccounts = {};
@@ -2292,28 +3115,67 @@ function renderProjectSocialAccountsList(accounts) {
         `;
 
         platformAccounts.forEach(account => {
+            // Извлекаем username из URL
+            let displayUsername = account.username;
+            const url = account.profile_link || '';
+
+            if (url.includes('/@')) {
+                // TikTok, Instagram: https://www.tiktok.com/@username
+                const parts = url.split('/@');
+                if (parts[1]) {
+                    displayUsername = parts[1].split('?')[0].split('/')[0];
+                }
+            } else if (url.includes('facebook.com/share/') || url.includes('facebook.com/')) {
+                // Facebook: извлекаем ID или username
+                const urlParts = url.split('/');
+                const shareIndex = urlParts.indexOf('share');
+                if (shareIndex !== -1 && urlParts[shareIndex + 1]) {
+                    displayUsername = urlParts[shareIndex + 1].split('?')[0];
+                } else {
+                    const lastPart = urlParts[urlParts.length - 1].split('?')[0];
+                    if (lastPart && lastPart !== '') {
+                        displayUsername = lastPart;
+                    } else if (urlParts[urlParts.length - 2]) {
+                        displayUsername = urlParts[urlParts.length - 2];
+                    }
+                }
+            }
+
+            // Форматируем числа с разделителями тысяч
+            const formatNumber = (num) => {
+                return num ? num.toLocaleString('ru-RU') : '0';
+            };
+
             html += `
                 <div class="admin-user-item" style="margin-bottom: 10px;">
                     <div class="admin-user-info">
                         <div class="admin-user-details">
-                            <div class="admin-user-name">${account.username}</div>
-                            <div class="admin-user-stats" style="display: flex; gap: 10px; align-items: center;">
+                            <div class="admin-user-name">${displayUsername}</div>
+                            <div class="admin-user-stats" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
                                 <span style="background: ${statusColors[account.status]}; padding: 2px 8px; border-radius: 4px; font-size: 11px;">
                                     ${account.status}
                                 </span>
                                 ${account.topic ? `<span style="color: rgba(255,255,255,0.6);">${account.topic}</span>` : ''}
+                                <span style="color: rgba(255,255,255,0.8); font-size: 12px;">
+                                    <i class="fa-solid fa-video" style="color: #2196F3;"></i> ${formatNumber(account.videos || 0)}
+                                </span>
+                                <span style="color: rgba(255,255,255,0.8); font-size: 12px;">
+                                    <i class="fa-solid fa-eye" style="color: #4CAF50;"></i> ${formatNumber(account.views || 0)}
+                                </span>
                                 <a href="${account.profile_link}" target="_blank" style="color: #2196F3; text-decoration: none;">
                                     <i class="fa-solid fa-external-link"></i>
                                 </a>
                             </div>
                         </div>
                     </div>
+                    ${mode === 'admin' ? `
                     <button
                         onclick="deleteSocialAccount('${account.id}')"
                         style="background: #F44336; border: none; padding: 8px 12px; border-radius: 8px; color: white; cursor: pointer;"
                     >
                         <i class="fa-solid fa-trash"></i>
                     </button>
+                    ` : ''}
                 </div>
             `;
         });
@@ -2374,10 +3236,18 @@ window.openProjectManagement = openProjectManagement;
 window.closeProjectManagement = closeProjectManagement;
 window.openProjectDetailsFromAdmin = openProjectDetailsFromAdmin;
 window.closeProjectDetails = closeProjectDetails;
+window.deleteProject = deleteProject;
+window.finishProject = finishProject;
+window.refreshProjectStats = refreshProjectStats;
 window.openAddProjectModal = openAddProjectModal;
 window.closeAddProjectModal = closeAddProjectModal;
 window.submitNewProject = submitNewProject;
 window.openAddSocialAccountModal = openAddSocialAccountModal;
 window.closeAddSocialAccountModal = closeAddSocialAccountModal;
+window.goToStep2 = goToStep2;
+window.selectStatus = selectStatus;
+window.selectTopic = selectTopic;
+window.openCustomTopic = openCustomTopic;
+window.submitCustomTopic = submitCustomTopic;
 window.submitSocialAccount = submitSocialAccount;
 window.deleteSocialAccount = deleteSocialAccount;

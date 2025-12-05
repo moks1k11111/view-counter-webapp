@@ -167,9 +167,7 @@
                 <div class="header-title">
                     <div class="greeting" id="project-details-name">Проект</div>
                 </div>
-                <button class="add-profile-btn" onclick="openAddProfileModal()">
-                    Добавить профиль
-                </button>
+                <div id="project-header-actions" style="margin-left: auto; display: flex; gap: 8px;"></div>
             </header>
 
             <div class="project-details-container">
@@ -191,6 +189,33 @@
                         <div class="summary-label">Профилей</div>
                         <div class="summary-value" id="detail-total-profiles">0</div>
                     </div>
+                    <div class="summary-card">
+                        <div class="summary-label">Тематик</div>
+                        <div class="summary-value" id="detail-total-topics">0</div>
+                    </div>
+                    <div class="summary-card" id="participants-card">
+                        <div class="summary-label">Участников</div>
+                        <div class="summary-value" id="detail-total-participants">0</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-label">Прирост 24ч</div>
+                        <div class="summary-value" id="pd-growth-24h">0</div>
+                    </div>
+                </div>
+
+                <!-- Date Picker Controls -->
+                <div class="date-picker-controls" style="margin: 16px 0; display: flex; gap: 10px; align-items: center;">
+                    <div style="display: flex; flex-direction: column; flex: 1;">
+                        <label style="font-size: 12px; color: #aaa; margin-bottom: 4px;">Начало:</label>
+                        <input type="date" id="analytics-start-date" class="date-input" style="padding: 8px; border-radius: 8px; border: 1px solid #333; background: #1e1e1e; color: #fff;">
+                    </div>
+                    <div style="display: flex; flex-direction: column; flex: 1;">
+                        <label style="font-size: 12px; color: #aaa; margin-bottom: 4px;">Конец:</label>
+                        <input type="date" id="analytics-end-date" class="date-input" style="padding: 8px; border-radius: 8px; border: 1px solid #333; background: #1e1e1e; color: #fff;">
+                    </div>
+                    <button onclick="applyDateFilter()" class="btn-primary" style="align-self: flex-end; padding: 8px 16px; font-size: 14px;">
+                        Применить
+                    </button>
                 </div>
 
                 <!-- Свайпаемые диаграммы -->
@@ -201,14 +226,27 @@
                     <div class="swiper-dots" id="swiper-dots"></div>
                 </div>
 
-                <!-- Раскрывающийся список профилей -->
+                <!-- Контроллы администратора проекта (видимы только админам) -->
+                <div id="admin-project-controls" class="hidden" style="margin: 16px 0; display: flex; gap: 12px; flex-wrap: wrap;">
+                    <button class="btn-secondary" onclick="refreshProjectStats()" style="flex: 1; min-width: 150px;">
+                        <i class="fa-solid fa-rotate"></i> Обновить статистику
+                    </button>
+                    <button class="btn-warning" onclick="finishProject()" style="flex: 1; min-width: 150px;">
+                        <i class="fa-solid fa-flag-checkered"></i> Завершить проект
+                    </button>
+                    <button class="btn-danger" onclick="deleteProject()" style="flex: 1; min-width: 150px;">
+                        <i class="fa-solid fa-trash"></i> Удалить проект
+                    </button>
+                </div>
+
+                <!-- Раскрывающийся список аккаунтов -->
                 <div class="profiles-accordion">
                     <div class="accordion-header" onclick="toggleProfiles()">
-                        <h3>Профили (<span id="profiles-count">0</span>)</h3>
+                        <h3>Аккаунты (<span id="profiles-count">0</span>)</h3>
                         <i class="fa-solid fa-chevron-down" id="profiles-chevron"></i>
                     </div>
                     <div class="accordion-content" id="profiles-list">
-                        <!-- Список профилей будет добавлен динамически -->
+                        <!-- Список социальных аккаунтов будет добавлен динамически -->
                     </div>
                 </div>
             </div>
@@ -276,77 +314,25 @@
             </div>
         </div>
 
-        <!-- Модальное окно добавления профиля -->
-        <div id="add-profile-modal" class="modal hidden">
-            <div class="modal-overlay" onclick="closeAddProfileModal()"></div>
+        <!-- Модальное окно добавления пользователя -->
+        <div id="add-user-modal" class="modal hidden">
+            <div class="modal-overlay" onclick="closeAddUserModal()"></div>
             <div class="modal-content">
-                <button class="modal-close-btn" onclick="closeAddProfileModal()">
+                <button class="modal-close-btn" onclick="closeAddUserModal()">
                     <i class="fa-solid fa-times"></i>
                 </button>
+                <h2 class="modal-title">Добавить пользователя в проект</h2>
+                <p class="modal-description">Введите username пользователя (без @)</p>
 
-                <!-- Шаг 1: Ввод URL -->
-                <div id="profile-step-1" class="profile-step">
-                    <h2 class="modal-title">Добавить профиль</h2>
-                    <p class="modal-description">Вставьте ссылку на ваш профиль в социальной сети</p>
-                    <input
-                        type="text"
-                        id="profile-url-input"
-                        class="input"
-                        placeholder="Например: https://www.tiktok.com/@username"
-                    >
-                    <button class="btn-primary" onclick="nextToStatusStep()">Далее</button>
-                </div>
+                <input
+                    type="text"
+                    id="add-user-username-regular"
+                    class="input"
+                    placeholder="Username (например: username123)"
+                    style="margin-bottom: 15px;"
+                >
 
-                <!-- Шаг 2: Выбор статуса -->
-                <div id="profile-step-2" class="profile-step hidden">
-                    <h2 class="modal-title">Тип аккаунта</h2>
-                    <p class="modal-description">Это новый или старый аккаунт?</p>
-                    <div class="status-buttons">
-                        <button class="status-btn" onclick="selectStatus('NEW')">
-                            <div class="status-icon">✅</div>
-                            <div class="status-label">Новый</div>
-                            <div class="status-desc">NEW - считается автоматически все видео</div>
-                        </button>
-                        <button class="status-btn" onclick="selectStatus('OLD')">
-                            <div class="status-icon">⚠️</div>
-                            <div class="status-label">Старый</div>
-                            <div class="status-desc">OLD - считается менеджером вручную</div>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Шаг 3: Выбор тематики -->
-                <div id="profile-step-3" class="profile-step hidden">
-                    <h2 class="modal-title">Тематика контента</h2>
-                    <p class="modal-description">Выберите тематику вашего профиля</p>
-                    <div class="topic-grid">
-                        <button class="topic-btn" onclick="selectTopic('Сериалы/фильмы')">🎬 Сериалы/фильмы</button>
-                        <button class="topic-btn" onclick="selectTopic('Телешоу')">📺 Телешоу</button>
-                        <button class="topic-btn" onclick="selectTopic('Познавательные')">🧠 Познавательные</button>
-                        <button class="topic-btn" onclick="selectTopic('Спорт')">⚽ Спорт</button>
-                        <button class="topic-btn" onclick="selectTopic('Киберспорт')">🎮 Киберспорт</button>
-                        <button class="topic-btn" onclick="selectTopic('Кулинария')">🍔 Кулинария</button>
-                        <button class="topic-btn" onclick="selectTopic('Ai')">🤖 Ai</button>
-                        <button class="topic-btn" onclick="selectTopic('Медиа')">📱 Медиа</button>
-                        <button class="topic-btn" onclick="selectTopic('Истории')">📖 Истории</button>
-                        <button class="topic-btn" onclick="selectTopic('Гемблинг')">🎰 Гемблинг</button>
-                        <button class="topic-btn" onclick="openCustomTopic()">✏️ Своя тематика</button>
-                    </div>
-                </div>
-
-                <!-- Шаг 4: Своя тематика -->
-                <div id="profile-step-4" class="profile-step hidden">
-                    <h2 class="modal-title">Своя тематика</h2>
-                    <p class="modal-description">Напишите тематику вашего контента</p>
-                    <input
-                        type="text"
-                        id="custom-topic-input"
-                        class="input"
-                        placeholder="Например: Путешествия, Кулинария, Бизнес"
-                        maxlength="50"
-                    >
-                    <button class="btn-primary" onclick="submitCustomTopic()">Добавить профиль</button>
-                </div>
+                <button class="btn-primary" onclick="submitUserToProjectRegular()">Добавить пользователя</button>
             </div>
         </div>
 
@@ -429,6 +415,7 @@
                 <div class="header-title">
                     <div class="greeting" id="project-details-name">Проект</div>
                 </div>
+                <div id="project-header-actions" style="margin-left: auto; display: flex; gap: 8px;"></div>
             </header>
 
             <div class="analytics-content">
@@ -476,9 +463,11 @@
                 </div>
 
                 <!-- Список участников проекта -->
-                <h3 style="margin: 20px 0 10px 0;">Участники проекта</h3>
-                <div id="project-users-list" class="user-management-list">
-                    <!-- Список участников будет добавлен динамически -->
+                <div id="participants-section">
+                    <h3 style="margin: 20px 0 10px 0;">Участники проекта</h3>
+                    <div id="project-users-list" class="user-management-list">
+                        <!-- Список участников будет добавлен динамически -->
+                    </div>
                 </div>
 
                 <!-- Список социальных аккаунтов -->
@@ -540,7 +529,7 @@
                     type="text"
                     id="new-project-geo-input"
                     class="input"
-                    placeholder="Гео (например: Россия, Украина)"
+                    placeholder="Гео (например: США, Канада)"
                     style="margin-bottom: 15px;"
                 >
 
@@ -578,6 +567,14 @@
                             <span class="toggle-slider"></span>
                         </label>
                     </div>
+
+                    <div class="social-toggle-item">
+                        <span>🧵 Threads</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="toggle-threads" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
                 </div>
 
                 <button class="btn-primary" onclick="submitNewProject()">Создать проект</button>
@@ -612,85 +609,102 @@
                 <button class="modal-close-btn" onclick="closeAddSocialAccountModal()">
                     <i class="fa-solid fa-times"></i>
                 </button>
-                <h2 class="modal-title">Добавить социальный аккаунт</h2>
-                <p class="modal-description">Заполните информацию об аккаунте</p>
 
-                <select id="social-account-platform" class="input" style="margin-bottom: 15px;">
-                    <option value="">Выберите платформу</option>
-                    <option value="tiktok">TikTok</option>
-                    <option value="instagram">Instagram</option>
-                    <option value="youtube">YouTube</option>
-                    <option value="facebook">Facebook</option>
-                </select>
+                <!-- Step 1: URL Input -->
+                <div id="profile-step-1" class="profile-step">
+                    <h2 class="modal-title">Добавить аккаунт</h2>
+                    <p class="modal-description">Вставьте ссылку на профиль</p>
+
+                    <input
+                        type="text"
+                        id="profile-url-input"
+                        class="input"
+                        placeholder="https://tiktok.com/@username или https://instagram.com/username"
+                        style="margin-bottom: 20px;"
+                    >
+                    <button class="btn-primary" onclick="goToStep2()">Далее</button>
+                </div>
+
+                <!-- Step 2: Status Selection -->
+                <div id="profile-step-2" class="profile-step hidden">
+                    <h2 class="modal-title" style="font-size: 16px; margin-bottom: 10px; line-height: 1.4;">
+                        <span style="color: #4CAF50;">✅</span> Профиль <span id="profile-ready-username" style="color: #a78bfa;">@username</span> готов к добавлению!
+                    </h2>
+                    <p class="modal-description" style="font-size: 14px; margin-bottom: 12px; line-height: 1.5;">
+                        ❓ На этом аккаунте есть старые видео (снятые до начала работы с нами)?
+                    </p>
+                    <div style="font-size: 12px; color: #aaa; margin-bottom: 15px; text-align: left; line-height: 1.6;">
+                        • Выберите "Нет" если аккаунт новый или все видео сняты для нас<br>
+                        • Выберите "Да" если есть старые видео (мы не будем их учитывать)
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn-primary" onclick="selectStatus('NEW')" style="flex: 1; padding: 12px 20px; font-size: 14px;">
+                            Нет
+                        </button>
+                        <button class="btn-primary" onclick="selectStatus('OLD')" style="flex: 1; padding: 12px 20px; font-size: 14px;">
+                            Да
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Step 3: Topic Selection -->
+                <div id="profile-step-3" class="profile-step hidden">
+                    <h2 class="modal-title">Выберите тематику</h2>
+                    <p class="modal-description">Категория контента</p>
+                    <div class="topic-grid">
+                        <button class="topic-btn" onclick="selectTopic('Юмор')">😂 Юмор</button>
+                        <button class="topic-btn" onclick="selectTopic('Спорт')">⚽ Спорт</button>
+                        <button class="topic-btn" onclick="selectTopic('Киберспорт')">🎮 Киберспорт</button>
+                        <button class="topic-btn" onclick="selectTopic('Сериалы/фильмы')">🎬 Сериалы/фильмы</button>
+                        <button class="topic-btn" onclick="selectTopic('Гемблинг')">🎰 Гемблинг</button>
+                        <button class="topic-btn" onclick="selectTopic('Телешоу')">📺 Телешоу</button>
+                        <button class="topic-btn" onclick="selectTopic('Познавательное')">📚 Познавательное</button>
+                        <button class="topic-btn" onclick="selectTopic('AI')">🤖 AI</button>
+                        <button class="topic-btn" onclick="selectTopic('Танцы')">💃 Танцы</button>
+                        <button class="topic-btn" onclick="selectTopic('Клипы')">🎵 Клипы</button>
+                        <button class="topic-btn" onclick="openCustomTopic()">✏️ Своя тематика</button>
+                    </div>
+                </div>
+
+                <!-- Step 4: Custom Topic (Optional) -->
+                <div id="profile-step-4" class="profile-step hidden">
+                    <h2 class="modal-title">Своя тематика</h2>
+                    <p class="modal-description">Введите название тематики</p>
+                    <input
+                        type="text"
+                        id="profile-custom-topic-input"
+                        class="input"
+                        placeholder="Например: Кулинария, Путешествия..."
+                        style="margin-bottom: 20px;"
+                    >
+                    <button class="btn-primary" onclick="submitCustomTopic()">Готово</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Модальное окно добавления пользователя в проект -->
+        <div id="add-user-to-project-modal" class="modal hidden">
+            <div class="modal-overlay" onclick="closeAddUserToProjectModal()"></div>
+            <div class="modal-content">
+                <button class="modal-close-btn" onclick="closeAddUserToProjectModal()">
+                    <i class="fa-solid fa-times"></i>
+                </button>
+                <h2 class="modal-title">Добавить пользователя в проект</h2>
+                <p class="modal-description">Введите username пользователя</p>
 
                 <input
                     type="text"
-                    id="social-account-username"
+                    id="add-user-username"
                     class="input"
-                    placeholder="Username (например: @username)"
+                    placeholder="Username (например: username123)"
                     style="margin-bottom: 15px;"
                 >
 
-                <input
-                    type="text"
-                    id="social-account-link"
-                    class="input"
-                    placeholder="Ссылка на профиль"
-                    style="margin-bottom: 15px;"
-                >
-
-                <select id="social-account-status" class="input" style="margin-bottom: 15px;">
-                    <option value="NEW">Новый (NEW)</option>
-                    <option value="OLD">Старый (OLD)</option>
-                    <option value="Ban">Забанен (Ban)</option>
-                </select>
-
-                <select id="social-account-topic" class="input" style="margin-bottom: 15px;">
-                    <option value="">Выберите тематику</option>
-                    <option value="Юмор">Юмор</option>
-                    <option value="Спорт">Спорт</option>
-                    <option value="Киберспорт">Киберспорт</option>
-                    <option value="Сериалы/фильмы">Сериалы/фильмы</option>
-                    <option value="Гемблинг">Гемблинг</option>
-                    <option value="Телешоу">Телешоу</option>
-                    <option value="Познавательное">Познавательное</option>
-                    <option value="AI">AI</option>
-                    <option value="Танцы">Танцы</option>
-                    <option value="Клипы">Клипы</option>
-                    <option value="custom">Своя тематика</option>
-                </select>
-
-                <input
-                    type="text"
-                    id="social-account-custom-topic"
-                    class="input hidden"
-                    placeholder="Введите свою тематику"
-                    style="margin-bottom: 15px;"
-                >
-
-                <button class="btn-primary" onclick="submitSocialAccount()">Добавить аккаунт</button>
+                <button class="btn-primary" onclick="submitUserToProject()">Добавить пользователя</button>
             </div>
         </div>
     </div>
 
-    <!-- Debug Panel -->
-    <div id="debug-panel" style="
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        max-height: 200px;
-        overflow-y: auto;
-        background: rgba(0, 0, 0, 0.9);
-        color: #0f0;
-        padding: 10px;
-        border-top: 2px solid #0f0;
-        z-index: 99999;
-        font-size: 11px;
-    ">
-        <div style="font-weight: bold; margin-bottom: 5px;">🐛 DEBUG PANEL (открой в браузере и смотри консоль F12)</div>
-    </div>
-
-    <script src="app.js?v=1764344200"></script>
+    <script src="app.js"></script>
 </body>
 </html>
