@@ -1,5 +1,5 @@
 // ==================== CONFIGURATION ====================
-// Version: 1.2.0 - Updated 2025-11-26
+// Version: 1.3.0 - Updated 2025-12-05 - Fixed back navigation
 const API_BASE_URL = 'https://view-counter-api.onrender.com';
 const ADMIN_IDS = [873564841]; // ID администраторов
 let currentUser = null;
@@ -540,6 +540,7 @@ async function openProject(projectId, mode = 'user') {
 
     // Запоминаем откуда открыли проект для правильной навигации "Назад"
     projectOpenedFrom = (mode === 'admin') ? 'admin' : 'home';
+    console.log('🔍 [Navigation] Opening project:', projectId, 'mode:', mode, '→ projectOpenedFrom:', projectOpenedFrom);
 
     try {
         // Загружаем данные проекта в зависимости от режима
@@ -648,12 +649,15 @@ async function openProject(projectId, mode = 'user') {
 }
 
 function closeProjectDetails() {
+    console.log('🔙 [Navigation] Closing project details, projectOpenedFrom:', projectOpenedFrom);
     document.getElementById('project-details-page').classList.add('hidden');
 
     // Возвращаемся на ту страницу откуда пришли
     if (projectOpenedFrom === 'admin') {
+        console.log('🔙 [Navigation] Returning to admin panel');
         document.getElementById('project-management-page').classList.remove('hidden');
     } else {
+        console.log('🔙 [Navigation] Returning to home page');
         document.getElementById('home-page').classList.remove('hidden');
     }
 }
