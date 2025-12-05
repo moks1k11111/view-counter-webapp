@@ -690,11 +690,10 @@ async def get_project_analytics(
     # Если нет истории в SQLite, создаем точки для периода проекта
     history = daily_history.get("history", [])
     growth_24h = daily_history.get("growth_24h", 0)
+    today = datetime.now().strftime('%Y-%m-%d')
 
     if len(history) == 0 and total_views > 0:
         # Нет исторических данных - показываем только текущую точку
-        today = datetime.now().strftime('%Y-%m-%d')
-
         history = [{
             "date": today,
             "views": total_views
@@ -704,7 +703,21 @@ async def get_project_analytics(
         logger.warning(f"⚠️ No historical data available. Showing only current point: {today} with {total_views} views")
         logger.info(f"💡 To enable historical chart, add daily snapshots using POST /api/accounts/{{account_id}}/snapshot")
     else:
+        # Есть историческая data из snapshots
         logger.info(f"📊 Loaded real history: {len(history)} days, growth_24h: {growth_24h}")
+
+        # Если последняя точка НЕ сегодня - добавляем сегодняшнюю динамическую точку из Google Sheets
+        if history and history[-1]['date'] != today and total_views > 0:
+            # Вычисляем прирост за 24ч как разницу между сегодня и последней точкой
+            last_day_views = history[-1]['views']
+            growth_24h = total_views - last_day_views
+
+            history.append({
+                "date": today,
+                "views": total_views  # Динамические данные из Google Sheets!
+            })
+
+            logger.info(f"📊 Added today's dynamic point: {today} with {total_views} views (growth: +{growth_24h})")
 
     return {
         "project": project,
@@ -814,12 +827,24 @@ async def get_my_analytics(
         # Если нет истории в SQLite, показываем только текущую точку
         history = daily_history.get("history", [])
         growth_24h = daily_history.get("growth_24h", 0)
+        today = datetime.now().strftime('%Y-%m-%d')
 
         if len(history) == 0 and total_views > 0:
             # Показываем только сегодняшнюю точку с реальными данными
-            today = datetime.now().strftime('%Y-%m-%d')
             history = [{"date": today, "views": total_views}]
             growth_24h = 0  # Нет истории = нет прироста
+        else:
+            # Если последняя точка НЕ сегодня - добавляем сегодняшнюю динамическую точку
+            if history and history[-1]['date'] != today and total_views > 0:
+                last_day_views = history[-1]['views']
+                growth_24h = total_views - last_day_views
+
+                history.append({
+                    "date": today,
+                    "views": total_views  # Динамические данные из Google Sheets!
+                })
+
+                logger.info(f"📊 [My Analytics] Added today's dynamic point: {today} with {total_views} views")
 
         return {
             "project": project,
