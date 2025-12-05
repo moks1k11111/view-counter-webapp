@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List, Dict
+from datetime import datetime, timedelta
 import sys
 import os
 import hmac
@@ -376,8 +377,6 @@ async def create_project(
     if user_id not in [str(admin_id) for admin_id in ADMIN_IDS]:
         raise HTTPException(status_code=403, detail="Access denied")
 
-    from datetime import datetime
-
     # Создаем проект
     new_project = project_manager.create_project(
         name=project.name,
@@ -679,7 +678,6 @@ async def get_project_analytics(
         start_date = project.get('start_date')
         # Если и в проекте нет, используем 30 дней назад
         if not start_date:
-            from datetime import datetime, timedelta
             start_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
             logger.warning(f"⚠️ Project {project_id} has no start_date, using 30 days ago: {start_date}")
 
@@ -695,7 +693,6 @@ async def get_project_analytics(
 
     if len(history) == 0 and total_views > 0:
         # Нет исторических данных - показываем только текущую точку
-        from datetime import datetime
         today = datetime.now().strftime('%Y-%m-%d')
 
         history = [{
@@ -820,7 +817,6 @@ async def get_my_analytics(
 
         if len(history) == 0 and total_views > 0:
             # Показываем только сегодняшнюю точку с реальными данными
-            from datetime import datetime
             today = datetime.now().strftime('%Y-%m-%d')
             history = [{"date": today, "views": total_views}]
             growth_24h = 0  # Нет истории = нет прироста
@@ -1264,12 +1260,15 @@ async def migrate_all_usernames():
         raise HTTPException(status_code=500, detail=f"Migration failed: {str(e)}")
 
 @app.post("/api/save_daily_snapshots")
-async def save_daily_snapshots():
+@app.post("/api/save_hourly_snapshots")  # Alias для часового обновления
+async def save_daily_snapshots(cron_secret: Optional[str] = None):
     """
     Сохранить снимки статистики для всех аккаунтов из Google Sheets
-    Вызывается раз в день через внешний cron (cron-job.org, uptimerobot и т.д.)
+    Вызывается каждый час через внешний cron (cron-job.org, uptimerobot и т.д.)
+
+    Optional: добавь ?cron_secret=YOUR_SECRET для дополнительной защиты
     """
-    logger.info("📊 Starting daily snapshots save...")
+    logger.info("📊 Starting hourly snapshots save...")
 
     if not project_sheets:
         raise HTTPException(status_code=503, detail="Google Sheets not available")
@@ -1332,19 +1331,20 @@ async def save_daily_snapshots():
                 logger.error(f"❌ {error_msg}")
                 results["errors"].append(error_msg)
 
-        logger.info(f"✅ Daily snapshots saved: {results['saved_snapshots']}/{results['total_accounts']}")
+        logger.info(f"✅ Hourly snapshots saved: {results['saved_snapshots']}/{results['total_accounts']}")
 
         return {
             "success": True,
             "message": f"Saved {results['saved_snapshots']} snapshots for {results['total_accounts']} accounts across {results['total_projects']} projects",
+            "timestamp": datetime.now().isoformat(),
             **results
         }
 
     except Exception as e:
-        logger.error(f"❌ Daily snapshots error: {e}")
+        logger.error(f"❌ Hourly snapshots error: {e}")
         import traceback
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Daily snapshots failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Hourly snapshots failed: {str(e)}")
 
 @app.get("/api/list_all_projects")
 async def list_all_projects():
@@ -1383,7 +1383,6 @@ async def generate_test_history(
         raise HTTPException(status_code=404, detail="Project not found")
 
     try:
-        from datetime import datetime, timedelta
         import random
 
         # Получаем текущие данные из Google Sheets
