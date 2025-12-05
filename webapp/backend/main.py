@@ -1263,6 +1263,89 @@ async def migrate_all_usernames():
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Migration failed: {str(e)}")
 
+@app.post("/api/save_daily_snapshots")
+async def save_daily_snapshots():
+    """
+    Сохранить снимки статистики для всех аккаунтов из Google Sheets
+    Вызывается раз в день через внешний cron (cron-job.org, uptimerobot и т.д.)
+    """
+    logger.info("📊 Starting daily snapshots save...")
+
+    if not project_sheets:
+        raise HTTPException(status_code=503, detail="Google Sheets not available")
+
+    results = {
+        "total_projects": 0,
+        "total_accounts": 0,
+        "saved_snapshots": 0,
+        "errors": []
+    }
+
+    try:
+        # Получаем все проекты
+        all_projects = project_manager.get_all_projects()
+        results["total_projects"] = len(all_projects)
+
+        for project in all_projects:
+            project_id = project['id']
+            project_name = project['name']
+
+            logger.info(f"📊 Processing project: {project_name}")
+
+            try:
+                # Получаем данные из Google Sheets
+                accounts_data = project_sheets.get_project_accounts(project_name)
+
+                for account_data in accounts_data:
+                    results["total_accounts"] += 1
+
+                    # Извлекаем данные
+                    profile_link = account_data.get('Link', '').strip()
+                    if not profile_link:
+                        continue
+
+                    # Находим аккаунт в SQLite по profile_link
+                    sqlite_accounts = project_manager.get_project_social_accounts(project_id)
+                    matching_account = next((acc for acc in sqlite_accounts if acc['profile_link'] == profile_link), None)
+
+                    if not matching_account:
+                        logger.warning(f"⚠️ Account not found in SQLite: {profile_link}")
+                        continue
+
+                    # Сохраняем snapshot
+                    success = project_manager.add_account_snapshot(
+                        account_id=matching_account['id'],
+                        followers=int(account_data.get('Followers', 0) or 0),
+                        likes=int(account_data.get('Likes', 0) or 0),
+                        comments=0,  # Нет в Sheets
+                        videos=int(account_data.get('Videos', 0) or 0),
+                        views=int(account_data.get('Views', 0) or 0)
+                    )
+
+                    if success:
+                        results["saved_snapshots"] += 1
+                    else:
+                        results["errors"].append(f"Failed to save snapshot for {profile_link}")
+
+            except Exception as e:
+                error_msg = f"Error processing project {project_name}: {str(e)}"
+                logger.error(f"❌ {error_msg}")
+                results["errors"].append(error_msg)
+
+        logger.info(f"✅ Daily snapshots saved: {results['saved_snapshots']}/{results['total_accounts']}")
+
+        return {
+            "success": True,
+            "message": f"Saved {results['saved_snapshots']} snapshots for {results['total_accounts']} accounts across {results['total_projects']} projects",
+            **results
+        }
+
+    except Exception as e:
+        logger.error(f"❌ Daily snapshots error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Daily snapshots failed: {str(e)}")
+
 @app.delete("/api/projects/{project_id}")
 async def delete_project(
     project_id: str,
