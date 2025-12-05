@@ -990,6 +990,8 @@ class ProjectManager:
             # Если нет данных в account_daily_stats, берем из account_snapshots
             if not history:
                 logger.info(f"📊 No data in account_daily_stats, trying account_snapshots for project {project_id}...")
+                logger.info(f"📊 Account IDs: {account_ids}")
+                logger.info(f"📊 Date range: {start_date} to {end_date}")
 
                 query = f'''
                     SELECT DATE(snapshot_time) as date, SUM(views) as total_views
@@ -1008,8 +1010,13 @@ class ProjectManager:
 
                 query += ' GROUP BY DATE(snapshot_time) ORDER BY DATE(snapshot_time) ASC'
 
+                logger.info(f"📊 Query: {query}")
+                logger.info(f"📊 Params: {params}")
+
                 self.db.cursor.execute(query, params)
                 rows = self.db.cursor.fetchall()
+
+                logger.info(f"📊 Raw rows from query: {rows[:5] if rows else 'EMPTY'}")
 
                 for row in rows:
                     history.append({
