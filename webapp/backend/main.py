@@ -1524,6 +1524,60 @@ async def debug_project_snapshots(project_id: str):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/api/projects/{project_id}/fix_dates_for_test_data")
+async def fix_project_dates_for_test_data(project_id: str):
+    """Update project start_date to match the earliest snapshot (for test data)"""
+    try:
+        # Get project info
+        project = project_manager.get_project(project_id)
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+
+        # Get accounts for this project
+        project_manager.db.cursor.execute('''
+            SELECT id FROM project_social_accounts
+            WHERE project_id = ? AND is_active = 1
+        ''', (project_id,))
+        account_ids = [row[0] for row in project_manager.db.cursor.fetchall()]
+
+        if not account_ids:
+            raise HTTPException(status_code=400, detail="No accounts found for project")
+
+        # Find the earliest snapshot date
+        placeholders = ','.join('?' * len(account_ids))
+        project_manager.db.cursor.execute(f'''
+            SELECT MIN(DATE(snapshot_time)) as earliest_date
+            FROM account_snapshots
+            WHERE account_id IN ({placeholders})
+        ''', account_ids)
+        result = project_manager.db.cursor.fetchone()
+        earliest_date = result[0] if result and result[0] else None
+
+        if not earliest_date:
+            raise HTTPException(status_code=400, detail="No snapshots found for project")
+
+        # Update project start_date
+        old_start_date = project.get('start_date')
+        project_manager.db.cursor.execute('''
+            UPDATE projects
+            SET start_date = ?
+            WHERE id = ?
+        ''', (earliest_date, project_id))
+        project_manager.db.conn.commit()
+
+        return {
+            "success": True,
+            "message": f"Updated project start_date from {old_start_date} to {earliest_date}",
+            "old_start_date": old_start_date,
+            "new_start_date": earliest_date
+        }
+
+    except Exception as e:
+        logger.error(f"❌ Fix dates error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.delete("/api/projects/{project_id}")
 async def delete_project(
     project_id: str,
