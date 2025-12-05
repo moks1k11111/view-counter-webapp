@@ -867,9 +867,14 @@ function createProgressBars(platforms) {
 }
 
 function connectToProgressStream(projectId) {
-    const eventSource = new EventSource(`${API_BASE_URL}/api/projects/${projectId}/refresh_stats/stream`, {
-        withCredentials: true
-    });
+    // Получаем init_data из Telegram WebApp
+    const initData = tg.initData || '';
+
+    // Кодируем init_data для передачи в URL
+    const encodedInitData = encodeURIComponent(initData);
+
+    // Создаем EventSource с init_data в query параметре
+    const eventSource = new EventSource(`${API_BASE_URL}/api/projects/${projectId}/refresh_stats/stream?init_data=${encodedInitData}`);
 
     eventSource.onmessage = (event) => {
         try {

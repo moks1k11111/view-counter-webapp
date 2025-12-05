@@ -1155,10 +1155,19 @@ async def import_from_sheets(
 @app.get("/api/projects/{project_id}/refresh_stats/stream")
 async def refresh_stats_stream(
     project_id: str,
-    user: dict = Depends(get_current_user)
+    init_data: str = None
 ):
     """SSE endpoint для стриминга прогресса обновления статистики"""
-    logger.info(f"📡 Client connected to progress stream for project {project_id}")
+
+    # Проверяем авторизацию через query параметр (EventSource не поддерживает headers)
+    if not init_data:
+        raise HTTPException(status_code=401, detail="init_data required")
+
+    try:
+        user = validate_telegram_init_data(init_data)
+        logger.info(f"📡 Client connected to progress stream for project {project_id} (user: {user.get('id')})")
+    except HTTPException:
+        raise HTTPException(status_code=401, detail="Invalid init_data")
 
     async def event_generator():
         """Генератор событий прогресса"""
