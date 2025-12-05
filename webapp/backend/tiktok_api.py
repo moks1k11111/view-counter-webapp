@@ -121,7 +121,7 @@ class TikTokAPI:
             logger.error(f"Ошибка запроса: {e}")
             raise
     
-    def get_user_posts_with_full_pagination(self, sec_uid, max_videos=500, max_retries=10):
+    def get_user_posts_with_full_pagination(self, sec_uid, max_videos=100, max_retries=3):
         """
         🔥 УЛУЧШЕННАЯ ВЕРСИЯ: Получение ВСЕХ постов с расширенной пагинацией
         
@@ -152,8 +152,8 @@ class TikTokAPI:
                 }
                 
                 logger.info(f"\n📄 Страница {page} (cursor: {cursor})...")
-                
-                response = requests.get(endpoint, headers=self.headers, params=querystring, timeout=30)
+
+                response = requests.get(endpoint, headers=self.headers, params=querystring, timeout=15)
                 response.raise_for_status()
                 data = response.json()
                 
@@ -193,9 +193,9 @@ class TikTokAPI:
                         logger.warning(f"   ⚠️ Получено 0 новых видео, но API говорит hasMore=True")
                         retry_count += 1
                     
-                    # Задержка между запросами
+                    # Задержка между запросами (уменьшили с 2 до 1 сек)
                     if has_more:
-                        time.sleep(2)
+                        time.sleep(1)
                 else:
                     logger.error("   ❌ Нет данных в ответе")
                     break
@@ -229,10 +229,10 @@ class TikTokAPI:
             if not sec_uid:
                 raise Exception("Не удалось получить secUid пользователя")
             
-            # Шаг 2: Получаем все посты с расширенной пагинацией
+            # Шаг 2: Получаем все посты с расширенной пагинацией (макс 100 видео)
             time.sleep(2)
             if use_extended_pagination:
-                items = self.get_user_posts_with_full_pagination(sec_uid, max_videos=500)
+                items = self.get_user_posts_with_full_pagination(sec_uid, max_videos=100)
             else:
                 # Старый метод (оставлен для совместимости)
                 items = self._get_user_posts_old(sec_uid)

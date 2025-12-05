@@ -1227,9 +1227,9 @@ async def refresh_project_stats(
                     updated_count += 1
                     logger.info(f"✅ Updated {username}: {stats.get('total_views', 0)} views")
 
-                    # Задержка между запросами чтобы не нарваться на rate limit
+                    # Задержка между аккаунтами (уменьшили с 2 до 1 сек)
                     import time
-                    time.sleep(2)
+                    time.sleep(1)
 
             except Exception as e:
                 failed_count += 1

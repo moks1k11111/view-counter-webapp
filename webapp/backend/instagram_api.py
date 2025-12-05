@@ -41,7 +41,7 @@ class InstagramAPI:
         logger.error(f"❌ Не удалось извлечь username из URL: {url}")
         raise ValueError("Не удалось извлечь username из URL")
     
-    def get_user_reels(self, username, amount=500, max_pages=10):
+    def get_user_reels(self, username, amount=500, max_pages=3):
         """
         Получение reels пользователя с пагинацией
         
@@ -76,17 +76,23 @@ class InstagramAPI:
                 
                 logger.info(f"📄 Страница {page}...")
                 logger.info(f"📤 Запрос: {endpoint}")
-                logger.info(f"📦 Параметры: username={username}, amount={amount}" + 
+                logger.info(f"📦 Параметры: username={username}, amount={amount}" +
                            (f", pagination_token=..." if pagination_token else ""))
-                
-                response = requests.post(
-                    endpoint,
-                    headers=self.headers,
-                    data=payload,
-                    timeout=30
-                )
-                
-                logger.info(f"📨 Статус: {response.status_code}")
+
+                try:
+                    response = requests.post(
+                        endpoint,
+                        headers=self.headers,
+                        data=payload,
+                        timeout=15  # Уменьшили timeout с 30 до 15 секунд
+                    )
+                    logger.info(f"📨 Статус: {response.status_code}")
+                except requests.Timeout:
+                    logger.error(f"⏱️ Timeout на странице {page}, пропускаем")
+                    break
+                except Exception as e:
+                    logger.error(f"❌ Ошибка запроса на странице {page}: {e}")
+                    break
                 
                 if response.status_code == 200:
                     data = response.json()
@@ -108,10 +114,10 @@ class InstagramAPI:
                     
                     page += 1
                     
-                    # Задержка между запросами
+                    # Задержка между запросами (уменьшили с 1 до 0.5 сек)
                     if page <= max_pages:
                         import time
-                        time.sleep(1)
+                        time.sleep(0.5)
                 
                 else:
                     logger.error(f"❌ Ошибка API: {response.status_code}")
@@ -184,8 +190,8 @@ class InstagramAPI:
             logger.info(f"🔍 ПОЛУЧЕНИЕ СТАТИСТИКИ @{username}")
             logger.info(f"{'='*60}\n")
             
-            # Получаем reels (максимум 500)
-            reels_data = self.get_user_reels(username, amount=500)
+            # Получаем reels (максимум 50 за запрос, 3 страницы = ~150 reels)
+            reels_data = self.get_user_reels(username, amount=50)
             
             if not reels_data.get("success"):
                 raise Exception(reels_data.get("error", "Failed to get reels"))
