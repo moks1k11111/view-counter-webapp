@@ -1511,7 +1511,9 @@ async def debug_project_snapshots(project_id: str):
                 "id": project['id'],
                 "name": project['name'],
                 "start_date": project.get('start_date'),
-                "end_date": project.get('end_date')
+                "end_date": project.get('end_date'),
+                "target_views": project.get('target_views', 0),
+                "kpi_views": project.get('kpi_views', 1000)
             },
             "accounts": snapshot_info,
             "total_accounts": len(accounts)
@@ -1573,6 +1575,37 @@ async def fix_project_dates_for_test_data(project_id: str):
 
     except Exception as e:
         logger.error(f"❌ Fix dates error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/projects/{project_id}/update_target_views")
+async def update_project_target_views(project_id: str, target_views: int):
+    """Update project target_views"""
+    try:
+        # Get project info
+        project = project_manager.get_project(project_id)
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+
+        # Update target_views
+        old_target = project.get('target_views', 0)
+        project_manager.db.cursor.execute('''
+            UPDATE projects
+            SET target_views = ?
+            WHERE id = ?
+        ''', (target_views, project_id))
+        project_manager.db.conn.commit()
+
+        return {
+            "success": True,
+            "message": f"Updated target_views from {old_target} to {target_views}",
+            "old_target_views": old_target,
+            "new_target_views": target_views
+        }
+
+    except Exception as e:
+        logger.error(f"❌ Update target_views error: {e}")
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
