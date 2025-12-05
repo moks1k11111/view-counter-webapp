@@ -71,11 +71,20 @@ class TikTokAPI:
             logger.info(f"=== ЗАПРОС ИНФОРМАЦИИ О ПОЛЬЗОВАТЕЛЕ ===")
             logger.info(f"Endpoint: {endpoint}")
             logger.info(f"Username: @{username}")
-            
+            logger.info(f"Headers: {self.headers}")
+
             response = requests.get(endpoint, headers=self.headers, params=querystring, timeout=30)
             logger.info(f"Статус код: {response.status_code}")
+
+            # Логируем тело ответа даже при ошибке
+            try:
+                response_text = response.text
+                logger.info(f"Response body: {response_text[:500]}")  # Первые 500 символов
+            except:
+                pass
+
             response.raise_for_status()
-            
+
             data = response.json()
             
             if data.get("statusCode") == 0:
