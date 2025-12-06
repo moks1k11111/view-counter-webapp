@@ -634,6 +634,10 @@ async def get_project_analytics(
                     if username and username.startswith('@'):
                         username = username[1:]
 
+                # Используем total_videos_fetched если > 0, иначе fallback на videos
+                total_vids = latest_snapshot.get('total_videos_fetched', 0)
+                videos_count = total_vids if total_vids > 0 else latest_snapshot.get('videos', 0)
+
                 all_profiles.append({
                     'telegram_user': account.get('telegram_user', 'Unknown'),
                     'username': username,  # Username из соц сети
@@ -641,7 +645,7 @@ async def get_project_analytics(
                     'followers': latest_snapshot.get('followers', 0),
                     'likes': latest_snapshot.get('likes', 0),
                     'comments': latest_snapshot.get('comments', 0),
-                    'videos': latest_snapshot.get('total_videos_fetched', latest_snapshot.get('videos', 0)),  # Все видео, не только KPI
+                    'videos': videos_count,  # Все видео (используем total_videos_fetched если есть)
                     'total_views': latest_snapshot.get('views', 0),
                     'platform': account.get('platform', 'tiktok').lower(),
                     'topic': account.get('topic', 'Не указано')
@@ -755,7 +759,7 @@ async def get_project_analytics(
         "users_stats": users_stats,
         "profiles": all_profiles,  # Список всех профилей для диаграммы аккаунтов
         "target_views": project['target_views'],
-        "progress_percent": round((total_views / project['target_views'] * 100), 2) if project['target_views'] > 0 else 0,
+        "progress_percent": min(100, round((total_views / project['target_views'] * 100), 2)) if project['target_views'] > 0 else 0,
         "history": history,
         "growth_24h": growth_24h
     }
@@ -882,7 +886,7 @@ async def get_my_analytics(
             "users_stats": users_stats,
             "profiles": profiles,  # Список всех профилей для диаграммы аккаунтов
             "target_views": project['target_views'],
-            "progress_percent": round((total_views / project['target_views'] * 100), 2) if project['target_views'] > 0 else 0,
+            "progress_percent": min(100, round((total_views / project['target_views'] * 100), 2)) if project['target_views'] > 0 else 0,
             "history": history,
             "growth_24h": growth_24h
         }
