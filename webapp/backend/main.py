@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends, Header
+from fastapi import FastAPI, HTTPException, Depends, Header, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -1240,6 +1240,7 @@ async def get_refresh_progress(
 async def refresh_project_stats(
     project_id: str,
     request: RefreshStatsRequest,
+    background_tasks: BackgroundTasks,
     user: dict = Depends(get_current_user)
 ):
     """Обновить статистику для выбранных платформ через API"""
@@ -1249,22 +1250,8 @@ async def refresh_project_stats(
     if user['id'] not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Only admins can refresh stats")
 
-    # Get project
-    project = project_manager.get_project(project_id)
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-
-    if not project_sheets:
-        raise HTTPException(status_code=503, detail="Google Sheets not available")
-
-    if not tiktok_api and not instagram_api:
-        raise HTTPException(status_code=503, detail="Stats API clients not available")
-
+    # НЕМЕДЛЕННАЯ инициализация прогресса (до любых медленных операций!)
     try:
-        # Получаем KPI проекта
-        kpi_views = project.get('kpi_views', 1000)
-        logger.info(f"📊 Project KPI: >= {kpi_views:,} просмотров на видео")
-
         # Получаем все аккаунты проекта
         accounts = project_manager.get_project_social_accounts(project_id)
         logger.info(f"📊 Found {len(accounts)} accounts in project")
@@ -1276,116 +1263,142 @@ async def refresh_project_stats(
                 count = sum(1 for acc in accounts if acc.get('platform', 'tiktok').lower() == platform)
                 platform_stats[platform] = {'total': count, 'processed': 0, 'updated': 0, 'failed': 0}
 
-        # Инициализируем прогресс в глобальном хранилище
+        # Инициализируем прогресс в глобальном хранилище СРАЗУ
         refresh_progress[project_id] = platform_stats.copy()
-        logger.info(f"🔧 Initialized refresh_progress[{project_id}] = {refresh_progress[project_id]}")
+        logger.info(f"🔧 IMMEDIATELY initialized refresh_progress[{project_id}] = {refresh_progress[project_id]}")
 
-        # Логируем прогресс-бар заголовок
-        logger.info(f"\n{'='*70}")
-        logger.info(f"📊 ПРОГРЕСС-БАР ОБНОВЛЕНИЯ СТАТИСТИКИ")
-        logger.info(f"{'='*70}")
-        for platform, stats in platform_stats.items():
-            logger.info(f"   {platform.upper()}: 0/{stats['total']} аккаунтов")
-        logger.info(f"{'='*70}\n")
+    except Exception as e:
+        logger.error(f"❌ Failed to initialize progress: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to initialize progress: {str(e)}")
 
-        updated_count = 0
-        failed_count = 0
-        errors = []
+    # Теперь делаем остальные проверки
+    project = project_manager.get_project(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
 
-        for account in accounts:
-            platform = account.get('platform', 'tiktok').lower()
-            profile_link = account.get('profile_link', '')
-            username = account.get('username', '')
+    if not project_sheets:
+        raise HTTPException(status_code=503, detail="Google Sheets not available")
 
-            # Пропускаем если платформа не выбрана для обновления
-            if not request.platforms.get(platform, False):
-                logger.info(f"⏭️ Skipping {platform} account {username} (platform not selected)")
-                continue
+    if not tiktok_api and not instagram_api:
+        raise HTTPException(status_code=503, detail="Stats API clients not available")
 
-            logger.info(f"🔄 Updating {platform} account: {username}")
+    # Получаем KPI проекта
+    kpi_views = project.get('kpi_views', 1000)
+    logger.info(f"📊 Project KPI: >= {kpi_views:,} просмотров на видео")
 
-            try:
-                stats = None
+    # Запускаем обработку в фоне
+    background_tasks.add_task(
+        process_accounts_background,
+        project_id=project_id,
+        project=project,
+        accounts=accounts,
+        platforms=request.platforms,
+        platform_stats=platform_stats,
+        kpi_views=kpi_views
+    )
 
-                # Получаем статистику в зависимости от платформы (с KPI фильтрацией)
-                if platform == 'tiktok' and tiktok_api:
-                    stats = tiktok_api.get_tiktok_data(profile_link, kpi_views=kpi_views)
-                elif platform == 'instagram' and instagram_api:
-                    stats = instagram_api.get_instagram_data(profile_link, kpi_views=kpi_views)
-                else:
-                    logger.warning(f"⚠️ Platform {platform} not supported yet")
-                    if platform in platform_stats:
-                        platform_stats[platform]['processed'] += 1
-                        platform_stats[platform]['failed'] += 1
-                        # Обновляем глобальный прогресс
-                        refresh_progress[project_id][platform] = platform_stats[platform].copy()
-                    continue
+    logger.info(f"✅ Background task started for project {project_id}")
 
-                if stats:
-                    # Обновляем в Google Sheets
-                    stats_dict = {
-                        'followers': stats.get('followers', 0),
-                        'likes': stats.get('likes', stats.get('total_likes', 0)),
-                        'videos': stats.get('videos', stats.get('reels', 0)),
-                        'views': stats.get('total_views', 0),
-                        'comments': 0  # Не все API возвращают комментарии
-                    }
-                    project_sheets.update_account_stats(
-                        project_name=project['name'],
-                        username=username,
-                        stats=stats_dict
-                    )
+    # Возвращаем успех СРАЗУ, чтобы polling мог начать получать прогресс
+    return {
+        "success": True,
+        "message": "Stats refresh started in background",
+        "total_accounts": len(accounts)
+    }
 
-                    # Создаем snapshot в SQLite
-                    project_manager.add_account_snapshot(
-                        account_id=account['id'],
-                        followers=stats.get('followers', 0),
-                        likes=stats.get('likes', stats.get('total_likes', 0)),
-                        comments=0,
-                        videos=stats.get('videos', stats.get('reels', 0)),
-                        views=stats.get('total_views', 0)
-                    )
 
-                    updated_count += 1
+def process_accounts_background(
+    project_id: str,
+    project: dict,
+    accounts: list,
+    platforms: dict,
+    platform_stats: dict,
+    kpi_views: int
+):
+    """
+    Фоновая обработка аккаунтов с обновлением прогресса
+    """
+    import time
 
-                    # Обновляем прогресс-бар
-                    if platform in platform_stats:
-                        platform_stats[platform]['processed'] += 1
-                        platform_stats[platform]['updated'] += 1
-                        # Обновляем глобальный прогресс
-                        refresh_progress[project_id][platform] = platform_stats[platform].copy()
-                        logger.info(f"🔄 Updated refresh_progress[{project_id}][{platform}] = {refresh_progress[project_id][platform]}")
+    logger.info(f"\n{'='*70}")
+    logger.info(f"🚀 BACKGROUND TASK STARTED FOR PROJECT {project_id}")
+    logger.info(f"📊 ПРОГРЕСС-БАР ОБНОВЛЕНИЯ СТАТИСТИКИ")
+    logger.info(f"{'='*70}")
+    for platform, stats in platform_stats.items():
+        logger.info(f"   {platform.upper()}: 0/{stats['total']} аккаунтов")
+    logger.info(f"{'='*70}\n")
 
-                    logger.info(f"✅ Updated {username}: {stats.get('total_views', 0)} views")
+    updated_count = 0
+    failed_count = 0
+    errors = []
 
-                    # Логируем прогресс-бар после каждого обновления
-                    logger.info(f"\n{'='*70}")
-                    logger.info(f"📊 ПРОГРЕСС ОБНОВЛЕНИЯ:")
-                    logger.info(f"{'='*70}")
-                    for plt, pstats in platform_stats.items():
-                        progress_percent = (pstats['processed'] / pstats['total'] * 100) if pstats['total'] > 0 else 0
-                        logger.info(f"   {plt.upper()}: {pstats['processed']}/{pstats['total']} ({progress_percent:.0f}%) | ✅ {pstats['updated']} | ❌ {pstats['failed']}")
-                    logger.info(f"{'='*70}\n")
+    for account in accounts:
+        platform = account.get('platform', 'tiktok').lower()
+        profile_link = account.get('profile_link', '')
+        username = account.get('username', '')
 
-                    # Задержка между аккаунтами (уменьшили с 2 до 1 сек)
-                    import time
-                    time.sleep(1)
+        # Пропускаем если платформа не выбрана для обновления
+        if not platforms.get(platform, False):
+            logger.info(f"⏭️ Skipping {platform} account {username} (platform not selected)")
+            continue
 
-            except Exception as e:
-                failed_count += 1
+        logger.info(f"🔄 Updating {platform} account: {username}")
 
-                # Обновляем прогресс-бар
+        try:
+            stats = None
+
+            # Получаем статистику в зависимости от платформы (с KPI фильтрацией)
+            if platform == 'tiktok' and tiktok_api:
+                stats = tiktok_api.get_tiktok_data(profile_link, kpi_views=kpi_views)
+            elif platform == 'instagram' and instagram_api:
+                stats = instagram_api.get_instagram_data(profile_link, kpi_views=kpi_views)
+            else:
+                logger.warning(f"⚠️ Platform {platform} not supported yet")
                 if platform in platform_stats:
                     platform_stats[platform]['processed'] += 1
                     platform_stats[platform]['failed'] += 1
                     # Обновляем глобальный прогресс
                     refresh_progress[project_id][platform] = platform_stats[platform].copy()
+                continue
 
-                error_msg = f"Failed to update {username}: {str(e)}"
-                errors.append(error_msg)
-                logger.error(f"❌ {error_msg}")
+            if stats:
+                # Обновляем в Google Sheets
+                stats_dict = {
+                    'followers': stats.get('followers', 0),
+                    'likes': stats.get('likes', stats.get('total_likes', 0)),
+                    'videos': stats.get('videos', stats.get('reels', 0)),
+                    'views': stats.get('total_views', 0),
+                    'comments': 0  # Не все API возвращают комментарии
+                }
+                project_sheets.update_account_stats(
+                    project_name=project['name'],
+                    username=username,
+                    stats=stats_dict
+                )
 
-                # Логируем прогресс-бар после ошибки
+                # Создаем snapshot в SQLite
+                project_manager.add_account_snapshot(
+                    account_id=account['id'],
+                    followers=stats.get('followers', 0),
+                    likes=stats.get('likes', stats.get('total_likes', 0)),
+                    comments=0,
+                    videos=stats.get('videos', stats.get('reels', 0)),
+                    views=stats.get('total_views', 0)
+                )
+
+                updated_count += 1
+
+                # Обновляем прогресс-бар
+                if platform in platform_stats:
+                    platform_stats[platform]['processed'] += 1
+                    platform_stats[platform]['updated'] += 1
+                    # Обновляем глобальный прогресс
+                    refresh_progress[project_id][platform] = platform_stats[platform].copy()
+                    logger.info(f"🔄 Updated refresh_progress[{project_id}][{platform}] = {refresh_progress[project_id][platform]}")
+
+                logger.info(f"✅ Updated {username}: {stats.get('total_views', 0)} views")
+
+                # Логируем прогресс-бар после каждого обновления
                 logger.info(f"\n{'='*70}")
                 logger.info(f"📊 ПРОГРЕСС ОБНОВЛЕНИЯ:")
                 logger.info(f"{'='*70}")
@@ -1394,33 +1407,45 @@ async def refresh_project_stats(
                     logger.info(f"   {plt.upper()}: {pstats['processed']}/{pstats['total']} ({progress_percent:.0f}%) | ✅ {pstats['updated']} | ❌ {pstats['failed']}")
                 logger.info(f"{'='*70}\n")
 
-                continue
+                # Задержка между аккаунтами (уменьшили с 2 до 1 сек)
+                time.sleep(1)
 
-        logger.info(f"✅ Stats refresh completed: {updated_count} updated, {failed_count} failed")
+        except Exception as e:
+            failed_count += 1
 
-        # Финальный прогресс-бар
-        logger.info(f"\n{'='*70}")
-        logger.info(f"📊 ИТОГОВЫЙ ПРОГРЕСС:")
-        logger.info(f"{'='*70}")
-        for plt, pstats in platform_stats.items():
-            logger.info(f"   {plt.upper()}: {pstats['total']} аккаунтов | ✅ {pstats['updated']} успешно | ❌ {pstats['failed']} ошибок")
-        logger.info(f"{'='*70}\n")
+            # Обновляем прогресс-бар
+            if platform in platform_stats:
+                platform_stats[platform]['processed'] += 1
+                platform_stats[platform]['failed'] += 1
+                # Обновляем глобальный прогресс
+                refresh_progress[project_id][platform] = platform_stats[platform].copy()
 
-        return {
-            "success": True,
-            "updated_count": updated_count,
-            "failed_count": failed_count,
-            "total_accounts": len(accounts),
-            "platform_stats": platform_stats,  # Статистика по платформам
-            "kpi_views": kpi_views,  # KPI проекта
-            "errors": errors[:5]  # Показываем первые 5 ошибок
-        }
+            error_msg = f"Failed to update {username}: {str(e)}"
+            errors.append(error_msg)
+            logger.error(f"❌ {error_msg}")
 
-    except Exception as e:
-        logger.error(f"❌ Stats refresh error: {e}")
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Stats refresh failed: {str(e)}")
+            # Логируем прогресс-бар после ошибки
+            logger.info(f"\n{'='*70}")
+            logger.info(f"📊 ПРОГРЕСС ОБНОВЛЕНИЯ:")
+            logger.info(f"{'='*70}")
+            for plt, pstats in platform_stats.items():
+                progress_percent = (pstats['processed'] / pstats['total'] * 100) if pstats['total'] > 0 else 0
+                logger.info(f"   {plt.upper()}: {pstats['processed']}/{pstats['total']} ({progress_percent:.0f}%) | ✅ {pstats['updated']} | ❌ {pstats['failed']}")
+            logger.info(f"{'='*70}\n")
+
+            continue
+
+    logger.info(f"✅ Stats refresh completed: {updated_count} updated, {failed_count} failed")
+
+    # Финальный прогресс-бар
+    logger.info(f"\n{'='*70}")
+    logger.info(f"📊 ИТОГОВЫЙ ПРОГРЕСС:")
+    logger.info(f"{'='*70}")
+    for plt, pstats in platform_stats.items():
+        logger.info(f"   {plt.upper()}: {pstats['total']} аккаунтов | ✅ {pstats['updated']} успешно | ❌ {pstats['failed']} ошибок")
+    logger.info(f"{'='*70}\n")
+
+    logger.info(f"🏁 BACKGROUND TASK COMPLETED FOR PROJECT {project_id}")
 
 @app.post("/api/projects/{project_id}/migrate_platform_column")
 async def migrate_platform_column(
