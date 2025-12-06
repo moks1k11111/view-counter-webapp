@@ -469,7 +469,7 @@ async def get_project_analytics(
                 logger.info(f"🔍 DEBUG Username from Sheets: '{account.get('Username', '')}' (type: {type(account.get('Username', '')).__name__})")
                 logger.info(f"🔍 DEBUG @Username from Sheets: '{account.get('@Username', '')}' (type: {type(account.get('@Username', '')).__name__})")
 
-                # Извлекаем username и определяем платформу из URL
+                # ПРИОРИТЕТ: Берем username из Google Sheets напрямую
                 url = account.get('Link', '').strip()  # Убираем пробелы
                 url_lower = url.lower()  # Для проверки без учета регистра
                 username = None
@@ -477,90 +477,105 @@ async def get_project_analytics(
 
                 logger.info(f"🔍 Processing account: url='{url}', platform_from_sheets='{platform}'")
 
-                # Определяем платформу и username из URL (без учета регистра)
+                # СНАЧАЛА пробуем взять username напрямую из Google Sheets
+                sheets_username = account.get('Username', '').strip()
+                if sheets_username:
+                    username = sheets_username
+                    logger.info(f"✅ Using Username from Google Sheets: '{username}'")
+
+                # Определяем платформу из URL (даже если username уже есть из Sheets)
                 if 'tiktok.com' in url_lower:
                     platform = platform or 'tiktok'
-                    if '/@' in url:
-                        username = url.split('/@')[1].split('?')[0].split('/')[0]
                 elif 'instagram.com' in url_lower:
                     platform = platform or 'instagram'
-                    # Instagram URLs: instagram.com/username/ или instagram.com/@username/
-                    clean_url = url.rstrip('/').split('?')[0]
-                    parts = clean_url.split('/')
-                    logger.info(f"🔍 Instagram URL parts: {parts}")
-                    # Ищем часть после instagram.com
-                    for i, part in enumerate(parts):
-                        logger.info(f"🔍 Checking part {i}: '{part}', contains instagram.com: {'instagram.com' in part}")
-                        if 'instagram.com' in part and i + 1 < len(parts):
-                            username_part = parts[i + 1]
-                            logger.info(f"🔍 Found username_part: '{username_part}'")
-                            # Убираем @ если есть
-                            username = username_part.lstrip('@')
-                            logger.info(f"🔍 Extracted Instagram username: '{username}'")
-                            break
                 elif 'facebook.com' in url_lower or 'fb.com' in url_lower:
                     platform = platform or 'facebook'
-                    # Facebook: проверяем формат profile.php?id=...
-                    if 'profile.php?id=' in url_lower:
-                        # Извлекаем ID из параметра
-                        try:
-                            import urllib.parse
-                            parsed = urllib.parse.urlparse(url)
-                            params = urllib.parse.parse_qs(parsed.query)
-                            if 'id' in params:
-                                username = params['id'][0]
-                        except:
-                            pass
-                    else:
-                        # Обычный формат facebook.com/share/ID или facebook.com/username
-                        clean_url = url.rstrip('/').split('?')[0]
-                        # Убираем пустые части после split
-                        parts = [p for p in clean_url.split('/') if p]
-
-                        if 'share' in parts:
-                            idx = parts.index('share')
-                            if idx + 1 < len(parts):
-                                username = parts[idx + 1]
-                        elif len(parts) > 0:
-                            # Берем последнюю непустую часть URL, кроме доменов
-                            for part in reversed(parts):
-                                if part and part not in ['facebook.com', 'www.facebook.com', 'fb.com', 'https:', 'http:']:
-                                    username = part
-                                    break
                 elif 'youtube.com' in url_lower or 'youtu.be' in url_lower:
                     platform = platform or 'youtube'
-                    # YouTube URLs: youtube.com/@username или youtube.com/c/username
-                    if '/@' in url:
-                        username = url.split('/@')[1].split('?')[0].split('/')[0]
-                    elif '/c/' in url_lower:
-                        username = url.split('/c/')[1].split('?')[0].split('/')[0]
-                    elif '/channel/' in url_lower:
-                        username = url.split('/channel/')[1].split('?')[0].split('/')[0]
                 elif 'threads.net' in url_lower:
                     platform = platform or 'threads'
-                    # Threads URLs: threads.net/@username
-                    if '/@' in url:
-                        username = url.split('/@')[1].split('?')[0].split('/')[0]
-                    else:
+
+                # Только если Username в Sheets пустой - пробуем парсить из URL
+                if not username:
+                    logger.info(f"⚠️ Username field empty in Sheets, trying to parse from URL")
+
+                    # Парсим username из URL в зависимости от платформы
+                    if 'tiktok.com' in url_lower:
+                        if '/@' in url:
+                            username = url.split('/@')[1].split('?')[0].split('/')[0]
+                    elif 'instagram.com' in url_lower:
+                        # Instagram URLs: instagram.com/username/ или instagram.com/@username/
                         clean_url = url.rstrip('/').split('?')[0]
                         parts = clean_url.split('/')
+                        logger.info(f"🔍 Instagram URL parts: {parts}")
+                        # Ищем часть после instagram.com
                         for i, part in enumerate(parts):
-                            if 'threads.net' in part and i + 1 < len(parts):
-                                username = parts[i + 1].lstrip('@')
+                            logger.info(f"🔍 Checking part {i}: '{part}', contains instagram.com: {'instagram.com' in part}")
+                            if 'instagram.com' in part and i + 1 < len(parts):
+                                username_part = parts[i + 1]
+                                logger.info(f"🔍 Found username_part: '{username_part}'")
+                                # Убираем @ если есть
+                                username = username_part.lstrip('@')
+                                logger.info(f"🔍 Extracted Instagram username: '{username}'")
                                 break
+                    elif 'facebook.com' in url_lower or 'fb.com' in url_lower:
+                        platform = platform or 'facebook'
+                        # Facebook: проверяем формат profile.php?id=...
+                        if 'profile.php?id=' in url_lower:
+                            # Извлекаем ID из параметра
+                            try:
+                                import urllib.parse
+                                parsed = urllib.parse.urlparse(url)
+                                params = urllib.parse.parse_qs(parsed.query)
+                                if 'id' in params:
+                                    username = params['id'][0]
+                            except:
+                                pass
+                        else:
+                            # Обычный формат facebook.com/share/ID или facebook.com/username
+                            clean_url = url.rstrip('/').split('?')[0]
+                            # Убираем пустые части после split
+                            parts = [p for p in clean_url.split('/') if p]
 
-                # Fallback на Username из Google Sheets (это username соц сети, не telegram)
+                            if 'share' in parts:
+                                idx = parts.index('share')
+                                if idx + 1 < len(parts):
+                                    username = parts[idx + 1]
+                            elif len(parts) > 0:
+                                # Берем последнюю непустую часть URL, кроме доменов
+                                for part in reversed(parts):
+                                    if part and part not in ['facebook.com', 'www.facebook.com', 'fb.com', 'https:', 'http:']:
+                                        username = part
+                                        break
+                    elif 'youtube.com' in url_lower or 'youtu.be' in url_lower:
+                        platform = platform or 'youtube'
+                        # YouTube URLs: youtube.com/@username или youtube.com/c/username
+                        if '/@' in url:
+                            username = url.split('/@')[1].split('?')[0].split('/')[0]
+                        elif '/c/' in url_lower:
+                            username = url.split('/c/')[1].split('?')[0].split('/')[0]
+                        elif '/channel/' in url_lower:
+                            username = url.split('/channel/')[1].split('?')[0].split('/')[0]
+                    elif 'threads.net' in url_lower:
+                        platform = platform or 'threads'
+                        # Threads URLs: threads.net/@username
+                        if '/@' in url:
+                            username = url.split('/@')[1].split('?')[0].split('/')[0]
+                        else:
+                            clean_url = url.rstrip('/').split('?')[0]
+                            parts = clean_url.split('/')
+                            for i, part in enumerate(parts):
+                                if 'threads.net' in part and i + 1 < len(parts):
+                                    username = parts[i + 1].lstrip('@')
+                                    break
+
+                # Если и URL парсинг не помог - fallback на @Username (telegram user)
                 if not username:
-                    sheets_username = account.get('Username', '').strip()
-                    if sheets_username:
-                        username = sheets_username
-                    else:
-                        # Последний fallback на @Username (telegram user)
-                        telegram_username = account.get('@Username', '').strip()
-                        if telegram_username and not telegram_username.startswith('@'):
-                            username = telegram_username
-                        elif telegram_username:
-                            username = telegram_username[1:]  # Убираем @
+                    telegram_username = account.get('@Username', '').strip()
+                    if telegram_username and not telegram_username.startswith('@'):
+                        username = telegram_username
+                    elif telegram_username:
+                        username = telegram_username[1:]  # Убираем @
 
                 # Финальный fallback
                 if not username:
