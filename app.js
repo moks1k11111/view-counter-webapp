@@ -991,7 +991,7 @@ function showCompletionScreen(progressData) {
     console.log('🎉 Showing completion screen with data:', progressData);
 
     // Находим контейнер прогресса
-    const progressContainer = document.getElementById('refreshProgressContent');
+    const progressContainer = document.getElementById('platform-progress-bars');
     if (!progressContainer) {
         console.error('❌ Progress container not found');
         return;
@@ -1065,7 +1065,7 @@ function showCompletionScreen(progressData) {
             </div>
         </div>
 
-        <button onclick="closeRefreshProgressModal()"
+        <button onclick="closeRefreshStatsModal()"
                 style="width: 100%; padding: 14px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                        color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: 500;
                        cursor: pointer; transition: all 0.2s;">
