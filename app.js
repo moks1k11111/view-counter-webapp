@@ -3197,8 +3197,8 @@ async function submitSocialAccount() {
             showSuccess('Аккаунт добавлен');
             closeAddSocialAccountModal();
 
-            // Обновляем список
-            await loadProjectSocialAccounts(projectId);
+            // Обновляем список с текущим режимом
+            await loadProjectSocialAccounts(projectId, currentProjectMode);
         } else {
             showError('Не удалось добавить аккаунт');
         }
@@ -3565,8 +3565,8 @@ async function deleteSocialAccount(accountId) {
         if (response.success) {
             showSuccess('Аккаунт успешно удален');
 
-            // Обновляем список
-            await loadProjectSocialAccounts(currentProjectId);
+            // Обновляем список с текущим режимом
+            await loadProjectSocialAccounts(currentProjectId, currentProjectMode);
         } else {
             showError('Не удалось удалить аккаунт');
         }
