@@ -353,7 +353,8 @@ async function renderProjects(projects) {
             grayscaleFilter = '';
         }
 
-        const progress = project.target_views > 0 ? Math.round((project.total_views / project.target_views) * 100) : 0;
+        // Используем progress_percent из API (уже ограничен до 100%)
+        const progress = hasAccess ? (project.progress_percent || 0) : 0;
         const daysRemaining = calculateDaysRemaining(project.end_date);
 
         // Determine days text based on finish status
