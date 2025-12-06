@@ -990,6 +990,12 @@ function updateProgressBar(platform, stats) {
 function showCompletionScreen(progressData) {
     console.log('🎉 Showing completion screen with data:', progressData);
 
+    // Скрываем заголовок и описание
+    const titleEl = document.getElementById('progress-title');
+    const descEl = document.getElementById('progress-description');
+    if (titleEl) titleEl.style.display = 'none';
+    if (descEl) descEl.style.display = 'none';
+
     // Находим контейнер прогресса
     const progressContainer = document.getElementById('platform-progress-bars');
     if (!progressContainer) {

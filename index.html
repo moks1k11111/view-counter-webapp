@@ -766,22 +766,18 @@
 
                 <!-- Шаг 2: Прогресс обновления -->
                 <div id="refresh-step-2" class="hidden">
-                    <h2 class="modal-title">Обновление статистики...</h2>
-                    <p class="modal-description" style="margin-bottom: 24px;">Пожалуйста, подождите. Это может занять несколько минут.</p>
+                    <h2 class="modal-title" id="progress-title">Обновление статистики...</h2>
+                    <p class="modal-description" id="progress-description" style="margin-bottom: 24px;">Пожалуйста, подождите. Это может занять несколько минут.</p>
 
                     <!-- Прогресс-бары для каждой платформы -->
                     <div id="platform-progress-bars" style="display: flex; flex-direction: column; gap: 16px;">
                         <!-- Прогресс-бары будут добавлены динамически через JS -->
                     </div>
-
-                    <button class="btn-secondary" onclick="closeRefreshStatsModal()" style="margin-top: 24px; display: none;" id="close-progress-btn">
-                        Закрыть
-                    </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <script src="app.js?v=1733525000"></script>
+    <script src="app.js?v=1733526000"></script>
 </body>
 </html>
