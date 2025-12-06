@@ -924,6 +924,39 @@ async def add_bonus(
         "bonus": bonus.dict()
     }
 
+@app.post("/api/admin/clear-snapshots")
+async def clear_all_snapshots(
+    user: dict = Depends(get_current_user)
+):
+    """Очистить все snapshots из базы данных (только для админов)"""
+    user_id = user.get('id')
+
+    # Проверка на админа
+    if user_id not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    try:
+        # Удаляем все snapshots и daily stats
+        project_manager.db.cursor.execute('DELETE FROM account_snapshots')
+        deleted_snapshots = project_manager.db.cursor.rowcount
+
+        project_manager.db.cursor.execute('DELETE FROM account_daily_stats')
+        deleted_daily_stats = project_manager.db.cursor.rowcount
+
+        project_manager.db.conn.commit()
+
+        logger.info(f"🗑️ Cleared {deleted_snapshots} snapshots and {deleted_daily_stats} daily stats by admin user {user_id}")
+
+        return {
+            "success": True,
+            "message": f"Cleared {deleted_snapshots} snapshots and {deleted_daily_stats} daily stats",
+            "deleted_snapshots": deleted_snapshots,
+            "deleted_daily_stats": deleted_daily_stats
+        }
+    except Exception as e:
+        logger.error(f"❌ Error clearing snapshots: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 # ============ API для управления социальными аккаунтами ============
 
 @app.post("/api/projects/{project_id}/accounts")
