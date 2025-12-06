@@ -2698,6 +2698,9 @@ async function loadProjectDetailsForAdmin(projectId) {
         console.log('✅ Analytics loaded successfully:', analytics);
         console.log('🔍 DEBUG: analytics.total_videos =', analytics.total_videos);
         console.log('🔍 DEBUG: analytics.total_profiles =', analytics.total_profiles);
+        console.log('🔍 DEBUG: Backend version =', analytics.backend_version || 'OLD VERSION');
+        console.log('🔍 DEBUG: progress_percent from backend =', analytics.progress_percent);
+        console.log('🔍 DEBUG: total_views =', analytics.total_views, 'target_views =', analytics.target_views);
         currentProjectDetailsData = analytics;
 
         // Обновляем название проекта

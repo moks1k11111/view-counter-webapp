@@ -761,7 +761,8 @@ async def get_project_analytics(
         "target_views": project['target_views'],
         "progress_percent": min(100, round((total_views / project['target_views'] * 100), 2)) if project['target_views'] > 0 else 0,
         "history": history,
-        "growth_24h": growth_24h
+        "growth_24h": growth_24h,
+        "backend_version": "v2.0_progress_fix"  # Для отладки версии бэкенда
     }
 
 @app.get("/api/my-analytics")
@@ -888,7 +889,8 @@ async def get_my_analytics(
             "target_views": project['target_views'],
             "progress_percent": min(100, round((total_views / project['target_views'] * 100), 2)) if project['target_views'] > 0 else 0,
             "history": history,
-            "growth_24h": growth_24h
+            "growth_24h": growth_24h,
+            "backend_version": "v2.0_progress_fix"  # Для отладки версии бэкенда
         }
 
     # Иначе возвращаем упрощенный формат (для общей статистики)
