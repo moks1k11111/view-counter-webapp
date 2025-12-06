@@ -922,6 +922,9 @@ function connectToProgressStream(projectId) {
                 if (allDone && progressKeys.length > 0) {
                     console.log('✅✅✅ All platforms completed! Stopping polling.');
                     if (pollInterval) clearInterval(pollInterval);
+
+                    // Показываем финальный экран с результатами
+                    showCompletionScreen(response.progress);
                 }
             } else {
                 console.warn(`⚠️ [Poll #${pollCount}] No progress data yet`);
@@ -982,6 +985,97 @@ function updateProgressBar(platform, stats) {
     } else {
         console.error(`❌ Element not found: progress-failed-${platform}`);
     }
+}
+
+function showCompletionScreen(progressData) {
+    console.log('🎉 Showing completion screen with data:', progressData);
+
+    // Находим контейнер прогресса
+    const progressContainer = document.getElementById('refreshProgressContent');
+    if (!progressContainer) {
+        console.error('❌ Progress container not found');
+        return;
+    }
+
+    // Подсчитываем общую статистику
+    let totalAccounts = 0;
+    let totalSuccess = 0;
+    let totalFailed = 0;
+
+    for (const [platform, stats] of Object.entries(progressData)) {
+        totalAccounts += stats.total || 0;
+        totalSuccess += stats.updated || 0;
+        totalFailed += stats.failed || 0;
+    }
+
+    // Создаём HTML для финального экрана
+    let platformsHTML = '';
+    const platformNames = {
+        'tiktok': 'TikTok',
+        'instagram': 'Instagram'
+    };
+
+    for (const [platform, stats] of Object.entries(progressData)) {
+        const platformName = platformNames[platform] || platform;
+        platformsHTML += `
+            <div style="background: rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 16px; margin-bottom: 12px;">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                    <span style="font-size: 24px;">${platform === 'tiktok' ? '📱' : '📸'}</span>
+                    <span style="font-size: 18px; font-weight: 500; color: #ffffff;">${platformName}</span>
+                </div>
+                <div style="display: flex; gap: 20px; margin-top: 12px;">
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <span style="font-size: 20px;">✅</span>
+                        <span style="color: #4ade80; font-size: 16px; font-weight: 500;">${stats.updated || 0}</span>
+                        <span style="color: rgba(255, 255, 255, 0.6); font-size: 14px;">успешно</span>
+                    </div>
+                    ${stats.failed > 0 ? `
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <span style="font-size: 20px;">❌</span>
+                        <span style="color: #f87171; font-size: 16px; font-weight: 500;">${stats.failed}</span>
+                        <span style="color: rgba(255, 255, 255, 0.6); font-size: 14px;">ошибок</span>
+                    </div>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+    }
+
+    const completionHTML = `
+        <div style="text-align: center; padding: 20px 0;">
+            <div style="font-size: 48px; margin-bottom: 16px;">🎉</div>
+            <h3 style="color: #ffffff; font-size: 24px; font-weight: 600; margin-bottom: 8px;">
+                Обновление завершено!
+            </h3>
+            <p style="color: rgba(255, 255, 255, 0.7); font-size: 16px; margin-bottom: 24px;">
+                Обработано ${totalAccounts} ${totalAccounts === 1 ? 'аккаунт' : totalAccounts < 5 ? 'аккаунта' : 'аккаунтов'}
+            </p>
+        </div>
+
+        <div style="margin-bottom: 24px;">
+            ${platformsHTML}
+        </div>
+
+        <div style="background: rgba(74, 222, 128, 0.1); border: 1px solid rgba(74, 222, 128, 0.3); border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; justify-content: center; gap: 12px;">
+                <span style="font-size: 20px;">✨</span>
+                <span style="color: #4ade80; font-size: 16px; font-weight: 500;">
+                    ${totalSuccess} из ${totalAccounts} аккаунтов обновлены успешно
+                </span>
+            </div>
+        </div>
+
+        <button onclick="closeRefreshProgressModal()"
+                style="width: 100%; padding: 14px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                       color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: 500;
+                       cursor: pointer; transition: all 0.2s;">
+            Закрыть
+        </button>
+    `;
+
+    // Заменяем содержимое
+    progressContainer.innerHTML = completionHTML;
+    console.log('✅ Completion screen displayed');
 }
 
 // ==================== END ADMIN PROJECT CONTROLS ====================
