@@ -737,6 +737,7 @@ async function finishProject(id) {
 }
 
 async function refreshProjectStats() {
+    console.log('🎯🎯🎯 refreshProjectStats CALLED');
     // Открываем модальное окно выбора платформ
     openRefreshStatsModal();
 }
@@ -744,16 +745,20 @@ async function refreshProjectStats() {
 // ==================== REFRESH STATS MODAL ====================
 
 function openRefreshStatsModal() {
-    document.getElementById('refresh-stats-modal').classList.remove('hidden');
+    console.log('🚪 Opening refresh stats modal');
+    const modal = document.getElementById('refresh-stats-modal');
+    console.log('Modal element:', modal);
+    modal.classList.remove('hidden');
+    console.log('Modal classList after remove hidden:', modal.classList);
 }
 
 function closeRefreshStatsModal() {
     document.getElementById('refresh-stats-modal').classList.add('hidden');
 
-    // Закрываем SSE соединение если оно открыто
-    if (window.currentProgressStream) {
-        window.currentProgressStream.close();
-        window.currentProgressStream = null;
+    // Останавливаем polling если он запущен
+    if (window.currentProgressPoll) {
+        clearInterval(window.currentProgressPoll);
+        window.currentProgressPoll = null;
     }
 
     // Сбрасываем модальное окно к первому шагу
@@ -766,7 +771,10 @@ function closeRefreshStatsModal() {
 }
 
 async function submitRefreshStats() {
+    console.log('🚀🚀🚀 submitRefreshStats FUNCTION CALLED!!! 🚀🚀🚀');
+    console.log('Version check: POLLING-v1');
     const projectId = window.currentProjectId;
+    console.log('Project ID:', projectId);
 
     if (!projectId) {
         showError('Проект не выбран');
@@ -788,21 +796,29 @@ async function submitRefreshStats() {
         return;
     }
 
+    console.log('🚀 Starting stats refresh for project:', projectId);
+    console.log('📋 Selected platforms:', platforms);
+
     // Переключаем на второй шаг - показываем прогресс
     document.getElementById('refresh-step-1').classList.add('hidden');
     document.getElementById('refresh-step-2').classList.remove('hidden');
+    console.log('✅ Switched to progress view');
 
     // Создаем прогресс-бары для выбранных платформ
+    console.log('🎨 Creating progress bars...');
     createProgressBars(platforms);
 
     // Подключаемся к SSE для получения прогресса
+    console.log('📡 Connecting to SSE stream...');
     connectToProgressStream(projectId);
 
     // Запускаем обновление статистики (не ждем завершения)
+    console.log('🔄 Starting API call to refresh stats...');
     apiCall(`/api/projects/${projectId}/refresh_stats`, {
         method: 'POST',
         body: JSON.stringify({ platforms })
     }).then(async (response) => {
+        console.log('✅ Stats refresh completed:', response);
         // Показываем кнопку закрытия
         document.getElementById('close-progress-btn').style.display = 'block';
         showSuccess(`✅ Статистика обновлена! Обновлено аккаунтов: ${response.updated_count}`);
@@ -817,7 +833,10 @@ async function submitRefreshStats() {
 }
 
 function createProgressBars(platforms) {
+    console.log('🎨🎨🎨 createProgressBars CALLED!!! 🎨🎨🎨');
+    console.log('Platforms to create:', platforms);
     const container = document.getElementById('platform-progress-bars');
+    console.log('Container found:', container);
     container.innerHTML = '';
 
     const platformIcons = {
@@ -863,72 +882,86 @@ function createProgressBars(platforms) {
         `;
 
         container.appendChild(progressDiv);
+        console.log(`✅ Created progress bar for ${platform}`);
     }
+    console.log('✅✅✅ All progress bars created! ✅✅✅');
 }
 
 function connectToProgressStream(projectId) {
-    // Получаем init_data из Telegram WebApp
-    const initData = tg.initData || '';
+    console.log('🔌 Starting progress polling for project:', projectId);
 
-    // Кодируем init_data для передачи в URL
-    const encodedInitData = encodeURIComponent(initData);
-
-    // Создаем EventSource с init_data в query параметре
-    const eventSource = new EventSource(`${API_BASE_URL}/api/projects/${projectId}/refresh_stats/stream?init_data=${encodedInitData}`);
-
-    eventSource.onmessage = (event) => {
+    // Используем простой polling вместо SSE
+    const pollInterval = setInterval(async () => {
         try {
-            const data = JSON.parse(event.data);
+            console.log('📡 Polling progress...');
+            const response = await apiCall(`/api/projects/${projectId}/refresh_progress`);
+            console.log('📊 Progress data:', response);
 
-            // Проверяем на завершение
-            if (data.status === 'completed') {
-                eventSource.close();
-                return;
-            }
+            if (response && response.progress) {
+                // Обновляем прогресс-бары
+                for (const [platform, stats] of Object.entries(response.progress)) {
+                    console.log(`🔄 Updating progress for ${platform}:`, stats);
+                    updateProgressBar(platform, stats);
+                }
 
-            // Обновляем прогресс-бары
-            for (const [platform, stats] of Object.entries(data)) {
-                updateProgressBar(platform, stats);
+                // Проверяем завершение
+                const allDone = Object.values(response.progress).every(
+                    stats => stats.processed >= stats.total && stats.total > 0
+                );
+
+                if (allDone) {
+                    console.log('✅ All platforms completed!');
+                    clearInterval(pollInterval);
+                }
             }
         } catch (error) {
-            console.error('Error parsing SSE data:', error);
+            console.error('❌ Error polling progress:', error);
         }
-    };
+    }, 1000); // Проверяем каждую секунду
 
-    eventSource.onerror = (error) => {
-        console.error('SSE connection error:', error);
-        eventSource.close();
-    };
-
-    // Сохраняем ссылку для закрытия при необходимости
-    window.currentProgressStream = eventSource;
+    // Сохраняем ID интервала для остановки
+    window.currentProgressPoll = pollInterval;
 }
 
 function updateProgressBar(platform, stats) {
     const { total, processed, updated, failed } = stats;
     const percent = total > 0 ? Math.round((processed / total) * 100) : 0;
 
+    console.log(`📊 Updating UI for ${platform}: ${processed}/${total} (${percent}%)`);
+
     // Обновляем текст прогресса
     const textEl = document.getElementById(`progress-text-${platform}`);
     if (textEl) {
         textEl.textContent = `${processed}/${total} (${percent}%)`;
+        console.log(`✅ Updated text for ${platform}`);
+    } else {
+        console.error(`❌ Element not found: progress-text-${platform}`);
     }
 
     // Обновляем ширину прогресс-бара
     const barEl = document.getElementById(`progress-bar-${platform}`);
     if (barEl) {
         barEl.style.width = `${percent}%`;
+        console.log(`✅ Updated bar width for ${platform}: ${percent}%`);
+    } else {
+        console.error(`❌ Element not found: progress-bar-${platform}`);
     }
 
     // Обновляем счетчики успеха/ошибок
     const successEl = document.getElementById(`progress-success-${platform}`);
     if (successEl) {
         successEl.textContent = updated;
+        console.log(`✅ Updated success count for ${platform}: ${updated}`);
+    } else {
+        console.error(`❌ Element not found: progress-success-${platform}`);
     }
 
     const failedEl = document.getElementById(`progress-failed-${platform}`);
     if (failedEl) {
         failedEl.textContent = failed;
+        console.log(`✅ Updated failed count for ${platform}: ${failed}`);
+    } else {
+        console.error(`❌ Element not found: progress-failed-${platform}`);
     }
 }
 

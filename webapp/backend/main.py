@@ -1173,13 +1173,18 @@ async def refresh_stats_stream(
         """Генератор событий прогресса"""
         try:
             last_progress = None
+            iteration = 0
             while True:
+                iteration += 1
                 # Получаем текущий прогресс
                 current_progress = dict(refresh_progress.get(project_id, {}))
+
+                logger.info(f"📡 SSE iteration {iteration}: current_progress = {current_progress}")
 
                 # Отправляем обновление только если прогресс изменился
                 if current_progress != last_progress:
                     data = json.dumps(current_progress)
+                    logger.info(f"📤 Sending SSE update: {data}")
                     yield f"data: {data}\n\n"
                     last_progress = current_progress.copy()
 
@@ -1190,8 +1195,11 @@ async def refresh_stats_stream(
                         if stats['total'] > 0
                     )
 
+                    logger.info(f"🔍 All done check: {all_done}, platforms: {len(current_progress)}")
+
                     if all_done and len(current_progress) > 0:
                         # Отправляем финальное событие
+                        logger.info(f"📤 Sending completion event")
                         yield f"data: {json.dumps({'status': 'completed'})}\n\n"
                         logger.info(f"✅ Progress stream completed for project {project_id}")
                         break
@@ -1214,6 +1222,19 @@ async def refresh_stats_stream(
             "X-Accel-Buffering": "no"  # Отключаем буферизацию для Nginx
         }
     )
+
+@app.get("/api/projects/{project_id}/refresh_progress")
+async def get_refresh_progress(
+    project_id: str,
+    user: dict = Depends(get_current_user)
+):
+    """Получить текущий прогресс обновления статистики"""
+    progress = dict(refresh_progress.get(project_id, {}))
+    logger.info(f"📊 Get progress for project {project_id}: {progress}")
+    return {
+        "success": True,
+        "progress": progress
+    }
 
 @app.post("/api/projects/{project_id}/refresh_stats")
 async def refresh_project_stats(
@@ -1257,6 +1278,7 @@ async def refresh_project_stats(
 
         # Инициализируем прогресс в глобальном хранилище
         refresh_progress[project_id] = platform_stats.copy()
+        logger.info(f"🔧 Initialized refresh_progress[{project_id}] = {refresh_progress[project_id]}")
 
         # Логируем прогресс-бар заголовок
         logger.info(f"\n{'='*70}")
@@ -1332,6 +1354,7 @@ async def refresh_project_stats(
                         platform_stats[platform]['updated'] += 1
                         # Обновляем глобальный прогресс
                         refresh_progress[project_id][platform] = platform_stats[platform].copy()
+                        logger.info(f"🔄 Updated refresh_progress[{project_id}][{platform}] = {refresh_progress[project_id][platform]}")
 
                     logger.info(f"✅ Updated {username}: {stats.get('total_views', 0)} views")
 
