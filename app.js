@@ -818,17 +818,11 @@ async function submitRefreshStats() {
         method: 'POST',
         body: JSON.stringify({ platforms })
     }).then(async (response) => {
-        console.log('✅ Stats refresh completed:', response);
-        // Показываем кнопку закрытия
-        document.getElementById('close-progress-btn').style.display = 'block';
-        showSuccess(`✅ Статистика обновлена! Обновлено аккаунтов: ${response.updated_count}`);
-
-        // Перезагружаем данные проекта
-        await openProject(projectId, currentProjectMode);
+        console.log('✅ Stats refresh started in background:', response);
+        // Не показываем уведомление, так как у нас есть финальный экран
     }).catch(error => {
-        console.error('Failed to refresh stats:', error);
-        showError('Не удалось обновить статистику: ' + error.message);
-        document.getElementById('close-progress-btn').style.display = 'block';
+        console.error('Failed to start stats refresh:', error);
+        showError('Не удалось запустить обновление статистики: ' + error.message);
     });
 }
 
@@ -924,7 +918,7 @@ function connectToProgressStream(projectId) {
                     if (pollInterval) clearInterval(pollInterval);
 
                     // Показываем финальный экран с результатами
-                    showCompletionScreen(response.progress);
+                    showCompletionScreen(projectId, response.progress);
                 }
             } else {
                 console.warn(`⚠️ [Poll #${pollCount}] No progress data yet`);
@@ -987,7 +981,7 @@ function updateProgressBar(platform, stats) {
     }
 }
 
-function showCompletionScreen(progressData) {
+function showCompletionScreen(projectId, progressData) {
     console.log('🎉 Showing completion screen with data:', progressData);
 
     // Скрываем заголовок и описание
@@ -1002,6 +996,14 @@ function showCompletionScreen(progressData) {
         console.error('❌ Progress container not found');
         return;
     }
+
+    // Перезагружаем данные проекта в фоне
+    console.log('🔄 Reloading project data...');
+    openProject(projectId, currentProjectMode).then(() => {
+        console.log('✅ Project data reloaded');
+    }).catch(err => {
+        console.error('❌ Failed to reload project data:', err);
+    });
 
     // Подсчитываем общую статистику
     let totalAccounts = 0;
