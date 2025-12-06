@@ -1101,13 +1101,12 @@ function displaySummaryStats(analytics) {
     // Рассчитываем количество участников
     const totalParticipants = Object.keys(users_stats || {}).length;
 
-    // Процент выполнения
-    const progress = project.target_views > 0
-        ? Math.round((total_views / project.target_views) * 100)
-        : 0;
+    // Процент выполнения - используем значение из бэкенда (уже ограничено до 100)
+    const progress = analytics.progress_percent || 0;
 
     console.log('🔍 DEBUG displaySummaryStats: total_videos =', total_videos, 'videosCount =', videosCount);
     console.log('🔍 DEBUG displaySummaryStats: total_profiles =', total_profiles, 'profilesCount =', profilesCount);
+    console.log('🔍 DEBUG displaySummaryStats: progress from backend =', analytics.progress_percent, 'using =', progress);
 
     document.getElementById('detail-total-views').textContent = formatNumber(total_views);
     document.getElementById('detail-progress').textContent = `${progress}%`;
