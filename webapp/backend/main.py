@@ -421,8 +421,8 @@ async def create_project(
     # Создаем лист в Google Sheets, если project_sheets доступен
     if project_sheets:
         try:
-            project_sheets.create_project_sheet(project['name'])
-            logger.info(f"✅ Лист '{project['name']}' создан в Google Sheets")
+            project_sheets.create_project_sheet(project.name)  # project - это Pydantic модель!
+            logger.info(f"✅ Лист '{project.name}' создан в Google Sheets")
         except Exception as e:
             logger.error(f"⚠️ Ошибка создания листа в Google Sheets: {e}")
             import traceback
