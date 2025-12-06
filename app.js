@@ -888,19 +888,26 @@ function createProgressBars(platforms) {
 }
 
 function connectToProgressStream(projectId) {
-    console.log('🔌 Starting progress polling for project:', projectId);
+    console.log('🔌🔌🔌 Starting progress polling for project:', projectId);
+    console.log('Will poll every 1 second');
+
+    let pollCount = 0;
 
     // Используем простой polling вместо SSE
     const pollInterval = setInterval(async () => {
+        pollCount++;
         try {
-            console.log('📡 Polling progress...');
+            console.log(`📡 [Poll #${pollCount}] Fetching progress...`);
             const response = await apiCall(`/api/projects/${projectId}/refresh_progress`);
-            console.log('📊 Progress data:', response);
+            console.log(`📊 [Poll #${pollCount}] Response:`, JSON.stringify(response));
 
             if (response && response.progress) {
+                const progressKeys = Object.keys(response.progress);
+                console.log(`✅ [Poll #${pollCount}] Got progress for platforms:`, progressKeys);
+
                 // Обновляем прогресс-бары
                 for (const [platform, stats] of Object.entries(response.progress)) {
-                    console.log(`🔄 Updating progress for ${platform}:`, stats);
+                    console.log(`🔄 [Poll #${pollCount}] Updating ${platform}:`, stats);
                     updateProgressBar(platform, stats);
                 }
 
@@ -909,18 +916,23 @@ function connectToProgressStream(projectId) {
                     stats => stats.processed >= stats.total && stats.total > 0
                 );
 
-                if (allDone) {
-                    console.log('✅ All platforms completed!');
+                console.log(`🎯 [Poll #${pollCount}] All done check:`, allDone);
+
+                if (allDone && progressKeys.length > 0) {
+                    console.log('✅✅✅ All platforms completed! Stopping polling.');
                     clearInterval(pollInterval);
                 }
+            } else {
+                console.warn(`⚠️ [Poll #${pollCount}] No progress data yet`);
             }
         } catch (error) {
-            console.error('❌ Error polling progress:', error);
+            console.error(`❌ [Poll #${pollCount}] Error:`, error);
         }
     }, 1000); // Проверяем каждую секунду
 
     // Сохраняем ID интервала для остановки
     window.currentProgressPoll = pollInterval;
+    console.log('✅ Polling started with interval ID:', pollInterval);
 }
 
 function updateProgressBar(platform, stats) {
