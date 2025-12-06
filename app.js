@@ -2693,18 +2693,8 @@ async function loadProjectDetailsForAdmin(projectId) {
         window.currentProjectId = projectId;
         currentProjectId = projectId;
 
-        // Загружаем детальную информацию о проекте
-        const analyticsResponse = await fetch(`${API_BASE_URL}/api/projects/${projectId}/analytics`, {
-            headers: { 'X-Telegram-Init-Data': tg.initData }
-        });
-
-        if (!analyticsResponse.ok) {
-            const errorText = await analyticsResponse.text();
-            console.error(`Analytics API error (${analyticsResponse.status}):`, errorText);
-            throw new Error(`Failed to load project analytics: ${analyticsResponse.status} - ${errorText}`);
-        }
-
-        const analytics = await analyticsResponse.json();
+        // Загружаем детальную информацию о проекте (используем apiCall для избежания кэширования)
+        const analytics = await apiCall(`/api/projects/${projectId}/analytics`);
         console.log('✅ Analytics loaded successfully:', analytics);
         console.log('🔍 DEBUG: analytics.total_videos =', analytics.total_videos);
         console.log('🔍 DEBUG: analytics.total_profiles =', analytics.total_profiles);
