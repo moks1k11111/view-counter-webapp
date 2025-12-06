@@ -2526,6 +2526,28 @@ function closeProjectManagement() {
     document.getElementById('admin-page').classList.remove('hidden');
 }
 
+async function clearAllSnapshots() {
+    // Подтверждение
+    const confirmed = confirm('⚠️ ВНИМАНИЕ!\n\nЭто удалит ВСЕ исторические данные snapshots и daily stats из базы данных.\n\n"ПРИРОСТ 24Ч" будет = 0 до накопления новой истории.\n\nПродолжить?');
+
+    if (!confirmed) {
+        return;
+    }
+
+    try {
+        const result = await apiCall('/api/admin/clear-snapshots', {
+            method: 'POST'
+        });
+
+        console.log('✅ Snapshots cleared:', result);
+
+        alert(`✅ Очистка завершена!\n\nУдалено snapshots: ${result.deleted_snapshots}\nУдалено daily stats: ${result.deleted_daily_stats}\n\nТеперь "ПРИРОСТ 24Ч" будет показывать 0 до накопления новой истории.`);
+    } catch (error) {
+        console.error('❌ Error clearing snapshots:', error);
+        alert('❌ Ошибка при очистке: ' + error.message);
+    }
+}
+
 // Debug logger
 function debugLog(message, data = null) {
     console.log(message, data);
