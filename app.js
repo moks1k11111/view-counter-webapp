@@ -737,6 +737,7 @@ async function finishProject(id) {
 }
 
 async function refreshProjectStats() {
+    console.log('🎯🎯🎯 refreshProjectStats CALLED');
     // Открываем модальное окно выбора платформ
     openRefreshStatsModal();
 }
@@ -744,15 +745,36 @@ async function refreshProjectStats() {
 // ==================== REFRESH STATS MODAL ====================
 
 function openRefreshStatsModal() {
-    document.getElementById('refresh-stats-modal').classList.remove('hidden');
+    console.log('🚪 Opening refresh stats modal');
+    const modal = document.getElementById('refresh-stats-modal');
+    console.log('Modal element:', modal);
+    modal.classList.remove('hidden');
+    console.log('Modal classList after remove hidden:', modal.classList);
 }
 
 function closeRefreshStatsModal() {
     document.getElementById('refresh-stats-modal').classList.add('hidden');
+
+    // Останавливаем polling если он запущен
+    if (window.currentProgressPoll) {
+        clearInterval(window.currentProgressPoll);
+        window.currentProgressPoll = null;
+    }
+
+    // Сбрасываем модальное окно к первому шагу
+    setTimeout(() => {
+        document.getElementById('refresh-step-1').classList.remove('hidden');
+        document.getElementById('refresh-step-2').classList.add('hidden');
+        document.getElementById('close-progress-btn').style.display = 'none';
+        document.getElementById('platform-progress-bars').innerHTML = '';
+    }, 300);
 }
 
 async function submitRefreshStats() {
+    console.log('🚀🚀🚀 submitRefreshStats FUNCTION CALLED!!! 🚀🚀🚀');
+    console.log('Version check: POLLING-v1');
     const projectId = window.currentProjectId;
+    console.log('Project ID:', projectId);
 
     if (!projectId) {
         showError('Проект не выбран');
@@ -774,24 +796,294 @@ async function submitRefreshStats() {
         return;
     }
 
-    try {
-        closeRefreshStatsModal();
-        showSuccess('⏳ Обновление статистики... Это может занять несколько минут');
+    console.log('🚀 Starting stats refresh for project:', projectId);
+    console.log('📋 Selected platforms:', platforms);
 
-        const response = await apiCall(`/api/projects/${projectId}/refresh_stats`, {
-            method: 'POST',
-            body: JSON.stringify({ platforms })
-        });
+    // Переключаем на второй шаг - показываем прогресс
+    document.getElementById('refresh-step-1').classList.add('hidden');
+    document.getElementById('refresh-step-2').classList.remove('hidden');
+    console.log('✅ Switched to progress view');
 
-        showSuccess(`✅ Статистика обновлена! Обновлено аккаунтов: ${response.updated_count}`);
+    // Создаем прогресс-бары для выбранных платформ
+    console.log('🎨 Creating progress bars...');
+    createProgressBars(platforms);
 
-        // Перезагружаем данные проекта
-        await openProject(projectId, currentProjectMode);
+    // Подключаемся к SSE для получения прогресса
+    console.log('📡 Connecting to SSE stream...');
+    connectToProgressStream(projectId);
 
-    } catch (error) {
-        console.error('Failed to refresh stats:', error);
-        showError('Не удалось обновить статистику: ' + error.message);
+    // Запускаем обновление статистики (не ждем завершения)
+    console.log('🔄 Starting API call to refresh stats...');
+    apiCall(`/api/projects/${projectId}/refresh_stats`, {
+        method: 'POST',
+        body: JSON.stringify({ platforms })
+    }).then(async (response) => {
+        console.log('✅ Stats refresh started in background:', response);
+        // Не показываем уведомление, так как у нас есть финальный экран
+    }).catch(error => {
+        console.error('Failed to start stats refresh:', error);
+        showError('Не удалось запустить обновление статистики: ' + error.message);
+    });
+}
+
+function createProgressBars(platforms) {
+    console.log('🎨🎨🎨 createProgressBars CALLED!!! 🎨🎨🎨');
+    console.log('Platforms to create:', platforms);
+    const container = document.getElementById('platform-progress-bars');
+    console.log('Container found:', container);
+    container.innerHTML = '';
+
+    const platformIcons = {
+        tiktok: '📱',
+        instagram: '📷',
+        facebook: '👤',
+        youtube: '🎬',
+        threads: '🧵'
+    };
+
+    const platformNames = {
+        tiktok: 'TikTok',
+        instagram: 'Instagram',
+        facebook: 'Facebook',
+        youtube: 'YouTube',
+        threads: 'Threads'
+    };
+
+    // Создаем прогресс-бар для каждой выбранной платформы
+    for (const [platform, enabled] of Object.entries(platforms)) {
+        if (!enabled) continue;
+
+        const progressDiv = document.createElement('div');
+        progressDiv.id = `progress-${platform}`;
+        progressDiv.style.cssText = 'background: rgba(255,255,255,0.05); border-radius: 12px; padding: 16px;';
+
+        progressDiv.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span style="font-weight: 600; font-size: 14px;">
+                    ${platformIcons[platform]} ${platformNames[platform]}
+                </span>
+                <span id="progress-text-${platform}" style="font-size: 13px; color: #aaa;">
+                    0/0 (0%)
+                </span>
+            </div>
+            <div style="background: rgba(255,255,255,0.1); border-radius: 8px; height: 8px; overflow: hidden;">
+                <div id="progress-bar-${platform}" style="background: linear-gradient(90deg, #a78bfa 0%, #c084fc 100%); height: 100%; width: 0%; transition: width 0.3s ease;"></div>
+            </div>
+            <div style="display: flex; gap: 16px; margin-top: 8px; font-size: 12px; color: #aaa;">
+                <span>✅ <span id="progress-success-${platform}">0</span></span>
+                <span>❌ <span id="progress-failed-${platform}">0</span></span>
+            </div>
+        `;
+
+        container.appendChild(progressDiv);
+        console.log(`✅ Created progress bar for ${platform}`);
     }
+    console.log('✅✅✅ All progress bars created! ✅✅✅');
+}
+
+function connectToProgressStream(projectId) {
+    console.log('🔌🔌🔌 Starting progress polling for project:', projectId);
+    console.log('Will poll immediately and then every 500ms');
+
+    let pollCount = 0;
+    let pollInterval = null;
+
+    // Функция для выполнения одного poll
+    const doPoll = async () => {
+        pollCount++;
+        try {
+            console.log(`📡 [Poll #${pollCount}] Fetching progress...`);
+            const response = await apiCall(`/api/projects/${projectId}/refresh_progress`);
+            console.log(`📊 [Poll #${pollCount}] Response:`, JSON.stringify(response));
+
+            if (response && response.progress) {
+                const progressKeys = Object.keys(response.progress);
+                console.log(`✅ [Poll #${pollCount}] Got progress for platforms:`, progressKeys);
+
+                // Обновляем прогресс-бары
+                for (const [platform, stats] of Object.entries(response.progress)) {
+                    console.log(`🔄 [Poll #${pollCount}] Updating ${platform}:`, stats);
+                    updateProgressBar(platform, stats);
+                }
+
+                // Проверяем завершение
+                const allDone = Object.values(response.progress).every(
+                    stats => stats.processed >= stats.total && stats.total > 0
+                );
+
+                console.log(`🎯 [Poll #${pollCount}] All done check:`, allDone);
+
+                if (allDone && progressKeys.length > 0) {
+                    console.log('✅✅✅ All platforms completed! Stopping polling.');
+                    if (pollInterval) clearInterval(pollInterval);
+
+                    // Показываем финальный экран с результатами
+                    showCompletionScreen(projectId, response.progress);
+                }
+            } else {
+                console.warn(`⚠️ [Poll #${pollCount}] No progress data yet`);
+            }
+        } catch (error) {
+            console.error(`❌ [Poll #${pollCount}] Error:`, error);
+        }
+    };
+
+    // Первый poll сразу!
+    doPoll();
+
+    // Используем простой polling каждые 500ms (вместо 1000ms для быстрых обновлений)
+    pollInterval = setInterval(doPoll, 500);
+
+    // Сохраняем ID интервала для остановки
+    window.currentProgressPoll = pollInterval;
+    console.log('✅ Polling started with interval ID:', pollInterval);
+}
+
+function updateProgressBar(platform, stats) {
+    const { total, processed, updated, failed } = stats;
+    const percent = total > 0 ? Math.round((processed / total) * 100) : 0;
+
+    console.log(`📊 Updating UI for ${platform}: ${processed}/${total} (${percent}%)`);
+
+    // Обновляем текст прогресса
+    const textEl = document.getElementById(`progress-text-${platform}`);
+    if (textEl) {
+        textEl.textContent = `${processed}/${total} (${percent}%)`;
+        console.log(`✅ Updated text for ${platform}`);
+    } else {
+        console.error(`❌ Element not found: progress-text-${platform}`);
+    }
+
+    // Обновляем ширину прогресс-бара
+    const barEl = document.getElementById(`progress-bar-${platform}`);
+    if (barEl) {
+        barEl.style.width = `${percent}%`;
+        console.log(`✅ Updated bar width for ${platform}: ${percent}%`);
+    } else {
+        console.error(`❌ Element not found: progress-bar-${platform}`);
+    }
+
+    // Обновляем счетчики успеха/ошибок
+    const successEl = document.getElementById(`progress-success-${platform}`);
+    if (successEl) {
+        successEl.textContent = updated;
+        console.log(`✅ Updated success count for ${platform}: ${updated}`);
+    } else {
+        console.error(`❌ Element not found: progress-success-${platform}`);
+    }
+
+    const failedEl = document.getElementById(`progress-failed-${platform}`);
+    if (failedEl) {
+        failedEl.textContent = failed;
+        console.log(`✅ Updated failed count for ${platform}: ${failed}`);
+    } else {
+        console.error(`❌ Element not found: progress-failed-${platform}`);
+    }
+}
+
+function showCompletionScreen(projectId, progressData) {
+    console.log('🎉 Showing completion screen with data:', progressData);
+
+    // Скрываем заголовок и описание
+    const titleEl = document.getElementById('progress-title');
+    const descEl = document.getElementById('progress-description');
+    if (titleEl) titleEl.style.display = 'none';
+    if (descEl) descEl.style.display = 'none';
+
+    // Находим контейнер прогресса
+    const progressContainer = document.getElementById('platform-progress-bars');
+    if (!progressContainer) {
+        console.error('❌ Progress container not found');
+        return;
+    }
+
+    // Перезагружаем данные проекта в фоне
+    console.log('🔄 Reloading project data...');
+    openProject(projectId, currentProjectMode).then(() => {
+        console.log('✅ Project data reloaded');
+    }).catch(err => {
+        console.error('❌ Failed to reload project data:', err);
+    });
+
+    // Подсчитываем общую статистику
+    let totalAccounts = 0;
+    let totalSuccess = 0;
+    let totalFailed = 0;
+
+    for (const [platform, stats] of Object.entries(progressData)) {
+        totalAccounts += stats.total || 0;
+        totalSuccess += stats.updated || 0;
+        totalFailed += stats.failed || 0;
+    }
+
+    // Создаём HTML для финального экрана
+    let platformsHTML = '';
+    const platformNames = {
+        'tiktok': 'TikTok',
+        'instagram': 'Instagram'
+    };
+
+    for (const [platform, stats] of Object.entries(progressData)) {
+        const platformName = platformNames[platform] || platform;
+        platformsHTML += `
+            <div style="background: rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 16px; margin-bottom: 12px;">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                    <span style="font-size: 24px;">${platform === 'tiktok' ? '📱' : '📸'}</span>
+                    <span style="font-size: 18px; font-weight: 500; color: #ffffff;">${platformName}</span>
+                </div>
+                <div style="display: flex; gap: 20px; margin-top: 12px;">
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <span style="font-size: 20px;">✅</span>
+                        <span style="color: #4ade80; font-size: 16px; font-weight: 500;">${stats.updated || 0}</span>
+                        <span style="color: rgba(255, 255, 255, 0.6); font-size: 14px;">успешно</span>
+                    </div>
+                    ${stats.failed > 0 ? `
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <span style="font-size: 20px;">❌</span>
+                        <span style="color: #f87171; font-size: 16px; font-weight: 500;">${stats.failed}</span>
+                        <span style="color: rgba(255, 255, 255, 0.6); font-size: 14px;">ошибок</span>
+                    </div>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+    }
+
+    const completionHTML = `
+        <div style="text-align: center; padding: 20px 0;">
+            <div style="font-size: 48px; margin-bottom: 16px;">🎉</div>
+            <h3 style="color: #ffffff; font-size: 24px; font-weight: 600; margin-bottom: 8px;">
+                Обновление завершено!
+            </h3>
+            <p style="color: rgba(255, 255, 255, 0.7); font-size: 16px; margin-bottom: 24px;">
+                Обработано ${totalAccounts} ${totalAccounts === 1 ? 'аккаунт' : totalAccounts < 5 ? 'аккаунта' : 'аккаунтов'}
+            </p>
+        </div>
+
+        <div style="margin-bottom: 24px;">
+            ${platformsHTML}
+        </div>
+
+        <div style="background: rgba(74, 222, 128, 0.1); border: 1px solid rgba(74, 222, 128, 0.3); border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; justify-content: center; gap: 12px;">
+                <span style="font-size: 20px;">✨</span>
+                <span style="color: #4ade80; font-size: 16px; font-weight: 500;">
+                    ${totalSuccess} из ${totalAccounts} аккаунтов обновлены успешно
+                </span>
+            </div>
+        </div>
+
+        <button onclick="closeRefreshStatsModal()"
+                style="width: 100%; padding: 14px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                       color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: 500;
+                       cursor: pointer; transition: all 0.2s;">
+            Закрыть
+        </button>
+    `;
+
+    // Заменяем содержимое
+    progressContainer.innerHTML = completionHTML;
+    console.log('✅ Completion screen displayed');
 }
 
 // ==================== END ADMIN PROJECT CONTROLS ====================
@@ -809,13 +1101,12 @@ function displaySummaryStats(analytics) {
     // Рассчитываем количество участников
     const totalParticipants = Object.keys(users_stats || {}).length;
 
-    // Процент выполнения
-    const progress = project.target_views > 0
-        ? Math.round((total_views / project.target_views) * 100)
-        : 0;
+    // Процент выполнения - используем значение из бэкенда (уже ограничено до 100)
+    const progress = analytics.progress_percent || 0;
 
     console.log('🔍 DEBUG displaySummaryStats: total_videos =', total_videos, 'videosCount =', videosCount);
     console.log('🔍 DEBUG displaySummaryStats: total_profiles =', total_profiles, 'profilesCount =', profilesCount);
+    console.log('🔍 DEBUG displaySummaryStats: progress from backend =', analytics.progress_percent, 'using =', progress);
 
     document.getElementById('detail-total-views').textContent = formatNumber(total_views);
     document.getElementById('detail-progress').textContent = `${progress}%`;
@@ -2401,21 +2692,14 @@ async function loadProjectDetailsForAdmin(projectId) {
         window.currentProjectId = projectId;
         currentProjectId = projectId;
 
-        // Загружаем детальную информацию о проекте
-        const analyticsResponse = await fetch(`${API_BASE_URL}/api/projects/${projectId}/analytics`, {
-            headers: { 'X-Telegram-Init-Data': tg.initData }
-        });
-
-        if (!analyticsResponse.ok) {
-            const errorText = await analyticsResponse.text();
-            console.error(`Analytics API error (${analyticsResponse.status}):`, errorText);
-            throw new Error(`Failed to load project analytics: ${analyticsResponse.status} - ${errorText}`);
-        }
-
-        const analytics = await analyticsResponse.json();
+        // Загружаем детальную информацию о проекте (используем apiCall для избежания кэширования)
+        const analytics = await apiCall(`/api/projects/${projectId}/analytics`);
         console.log('✅ Analytics loaded successfully:', analytics);
         console.log('🔍 DEBUG: analytics.total_videos =', analytics.total_videos);
         console.log('🔍 DEBUG: analytics.total_profiles =', analytics.total_profiles);
+        console.log('🔍 DEBUG: Backend version =', analytics.backend_version || 'OLD VERSION');
+        console.log('🔍 DEBUG: progress_percent from backend =', analytics.progress_percent);
+        console.log('🔍 DEBUG: total_views =', analytics.total_views, 'target_views =', analytics.target_views);
         currentProjectDetailsData = analytics;
 
         // Обновляем название проекта
