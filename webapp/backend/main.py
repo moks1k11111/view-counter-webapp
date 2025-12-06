@@ -421,9 +421,12 @@ async def create_project(
     # Создаем лист в Google Sheets, если project_sheets доступен
     if project_sheets:
         try:
-            project_sheets.create_project_sheet(project.name)
+            project_sheets.create_project_sheet(project['name'])
+            logger.info(f"✅ Лист '{project['name']}' создан в Google Sheets")
         except Exception as e:
-            print(f"⚠️ Ошибка создания листа в Google Sheets: {e}")
+            logger.error(f"⚠️ Ошибка создания листа в Google Sheets: {e}")
+            import traceback
+            traceback.print_exc()
 
     return {"success": True, "project": new_project}
 
