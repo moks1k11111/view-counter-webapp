@@ -464,6 +464,11 @@ async def get_project_analytics(
                 videos_value = account.get('Videos', 0)
                 logger.info(f"🔍 DEBUG: Videos field = {repr(videos_value)} (type: {type(videos_value).__name__})")
 
+                # DEBUG: Log raw account data from Google Sheets
+                logger.info(f"🔍 DEBUG RAW ACCOUNT: {account}")
+                logger.info(f"🔍 DEBUG Username from Sheets: '{account.get('Username', '')}' (type: {type(account.get('Username', '')).__name__})")
+                logger.info(f"🔍 DEBUG @Username from Sheets: '{account.get('@Username', '')}' (type: {type(account.get('@Username', '')).__name__})")
+
                 # Извлекаем username и определяем платформу из URL
                 url = account.get('Link', '').strip()  # Убираем пробелы
                 url_lower = url.lower()  # Для проверки без учета регистра
@@ -568,7 +573,8 @@ async def get_project_analytics(
 
                 logger.info(f"✅ Final: username='{username}', platform='{platform}'")
 
-                all_profiles.append({
+                # DEBUG: Log exactly what we're about to append
+                profile_to_append = {
                     'telegram_user': account.get('@Username', ''),
                     'username': username,  # Username из соц сети
                     'url': url,
@@ -579,7 +585,9 @@ async def get_project_analytics(
                     'total_views': int(account.get('Views', 0) or 0),
                     'platform': platform,
                     'topic': account.get('Тематика', 'Не указано')
-                })
+                }
+                logger.info(f"🔍 DEBUG APPENDING PROFILE: username='{profile_to_append['username']}', url='{profile_to_append['url']}', views={profile_to_append['total_views']}")
+                all_profiles.append(profile_to_append)
             logger.info(f"✅ Loaded {len(all_profiles)} profiles from Google Sheets for project '{project['name']}'")
         except Exception as e:
             logger.warning(f"⚠️ Could not load accounts from sheets for project {project['name']}: {e}")
@@ -751,6 +759,11 @@ async def get_project_analytics(
             })
 
             logger.info(f"📊 Added today's dynamic point: {today} with {total_views} views (growth: +{growth_24h})")
+
+    # DEBUG: Log all_profiles before returning
+    logger.info(f"🔍 DEBUG FINAL all_profiles count: {len(all_profiles)}")
+    for idx, prof in enumerate(all_profiles):
+        logger.info(f"🔍 DEBUG PROFILE[{idx}]: username='{prof.get('username')}', url='{prof.get('url')}', views={prof.get('total_views')}, platform='{prof.get('platform')}'")
 
     return {
         "project": project,
