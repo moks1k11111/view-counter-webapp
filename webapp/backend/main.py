@@ -2203,9 +2203,11 @@ async def delete_social_account(
     # Удаляем из Google Sheets (если включено)
     if project_sheets and project:
         try:
-            project_sheets.remove_account_from_sheet(project['name'], account['username'])
+            # Используем profile_link для точного поиска в колонке Link
+            project_sheets.remove_account_from_sheet(project['name'], account['profile_link'])
+            logger.info(f"✅ Аккаунт {account['profile_link']} удален из Google Sheets")
         except Exception as e:
-            print(f"⚠️  Ошибка удаления из Google Sheets: {e}")
+            logger.error(f"⚠️ Ошибка удаления из Google Sheets: {e}")
 
     return {"success": True, "message": "Account deleted successfully"}
 

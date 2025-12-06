@@ -332,26 +332,46 @@ class ProjectSheetsManager:
             return False
 
     @retry_on_quota_error(max_retries=3, delay=5)
-    def remove_account_from_sheet(self, project_name: str, username: str) -> bool:
+    def remove_account_from_sheet(self, project_name: str, profile_link: str) -> bool:
         """
-        Удаление аккаунта из листа проекта (с автоматическими повторами при quota errors)
+        Удаление аккаунта из листа проекта по ссылке (с автоматическими повторами при quota errors)
 
         :param project_name: Название проекта
-        :param username: Username аккаунта
+        :param profile_link: Полная ссылка на профиль (Link)
         :return: True если успешно
         """
         try:
             worksheet = self.spreadsheet.worksheet(project_name)
 
-            # Находим строку с аккаунтом
-            cell = worksheet.find(username)
-            if not cell:
-                logger.warning(f"⚠️ Аккаунт {username} не найден в {project_name}")
+            # Получаем все данные
+            all_values = worksheet.get_all_values()
+            if len(all_values) < 2:  # Нет данных кроме заголовков
+                logger.warning(f"⚠️ Нет данных в {project_name}")
+                return False
+
+            # Находим индекс колонки "Link"
+            headers = all_values[0]
+            try:
+                link_col_index = headers.index('Link')
+            except ValueError:
+                logger.error(f"❌ Колонка 'Link' не найдена в {project_name}")
+                return False
+
+            # Ищем строку с этим profile_link
+            row_to_delete = None
+            for idx, row in enumerate(all_values[1:], start=2):  # Пропускаем заголовок, начинаем с 2
+                if link_col_index < len(row):
+                    if row[link_col_index].strip() == profile_link.strip():
+                        row_to_delete = idx
+                        break
+
+            if not row_to_delete:
+                logger.warning(f"⚠️ Аккаунт с ссылкой {profile_link} не найден в {project_name}")
                 return False
 
             # Удаляем строку
-            worksheet.delete_rows(cell.row)
-            logger.info(f"✅ Аккаунт {username} удален из {project_name}")
+            worksheet.delete_rows(row_to_delete)
+            logger.info(f"✅ Аккаунт {profile_link} удален из {project_name} (строка {row_to_delete})")
             return True
 
         except gspread.exceptions.WorksheetNotFound:
@@ -359,6 +379,8 @@ class ProjectSheetsManager:
             return False
         except Exception as e:
             logger.error(f"❌ Ошибка удаления аккаунта: {e}")
+            import traceback
+            traceback.print_exc()
             return False
 
     @retry_on_quota_error(max_retries=3, delay=5)
