@@ -2767,8 +2767,8 @@ async function loadProjectDetailsForAdmin(projectId) {
         // Рендерим список участников
         renderProjectUsersList(analytics.users_stats);
 
-        // Загружаем социальные аккаунты
-        await loadProjectSocialAccounts(projectId);
+        // Загружаем социальные аккаунты в режиме admin
+        await loadProjectSocialAccounts(projectId, 'admin');
 
     } catch (error) {
         console.error('Failed to load project details:', error);
