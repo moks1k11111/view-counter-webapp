@@ -821,21 +821,31 @@ async def get_my_analytics(
             # Конвертируем и фильтруем по пользователю
             for account in accounts_data:
                 if account.get('@Username', '') == telegram_user:
-                    # Извлекаем username из URL
+                    # ПРИОРИТЕТ: берем username из Google Sheets напрямую
                     url = account.get('Link', '')
-                    username = 'Unknown'
-                    if '/@' in url:
-                        # TikTok, Instagram: https://www.tiktok.com/@username
-                        username = url.split('/@')[1].split('?')[0].split('/')[0]
-                    elif 'facebook.com/share/' in url or 'facebook.com/' in url:
-                        # Facebook: извлекаем ID или username
-                        parts = url.split('/')
-                        if 'share' in parts:
-                            idx = parts.index('share')
-                            if idx + 1 < len(parts):
-                                username = parts[idx + 1].split('?')[0]
-                        else:
-                            username = parts[-1].split('?')[0] if parts[-1] else parts[-2]
+
+                    # СНАЧАЛА пробуем взять username напрямую из Google Sheets
+                    username = account.get('Username', '').strip()
+
+                    # Только если Username в Sheets пустой - пробуем парсить из URL
+                    if not username:
+                        username = 'Unknown'
+                        if '/@' in url:
+                            # TikTok, Instagram: https://www.tiktok.com/@username
+                            username = url.split('/@')[1].split('?')[0].split('/')[0]
+                        elif 'facebook.com/share/' in url or 'facebook.com/' in url:
+                            # Facebook: извлекаем ID или username
+                            parts = url.split('/')
+                            if 'share' in parts:
+                                idx = parts.index('share')
+                                if idx + 1 < len(parts):
+                                    username = parts[idx + 1].split('?')[0]
+                            else:
+                                username = parts[-1].split('?')[0] if parts[-1] else parts[-2]
+
+                    # Если все равно нет username, ставим Unknown
+                    if not username:
+                        username = 'Unknown'
 
                     profiles.append({
                         'telegram_user': account.get('@Username', ''),
