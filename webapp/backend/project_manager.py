@@ -694,7 +694,7 @@ class ProjectManager:
     # ==================== СНИМКИ СТАТИСТИКИ ====================
 
     def add_account_snapshot(self, account_id: str, followers: int, likes: int,
-                            comments: int, videos: int, views: int) -> bool:
+                            comments: int, videos: int, views: int, total_videos_fetched: int = 0) -> bool:
         """
         Добавление снимка статистики аккаунта
 
@@ -702,8 +702,9 @@ class ProjectManager:
         :param followers: Количество подписчиков
         :param likes: Количество лайков
         :param comments: Количество комментариев
-        :param videos: Количество видео
+        :param videos: Количество видео прошедших KPI
         :param views: Количество просмотров
+        :param total_videos_fetched: Общее количество видео (все, не только KPI)
         :return: True если успешно
         """
         try:
@@ -712,13 +713,13 @@ class ProjectManager:
 
             self.db.cursor.execute('''
                 INSERT INTO account_snapshots
-                (id, account_id, followers, likes, comments, videos, views, snapshot_time)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (snapshot_id, account_id, followers, likes, comments, videos, views, snapshot_time))
+                (id, account_id, followers, likes, comments, videos, views, total_videos_fetched, snapshot_time)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (snapshot_id, account_id, followers, likes, comments, videos, views, total_videos_fetched, snapshot_time))
 
             self.db.conn.commit()
 
-            logger.info(f"✅ Снимок статистики добавлен для аккаунта {account_id}")
+            logger.info(f"✅ Снимок статистики добавлен для аккаунта {account_id} (videos={videos}, total_fetched={total_videos_fetched})")
             return True
 
         except Exception as e:

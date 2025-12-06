@@ -641,7 +641,7 @@ async def get_project_analytics(
                     'followers': latest_snapshot.get('followers', 0),
                     'likes': latest_snapshot.get('likes', 0),
                     'comments': latest_snapshot.get('comments', 0),
-                    'videos': latest_snapshot.get('videos', 0),
+                    'videos': latest_snapshot.get('total_videos_fetched', latest_snapshot.get('videos', 0)),  # Все видео, не только KPI
                     'total_views': latest_snapshot.get('views', 0),
                     'platform': account.get('platform', 'tiktok').lower(),
                     'topic': account.get('topic', 'Не указано')
@@ -1382,8 +1382,9 @@ def process_accounts_background(
                     followers=stats.get('followers', 0),
                     likes=stats.get('likes', stats.get('total_likes', 0)),
                     comments=0,
-                    videos=stats.get('videos', stats.get('reels', 0)),
-                    views=stats.get('total_views', 0)
+                    videos=stats.get('videos', stats.get('reels', 0)),  # Видео прошедшие KPI
+                    views=stats.get('total_views', 0),
+                    total_videos_fetched=stats.get('total_videos_fetched', stats.get('total_reels_fetched', 0))  # Все видео
                 )
 
                 updated_count += 1

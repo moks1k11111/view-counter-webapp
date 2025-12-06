@@ -264,6 +264,16 @@ class SQLiteDatabase:
                 self.conn.commit()
                 logger.info("✅ Таблица account_daily_stats создана")
 
+            # Проверяем наличие поля total_videos_fetched в таблице account_snapshots
+            self.cursor.execute("PRAGMA table_info(account_snapshots)")
+            columns = [column[1] for column in self.cursor.fetchall()]
+
+            if 'total_videos_fetched' not in columns:
+                logger.info("Добавляю поле total_videos_fetched в таблицу account_snapshots...")
+                self.cursor.execute('ALTER TABLE account_snapshots ADD COLUMN total_videos_fetched INTEGER DEFAULT 0')
+                self.conn.commit()
+                logger.info("✅ Поле total_videos_fetched добавлено в account_snapshots")
+
         except Exception as e:
             logger.error(f"Ошибка при миграции базы данных: {e}")
             raise
