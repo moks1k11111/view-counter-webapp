@@ -309,10 +309,14 @@ async function renderProjects(projects) {
 
         try {
             const analytics = await apiCall(`/api/projects/${project.id}/analytics`);
-            return { ...project, total_views: analytics.total_views || 0 };
+            return {
+                ...project,
+                total_views: analytics.total_views || 0,
+                progress_percent: analytics.progress_percent || 0  // Сохраняем progress_percent из API
+            };
         } catch (error) {
             console.error(`Failed to load analytics for project ${project.id}:`, error);
-            return { ...project, total_views: 0 };
+            return { ...project, total_views: 0, progress_percent: 0 };
         }
     }));
 
@@ -414,7 +418,8 @@ async function renderProjects(projects) {
     setTimeout(() => {
         projectsWithStats.forEach((project, index) => {
             const hasAccess = project.has_access !== false;
-            const progress = hasAccess && project.target_views > 0 ? Math.round((project.total_views / project.target_views) * 100) : 0;
+            // Используем progress_percent из API (уже ограничен до 100%)
+            const progress = hasAccess ? (project.progress_percent || 0) : 0;
             createProgressChart(`chart-total-${index}`, progress);
         });
     }, 0);
