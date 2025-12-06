@@ -889,12 +889,13 @@ function createProgressBars(platforms) {
 
 function connectToProgressStream(projectId) {
     console.log('🔌🔌🔌 Starting progress polling for project:', projectId);
-    console.log('Will poll every 1 second');
+    console.log('Will poll immediately and then every 500ms');
 
     let pollCount = 0;
+    let pollInterval = null;
 
-    // Используем простой polling вместо SSE
-    const pollInterval = setInterval(async () => {
+    // Функция для выполнения одного poll
+    const doPoll = async () => {
         pollCount++;
         try {
             console.log(`📡 [Poll #${pollCount}] Fetching progress...`);
@@ -920,7 +921,7 @@ function connectToProgressStream(projectId) {
 
                 if (allDone && progressKeys.length > 0) {
                     console.log('✅✅✅ All platforms completed! Stopping polling.');
-                    clearInterval(pollInterval);
+                    if (pollInterval) clearInterval(pollInterval);
                 }
             } else {
                 console.warn(`⚠️ [Poll #${pollCount}] No progress data yet`);
@@ -928,7 +929,13 @@ function connectToProgressStream(projectId) {
         } catch (error) {
             console.error(`❌ [Poll #${pollCount}] Error:`, error);
         }
-    }, 1000); // Проверяем каждую секунду
+    };
+
+    // Первый poll сразу!
+    doPoll();
+
+    // Используем простой polling каждые 500ms (вместо 1000ms для быстрых обновлений)
+    pollInterval = setInterval(doPoll, 500);
 
     // Сохраняем ID интервала для остановки
     window.currentProgressPoll = pollInterval;
