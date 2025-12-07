@@ -1,0 +1,88 @@
+version: '3.8'
+
+services:
+  # Redis - для кэша и Celery broker
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # FastAPI Backend
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - webapp/backend/.env
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./webapp/backend:/app
+      - ./data:/app/data  # SQLite database
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    restart: unless-stopped
+
+  # Celery Worker - для фоновых задач
+  celery_worker:
+    build: .
+    env_file:
+      - webapp/backend/.env
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./webapp/backend:/app
+      - ./data:/app/data
+    command: celery -A tasks worker --loglevel=info --concurrency=2
+    restart: unless-stopped
+
+  # Celery Beat - для периодических задач
+  celery_beat:
+    build: .
+    env_file:
+      - webapp/backend/.env
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./webapp/backend:/app
+      - ./data:/app/data
+    command: celery -A tasks beat --loglevel=info
+    restart: unless-stopped
+
+  # Flower - мониторинг Celery (опционально)
+  flower:
+    build: .
+    ports:
+      - "5555:5555"
+    env_file:
+      - webapp/backend/.env
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - redis
+      - celery_worker
+    command: celery -A tasks flower --port=5555
+    restart: unless-stopped
+
+volumes:
+  redis_data:

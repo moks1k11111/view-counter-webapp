@@ -38,6 +38,15 @@ from config import (
 from tiktok_api import TikTokAPI
 from instagram_api import InstagramAPI
 
+# Celery tasks (background processing)
+try:
+    from tasks import sync_account_to_sheets, sync_project_to_sheets
+    CELERY_AVAILABLE = True
+    logger.info("✅ Celery tasks imported successfully")
+except ImportError as e:
+    logger.warning(f"⚠️ Celery not available: {e}. Background tasks disabled.")
+    CELERY_AVAILABLE = False
+
 # WebApp Config
 WEBAPP_URL = "https://moks1k11111.github.io/view-counter-webapp/index.html"
 

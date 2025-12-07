@@ -11,3 +11,4 @@ requests>=2.31.0
 redis>=5.0.0
 celery>=5.3.0
 aioredis>=2.0.1
+flower>=2.0.0
