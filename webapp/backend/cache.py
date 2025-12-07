@@ -8,12 +8,19 @@ Provides caching functionality to speed up API responses:
 - Cache invalidation on data updates
 """
 
-import redis
 import json
 import logging
 import os
 from typing import Optional, Any
 from datetime import timedelta
+
+# Try to import redis, graceful fallback if not available
+try:
+    import redis
+    REDIS_AVAILABLE = True
+except ImportError:
+    REDIS_AVAILABLE = False
+    redis = None
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +29,13 @@ class RedisCache:
 
     def __init__(self):
         """Initialize Redis connection"""
+        # Check if redis module is available
+        if not REDIS_AVAILABLE:
+            logger.warning("⚠️ Redis module not installed, caching disabled")
+            self.client = None
+            self.enabled = False
+            return
+
         # Get Redis configuration from environment variables
         redis_host = os.getenv('REDIS_HOST', 'localhost')
         redis_port = int(os.getenv('REDIS_PORT', 6379))
