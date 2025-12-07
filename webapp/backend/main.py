@@ -543,13 +543,11 @@ async def get_project_analytics(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    # 🔄 АВТОМАТИЧЕСКАЯ СИНХРОНИЗАЦИЯ: Google Sheets → SQLite
-    # Синхронизируем данные при каждом открытии проекта для актуальности графиков
+    # 🔄 АВТОМАТИЧЕСКАЯ СИНХРОНИЗАЦИЯ В ФОНЕ: Google Sheets → SQLite
+    # Запускаем синхронизацию асинхронно, чтобы не блокировать отображение данных
     if project_sheets:
-        try:
-            await sync_project_from_sheets(project_id, project)
-        except Exception as e:
-            logger.warning(f"⚠️ Auto-sync failed for project {project_id}: {e}")
+        import asyncio
+        asyncio.create_task(sync_project_from_sheets(project_id, project))
 
     # Получаем все профили проекта из листа проекта с fallback на SQLite
     all_profiles = []
@@ -914,12 +912,10 @@ async def get_my_analytics(
         if project:
             project_name = project['name']
 
-            # 🔄 АВТОМАТИЧЕСКАЯ СИНХРОНИЗАЦИЯ при открытии проекта
+            # 🔄 АВТОМАТИЧЕСКАЯ СИНХРОНИЗАЦИЯ В ФОНЕ
             if project_sheets:
-                try:
-                    await sync_project_from_sheets(project_id, project)
-                except Exception as e:
-                    logger.warning(f"⚠️ Auto-sync failed for user analytics: {e}")
+                import asyncio
+                asyncio.create_task(sync_project_from_sheets(project_id, project))
 
     # Получаем профили пользователя из листа проекта
     profiles = []
