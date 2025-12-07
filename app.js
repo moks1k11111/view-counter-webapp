@@ -332,7 +332,7 @@ async function renderProjects(projects) {
             // Finished project: show finish flag, grayscale, read-only
             lockIcon = '🏁';
             cardOpacity = '0.7';
-            clickHandler = hasAccess ? `onclick="openProject('${project.id}', 'user')"` : `onclick="showAccessDenied()"`;
+            clickHandler = hasAccess ? `onclick="openProject('${project.id}', 'admin')"` : `onclick="showAccessDenied()"`;
             cursorStyle = 'cursor: pointer;';
             lockedClass = 'project-card-finished';
             grayscaleFilter = 'filter: grayscale(100%);';
@@ -348,7 +348,7 @@ async function renderProjects(projects) {
             // Active project with access: normal
             lockIcon = '🔓';
             cardOpacity = '1';
-            clickHandler = `onclick="openProject('${project.id}', 'user')"`;
+            clickHandler = `onclick="openProject('${project.id}', 'admin')"`;
             cursorStyle = 'cursor: pointer;';
             lockedClass = '';
             grayscaleFilter = '';
