@@ -25,6 +25,10 @@ from database_sheets import SheetsDatabase
 from database_sqlite import SQLiteDatabase
 from project_manager import ProjectManager
 from project_sheets_manager import ProjectSheetsManager
+from cache import (
+    cache, TTL_PROJECT_ANALYTICS, TTL_USER_ANALYTICS, TTL_FINISHED_PROJECT,
+    get_project_analytics_key, get_user_analytics_key
+)
 from config import (
     TELEGRAM_TOKEN, DEFAULT_GOOGLE_SHEETS_NAME, GOOGLE_SHEETS_CREDENTIALS,
     GOOGLE_SHEETS_CREDENTIALS_JSON, ADMIN_IDS,
@@ -523,7 +527,7 @@ async def get_project_analytics(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None
 ):
-    """Получить аналитику по проекту с историей"""
+    """Получить аналитику по проекту с историей (with Redis caching)"""
     user_id = str(user.get('id'))
 
     # Проверяем доступ
@@ -534,6 +538,13 @@ async def get_project_analytics(
     project = project_manager.get_project(project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+
+    # 🚀 REDIS CACHE: Check cache first
+    cache_key = get_project_analytics_key(project_id)
+    cached_data = cache.get(cache_key)
+    if cached_data:
+        logger.info(f"🎯 Cache HIT for project {project_id}")
+        return cached_data
 
     # 🔄 АВТОМАТИЧЕСКАЯ СИНХРОНИЗАЦИЯ: Google Sheets → SQLite
     # Синхронизируем данные для актуальности графиков (оптимизировано, быстро)
@@ -873,7 +884,8 @@ async def get_project_analytics(
     for idx, prof in enumerate(all_profiles):
         logger.info(f"🔍 DEBUG PROFILE[{idx}]: username='{prof.get('username')}', url='{prof.get('url')}', views={prof.get('total_views')}, platform='{prof.get('platform')}'")
 
-    return {
+    # Prepare response data
+    response_data = {
         "project": project,
         "total_views": total_views,
         "total_videos": total_videos,
@@ -886,18 +898,35 @@ async def get_project_analytics(
         "progress_percent": min(100, round((total_views / project['target_views'] * 100), 2)) if project['target_views'] > 0 else 0,
         "history": history,
         "growth_24h": growth_24h,
-        "backend_version": "v2.0_progress_fix"  # Для отладки версии бэкенда
+        "backend_version": "v2.1_redis_cache"  # Для отладки версии бэкенда
     }
+
+    # 🚀 REDIS CACHE: Save to cache
+    # Use longer TTL for finished projects (they don't change)
+    is_finished = project.get('is_active') == 0 or project.get('is_active') == False
+    ttl = TTL_FINISHED_PROJECT if is_finished else TTL_PROJECT_ANALYTICS
+    cache.set(cache_key, response_data, ttl)
+    logger.info(f"💾 Cached project analytics for {project_id} (TTL: {ttl}s, finished: {is_finished})")
+
+    return response_data
 
 @app.get("/api/my-analytics")
 async def get_my_analytics(
     user: dict = Depends(get_current_user),
     project_id: Optional[str] = None
 ):
-    """Получить личную аналитику пользователя"""
+    """Получить личную аналитику пользователя (with Redis caching)"""
     user_id = str(user.get('id'))
     username = user.get('username', '')
     telegram_user = f"@{username}" if username else user.get('first_name', 'Неизвестно')
+
+    # 🚀 REDIS CACHE: Check cache first (if project_id specified)
+    if project_id:
+        cache_key = get_user_analytics_key(user_id, project_id)
+        cached_data = cache.get(cache_key)
+        if cached_data:
+            logger.info(f"🎯 Cache HIT for user {user_id} analytics in project {project_id}")
+            return cached_data
 
     # Если указан проект, фильтруем по нему
     project_name = None
@@ -1018,7 +1047,7 @@ async def get_my_analytics(
 
                 logger.info(f"📊 [My Analytics] Added today's dynamic point: {today} with {total_views} views")
 
-        return {
+        response_data = {
             "project": project,
             "total_views": total_views,
             "total_videos": total_videos,
@@ -1031,8 +1060,14 @@ async def get_my_analytics(
             "progress_percent": min(100, round((total_views / project['target_views'] * 100), 2)) if project['target_views'] > 0 else 0,
             "history": history,
             "growth_24h": growth_24h,
-            "backend_version": "v2.0_progress_fix"  # Для отладки версии бэкенда
+            "backend_version": "v2.1_redis_cache"  # Для отладки версии бэкенда
         }
+
+        # 🚀 REDIS CACHE: Save user analytics to cache
+        cache.set(cache_key, response_data, TTL_USER_ANALYTICS)
+        logger.info(f"💾 Cached user analytics for user {user_id} in project {project_id} (TTL: {TTL_USER_ANALYTICS}s)")
+
+        return response_data
 
     # Иначе возвращаем упрощенный формат (для общей статистики)
     return {
@@ -1429,6 +1464,10 @@ async def refresh_project_stats(
     # Проверка что пользователь - админ
     if user['id'] not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Only admins can refresh stats")
+
+    # 🧹 REDIS CACHE: Invalidate cache for this project (stats will be updated)
+    cache.invalidate_project(project_id)
+    logger.info(f"🧹 Invalidated cache for project {project_id} before refresh")
 
     # НЕМЕДЛЕННАЯ инициализация прогресса (до любых медленных операций!)
     try:
