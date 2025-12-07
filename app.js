@@ -332,7 +332,7 @@ async function renderProjects(projects) {
             // Finished project: show finish flag, grayscale, read-only
             lockIcon = '🏁';
             cardOpacity = '0.7';
-            clickHandler = hasAccess ? `onclick="openProject('${project.id}', 'admin')"` : `onclick="showAccessDenied()"`;
+            clickHandler = hasAccess ? `onclick="openProject('${project.id}', 'view')"` : `onclick="showAccessDenied()"`;
             cursorStyle = 'cursor: pointer;';
             lockedClass = 'project-card-finished';
             grayscaleFilter = 'filter: grayscale(100%);';
@@ -345,10 +345,10 @@ async function renderProjects(projects) {
             lockedClass = 'project-card-locked';
             grayscaleFilter = '';
         } else {
-            // Active project with access: normal
+            // Active project with access: normal (open in 'view' mode to see total stats without account lists)
             lockIcon = '🔓';
             cardOpacity = '1';
-            clickHandler = `onclick="openProject('${project.id}', 'admin')"`;
+            clickHandler = `onclick="openProject('${project.id}', 'view')"`;
             cursorStyle = 'cursor: pointer;';
             lockedClass = '';
             grayscaleFilter = '';
@@ -559,8 +559,12 @@ async function openProject(projectId, mode = 'user') {
             // Пользовательский режим: показываем только статистику пользователя
             analytics = await apiCall(`/api/my-analytics?project_id=${projectId}`);
             console.log('🔍 DEBUG FRONTEND openProject (user mode): My analytics =', JSON.stringify(analytics, null, 2));
+        } else if (mode === 'view') {
+            // Режим просмотра: показываем общую статистику всех, но БЕЗ списков аккаунтов
+            analytics = await apiCall(`/api/projects/${projectId}/analytics`);
+            console.log('🔍 DEBUG FRONTEND openProject (view mode): Total analytics =', JSON.stringify(analytics, null, 2));
         } else {
-            // Админ режим: показываем статистику всех
+            // Админ режим: показываем статистику всех + полный доступ
             analytics = await apiCall(`/api/projects/${projectId}/analytics`);
             console.log('🔍 DEBUG FRONTEND openProject (admin mode): Full analytics =', JSON.stringify(analytics, null, 2));
         }
@@ -588,6 +592,9 @@ async function openProject(projectId, mode = 'user') {
                         <span>Только для чтения</span>
                     </div>
                 `;
+            } else if (mode === 'view') {
+                // Режим просмотра: без кнопок управления
+                actionsContainer.innerHTML = '';
             } else if (mode === 'admin') {
                 // Админ режим (активный проект): кнопка "Добавить участника"
                 // Примечание: "Импорт из Google" убран - синхронизация происходит автоматически
@@ -634,8 +641,12 @@ async function openProject(projectId, mode = 'user') {
             // В пользовательском режиме скрываем информацию об участниках
             if (participantsCard) participantsCard.style.display = 'none';
             if (participantsSection) participantsSection.style.display = 'none';
+        } else if (mode === 'view') {
+            // В режиме просмотра показываем только количество участников (карточка), но скрываем список
+            if (participantsCard) participantsCard.style.display = '';
+            if (participantsSection) participantsSection.style.display = 'none';
         } else {
-            // В админском режиме показываем участников
+            // В админском режиме показываем и карточку и список участников
             if (participantsCard) participantsCard.style.display = '';
             if (participantsSection) participantsSection.style.display = '';
         }
@@ -648,7 +659,14 @@ async function openProject(projectId, mode = 'user') {
 
         // Загружаем и отображаем социальные аккаунты в аккордеоне
         // В режиме user передаем флаг для фильтрации только своих аккаунтов
-        await loadProjectSocialAccounts(projectId, mode);
+        // В режиме view скрываем аккордеон с аккаунтами
+        const profilesAccordion = document.querySelector('.profiles-accordion');
+        if (mode === 'view') {
+            if (profilesAccordion) profilesAccordion.style.display = 'none';
+        } else {
+            if (profilesAccordion) profilesAccordion.style.display = '';
+            await loadProjectSocialAccounts(projectId, mode);
+        }
 
     } catch (error) {
         console.error('Failed to load project details:', error);
