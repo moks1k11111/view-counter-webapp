@@ -589,11 +589,9 @@ async function openProject(projectId, mode = 'user') {
                     </div>
                 `;
             } else if (mode === 'admin') {
-                // Админ режим (активный проект): кнопки "Импорт из Google" и "Добавить участника"
+                // Админ режим (активный проект): кнопка "Добавить участника"
+                // Примечание: "Импорт из Google" убран - синхронизация происходит автоматически
                 actionsContainer.innerHTML = `
-                    <button class="btn-secondary" onclick="importFromSheets()" style="padding: 8px 16px; font-size: 14px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 50%); color: white; border: none; border-radius: 8px; cursor: pointer;">
-                        <i class="fa-solid fa-download"></i> Импорт из Google
-                    </button>
                     <button class="btn-primary" onclick="openAddUserToProjectModal()" style="padding: 8px 16px; font-size: 14px;">
                         <i class="fa-solid fa-user-plus"></i> Добавить участника
                     </button>
