@@ -6,6 +6,7 @@ let currentUser = null;
 let currentProjects = [];
 let isAdmin = false;
 let projectOpenedFrom = 'home-page'; // Stores actual page ID: 'home-page', 'projects-page', 'project-management-page', etc.
+let projectManagementOpenedFrom = 'admin-page'; // Stores page ID from which project management was opened
 
 // ==================== TELEGRAM WEBAPP INITIALIZATION ====================
 const tg = window.Telegram?.WebApp || { initData: '', ready: () => {}, expand: () => {} };
@@ -2555,14 +2556,32 @@ let allProjectsList = [];
 let currentProjectDetailsData = null;
 
 function openProjectManagement() {
+    // Запоминаем откуда открыли управление проектами для правильной навигации "Назад"
+    const currentPage = document.querySelector('.page:not(.hidden)');
+    const currentPageId = currentPage ? currentPage.id : 'admin-page';
+    projectManagementOpenedFrom = currentPageId;
+    console.log('🔍 [Navigation] Opening project management from page:', currentPageId, '→ projectManagementOpenedFrom:', projectManagementOpenedFrom);
+
     document.querySelectorAll('.page').forEach(page => page.classList.add('hidden'));
     document.getElementById('project-management-page').classList.remove('hidden');
     loadProjectManagementList();
 }
 
 function closeProjectManagement() {
+    console.log('🔙 [Navigation] Closing project management, projectManagementOpenedFrom:', projectManagementOpenedFrom);
     document.getElementById('project-management-page').classList.add('hidden');
-    document.getElementById('admin-page').classList.remove('hidden');
+
+    // Возвращаемся на ту страницу откуда пришли
+    const pageToShow = document.getElementById(projectManagementOpenedFrom);
+
+    if (pageToShow) {
+        console.log('🔙 [Navigation] Returning to page:', projectManagementOpenedFrom);
+        pageToShow.classList.remove('hidden');
+    } else {
+        // Fallback на admin-page если страница не найдена
+        console.log('🔙 [Navigation] Page not found, returning to admin-page');
+        document.getElementById('admin-page').classList.remove('hidden');
+    }
 }
 
 async function clearAllSnapshots() {
