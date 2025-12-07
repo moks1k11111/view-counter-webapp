@@ -654,8 +654,8 @@ async function openProject(projectId, mode = 'user') {
         // Отображаем суммарную статистику
         displaySummaryStats(analytics);
 
-        // Создаем слайды с диаграммами
-        createChartSlides(analytics);
+        // Создаем слайды с диаграммами (передаем режим для скрытия топ аккаунтов в режиме 'view')
+        createChartSlides(analytics, mode);
 
         // Загружаем и отображаем социальные аккаунты в аккордеоне
         // В режиме user передаем флаг для фильтрации только своих аккаунтов
@@ -1185,7 +1185,7 @@ function displaySummaryStats(analytics) {
     growth24hElement.style.color = growth24hValue > 0 ? '#4CAF50' : '#fff';
 }
 
-function createChartSlides(analytics) {
+function createChartSlides(analytics, mode = 'user') {
     const swiperContainer = document.getElementById('charts-swiper');
     const dotsContainer = document.getElementById('swiper-dots');
 
@@ -1204,8 +1204,10 @@ function createChartSlides(analytics) {
     // Слайд 3: Круговая диаграмма платформ
     slides.push(createPlatformsSlide(analytics));
 
-    // Слайд 4: Круговая диаграмма профилей
-    slides.push(createProfilesSlide(analytics));
+    // Слайд 4: Круговая диаграмма профилей (только для режимов 'user' и 'admin', скрыт в режиме 'view')
+    if (mode !== 'view') {
+        slides.push(createProfilesSlide(analytics));
+    }
 
     // Добавляем слайды
     swiperContainer.innerHTML = slides.join('');
@@ -1264,7 +1266,7 @@ async function applyDateFilter() {
 
         // Re-render stats and charts
         displaySummaryStats(analytics);
-        createChartSlides(analytics);
+        createChartSlides(analytics, currentProjectMode);
 
         // Reload accounts list
         loadProjectSocialAccounts(currentProjectId, currentProjectMode);
