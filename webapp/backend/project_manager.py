@@ -693,6 +693,65 @@ class ProjectManager:
 
     # ==================== СНИМКИ СТАТИСТИКИ ====================
 
+    def sync_account_snapshot(self, account_id: str, followers: int, likes: int,
+                              comments: int, videos: int, views: int, total_videos_fetched: int = 0) -> bool:
+        """
+        Синхронизация снимка статистики аккаунта (без дубликатов)
+
+        Проверяет последний snapshot за сегодня:
+        - Если данные изменились → создает новый snapshot
+        - Если данные те же → ничего не делает
+
+        :return: True если создан новый snapshot, False если данные не изменились
+        """
+        try:
+            today = datetime.now().date().isoformat()  # YYYY-MM-DD
+            today_start = f"{today} 00:00:00"
+            today_end = f"{today} 23:59:59"
+
+            # Получаем последний snapshot за сегодня
+            self.db.cursor.execute('''
+                SELECT followers, likes, comments, videos, views, total_videos_fetched
+                FROM account_snapshots
+                WHERE account_id = ? AND snapshot_time >= ? AND snapshot_time <= ?
+                ORDER BY snapshot_time DESC
+                LIMIT 1
+            ''', (account_id, today_start, today_end))
+
+            last_snapshot = self.db.cursor.fetchone()
+
+            # Если уже есть snapshot за сегодня с такими же данными - не создаем дубликат
+            if last_snapshot:
+                last_followers, last_likes, last_comments, last_videos, last_views, last_total_fetched = last_snapshot
+
+                if (last_followers == followers and
+                    last_likes == likes and
+                    last_comments == comments and
+                    last_videos == videos and
+                    last_views == views and
+                    last_total_fetched == total_videos_fetched):
+                    logger.debug(f"📊 Snapshot для {account_id} за сегодня уже существует с теми же данными, пропускаем")
+                    return False
+
+            # Данные изменились или нет snapshot за сегодня - создаем новый
+            snapshot_id = str(uuid.uuid4())
+            snapshot_time = datetime.now().isoformat()
+
+            self.db.cursor.execute('''
+                INSERT INTO account_snapshots
+                (id, account_id, followers, likes, comments, videos, views, total_videos_fetched, snapshot_time)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (snapshot_id, account_id, followers, likes, comments, videos, views, total_videos_fetched, snapshot_time))
+
+            self.db.conn.commit()
+
+            logger.info(f"✅ Новый snapshot создан для {account_id}: views={views}, videos={videos}")
+            return True
+
+        except Exception as e:
+            logger.error(f"❌ Ошибка синхронизации snapshot: {e}")
+            return False
+
     def add_account_snapshot(self, account_id: str, followers: int, likes: int,
                             comments: int, videos: int, views: int, total_videos_fetched: int = 0) -> bool:
         """

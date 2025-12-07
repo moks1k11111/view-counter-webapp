@@ -432,6 +432,97 @@ async def create_project(
 
     return {"success": True, "project": new_project}
 
+async def sync_project_from_sheets(project_id: str, project: dict):
+    """
+    Автоматическая синхронизация данных из Google Sheets в SQLite
+
+    Google Sheets = мастер-источник данных
+    SQLite = история для графиков
+
+    Логика:
+    - Читает актуальные данные из Google Sheets
+    - Сравнивает с последним snapshot в SQLite за сегодня
+    - Если данные изменились → создает новый snapshot (БЕЗ ДУБЛИКАТОВ)
+    """
+    try:
+        logger.info(f"🔄 Auto-sync: Проверка изменений для проекта '{project['name']}'")
+
+        # Читаем данные из Google Sheets
+        accounts_data = project_sheets.get_project_accounts(project['name'])
+
+        if not accounts_data:
+            logger.debug(f"📊 Auto-sync: Нет данных в Google Sheets для '{project['name']}'")
+            return
+
+        # Получаем все аккаунты проекта из SQLite
+        sqlite_accounts = project_manager.get_project_social_accounts(project_id)
+
+        # Создаем маппинг username -> account_id
+        username_to_account = {}
+        for acc in sqlite_accounts:
+            username_to_account[acc['username']] = acc
+
+        synced_count = 0
+        skipped_count = 0
+
+        # Для каждого аккаунта из Google Sheets
+        for sheet_record in accounts_data:
+            # Извлекаем username (приоритет на Username колонку)
+            username = sheet_record.get('Username', '').strip()
+
+            if not username:
+                # Fallback на парсинг из URL
+                url = sheet_record.get('Link', '')
+                if '/@' in url:
+                    username = url.split('/@')[1].split('?')[0].split('/')[0]
+                elif url:
+                    username = url.split('/')[-1].split('?')[0]
+
+            if not username:
+                username = sheet_record.get('@Username', '').strip().lstrip('@')
+
+            if not username:
+                continue
+
+            # Находим аккаунт в SQLite
+            account = username_to_account.get(username)
+
+            if not account:
+                logger.debug(f"⚠️ Auto-sync: Аккаунт '{username}' не найден в SQLite, пропускаем")
+                skipped_count += 1
+                continue
+
+            # Извлекаем метрики из Google Sheets
+            followers = int(sheet_record.get('Followers', 0) or 0)
+            likes = int(sheet_record.get('Likes', 0) or 0)
+            videos = int(sheet_record.get('Videos', 0) or 0)
+            views = int(sheet_record.get('Views', 0) or 0)
+            comments = int(sheet_record.get('Comments', 0) or 0)
+
+            # Синхронизируем snapshot (БЕЗ ДУБЛИКАТОВ!)
+            created = project_manager.sync_account_snapshot(
+                account_id=account['id'],
+                followers=followers,
+                likes=likes,
+                comments=comments,
+                videos=videos,
+                views=views,
+                total_videos_fetched=videos  # Для совместимости
+            )
+
+            if created:
+                synced_count += 1
+
+        if synced_count > 0:
+            logger.info(f"✅ Auto-sync: Синхронизировано {synced_count} аккаунтов, пропущено {skipped_count}")
+        else:
+            logger.debug(f"📊 Auto-sync: Нет изменений ({skipped_count} аккаунтов проверено)")
+
+    except Exception as e:
+        logger.error(f"❌ Auto-sync error: {e}")
+        import traceback
+        traceback.print_exc()
+
 @app.get("/api/projects/{project_id}/analytics")
 async def get_project_analytics(
     project_id: str,
@@ -451,6 +542,14 @@ async def get_project_analytics(
     project = project_manager.get_project(project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+
+    # 🔄 АВТОМАТИЧЕСКАЯ СИНХРОНИЗАЦИЯ: Google Sheets → SQLite
+    # Синхронизируем данные при каждом открытии проекта для актуальности графиков
+    if project_sheets:
+        try:
+            await sync_project_from_sheets(project_id, project)
+        except Exception as e:
+            logger.warning(f"⚠️ Auto-sync failed for project {project_id}: {e}")
 
     # Получаем все профили проекта из листа проекта с fallback на SQLite
     all_profiles = []
@@ -814,6 +913,13 @@ async def get_my_analytics(
         project = project_manager.get_project(project_id)
         if project:
             project_name = project['name']
+
+            # 🔄 АВТОМАТИЧЕСКАЯ СИНХРОНИЗАЦИЯ при открытии проекта
+            if project_sheets:
+                try:
+                    await sync_project_from_sheets(project_id, project)
+                except Exception as e:
+                    logger.warning(f"⚠️ Auto-sync failed for user analytics: {e}")
 
     # Получаем профили пользователя из листа проекта
     profiles = []
