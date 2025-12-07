@@ -3131,8 +3131,12 @@ function goToStep2() {
         } else if (hostname.includes('youtube.com') || hostname.includes('youtu.be')) {
             platform = 'youtube';
             // Extract channel name from various YouTube URL formats
-            const channelMatch = url.pathname.match(/\/(c|channel|user|@)\/([^/?]+)/);
-            username = channelMatch ? channelMatch[2] : '';
+            // Supports: youtube.com/@username, youtube.com/c/username, youtube.com/channel/ID, youtube.com/user/username
+            let channelMatch = url.pathname.match(/@([^/?]+)/);  // youtube.com/@username
+            if (!channelMatch) {
+                channelMatch = url.pathname.match(/\/(c|channel|user)\/([^/?]+)/);  // youtube.com/c/username
+            }
+            username = channelMatch ? (channelMatch[2] || channelMatch[1]) : '';
         } else if (hostname.includes('facebook.com') || hostname.includes('fb.com')) {
             platform = 'facebook';
             // Extract username
