@@ -210,13 +210,15 @@ class TikTokAPI:
         
         return all_items
     
-    def get_user_profile_with_total_views(self, username, use_extended_pagination=True, kpi_views=0):
+    def get_user_profile_with_total_views(self, username, use_extended_pagination=True, kpi_views=0, date_from=None, date_to=None):
         """
         🔥 УЛУЧШЕННАЯ ВЕРСИЯ: Получение полной статистики профиля
 
         Параметры:
         - use_extended_pagination: если True, использует расширенную пагинацию
         - kpi_views: минимальное количество просмотров для учета видео (0 = все видео)
+        - date_from: Дата начала периода (YYYY-MM-DD)
+        - date_to: Дата окончания периода (YYYY-MM-DD)
         """
         try:
             logger.info(f"\n{'='*60}")
@@ -238,16 +240,36 @@ class TikTokAPI:
                 # Старый метод (оставлен для совместимости)
                 items = self._get_user_posts_old(sec_uid)
 
-            # Шаг 3: Суммируем просмотры по всем видео (с фильтрацией по KPI)
+            # Шаг 3: Суммируем просмотры по всем видео (с фильтрацией по KPI и датам)
             total_views = 0
             total_likes = 0
             total_comments = 0
             total_shares = 0
             videos_matching_kpi = 0  # Количество видео подходящих по KPI
+            videos_filtered_by_date = 0  # Количество видео отфильтрованных по дате
+
+            # Конвертируем даты в timestamp для сравнения
+            from datetime import datetime
+            date_from_ts = None
+            date_to_ts = None
+            if date_from:
+                date_from_ts = int(datetime.strptime(date_from, '%Y-%m-%d').timestamp())
+            if date_to:
+                # Добавляем 1 день чтобы включить весь день date_to
+                date_to_ts = int(datetime.strptime(date_to, '%Y-%m-%d').timestamp()) + 86400
 
             for item in items:
                 stats = item.get("stats", {})
                 play_count = stats.get("playCount", 0)
+                create_time = item.get("createTime", 0)  # Unix timestamp
+
+                # Фильтрация по датам
+                if date_from_ts and create_time < date_from_ts:
+                    videos_filtered_by_date += 1
+                    continue  # Видео загружено раньше date_from
+                if date_to_ts and create_time >= date_to_ts:
+                    videos_filtered_by_date += 1
+                    continue  # Видео загружено позже date_to
 
                 # Фильтрация по KPI
                 if kpi_views > 0 and play_count < kpi_views:
@@ -278,8 +300,8 @@ class TikTokAPI:
                 "timestamp": time.time()
             }
 
-            # Логирование с информацией о KPI фильтрации
-            filtered_count = len(items) - videos_matching_kpi
+            # Логирование с информацией о KPI и дате фильтрации
+            filtered_count = len(items) - videos_matching_kpi - videos_filtered_by_date
 
             logger.info(f"\n{'='*60}")
             logger.info(f"✅ ИТОГОВАЯ СТАТИСТИКА @{username}:")
@@ -287,13 +309,16 @@ class TikTokAPI:
             logger.info(f"👥 Подписчиков: {result['followers']:,}")
             logger.info(f"👣 Подписок: {result['following']:,}")
             logger.info(f"🎬 Всего видео получено: {len(items)}")
+            if date_from or date_to:
+                logger.info(f"📅 Фильтр по датам: с {date_from or 'начала'} по {date_to or 'сегодня'}")
+                logger.info(f"❌ Отфильтровано по дате: {videos_filtered_by_date}")
             if kpi_views > 0:
                 logger.info(f"📊 KPI фильтр: >= {kpi_views:,} просмотров")
                 logger.info(f"✅ Видео подходящих под KPI: {videos_matching_kpi}")
-                logger.info(f"❌ Отфильтровано видео: {filtered_count}")
+                logger.info(f"❌ Отфильтровано по KPI: {filtered_count}")
             else:
-                logger.info(f"🎬 Видео учтено: {videos_matching_kpi} (KPI отключен)")
-            logger.info(f"👁 Всего просмотров (по KPI): {result['total_views']:,}")
+                logger.info(f"🎬 Видео учтено: {videos_matching_kpi}")
+            logger.info(f"👁 Всего просмотров: {result['total_views']:,}")
             logger.info(f"❤️ Лайков (общее): {result['likes']:,}")
             logger.info(f"{'='*60}\n")
             
@@ -380,12 +405,14 @@ class TikTokAPI:
             logger.error(f"Ошибка: {e}")
             raise
     
-    def get_tiktok_data(self, url, kpi_views=0):
+    def get_tiktok_data(self, url, kpi_views=0, date_from=None, date_to=None):
         """
         Основной метод для получения данных TikTok по URL
 
         :param url: URL профиля или видео TikTok
         :param kpi_views: минимальное количество просмотров для учета видео (0 = все видео)
+        :param date_from: Дата начала периода (YYYY-MM-DD)
+        :param date_to: Дата окончания периода (YYYY-MM-DD)
         """
         logger.info(f"Получение данных TikTok для URL: {url}")
 
@@ -397,7 +424,7 @@ class TikTokAPI:
 
         # В зависимости от типа URL вызываем соответствующий метод
         if info["type"] == "profile":
-            return self.get_user_profile_with_total_views(info["username"], use_extended_pagination=True, kpi_views=kpi_views)
+            return self.get_user_profile_with_total_views(info["username"], use_extended_pagination=True, kpi_views=kpi_views, date_from=date_from, date_to=date_to)
         elif info["type"] == "video":
             return self.get_video_info(info["video_id"])
 

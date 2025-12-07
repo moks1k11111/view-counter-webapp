@@ -756,6 +756,36 @@ function openRefreshStatsModal() {
     console.log('Modal element:', modal);
     modal.classList.remove('hidden');
     console.log('Modal classList after remove hidden:', modal.classList);
+
+    // Автоматически заполняем даты
+    const dateFromInput = document.getElementById('refresh-date-from');
+    const dateToInput = document.getElementById('refresh-date-to');
+
+    // Дата "По" = сегодня
+    const today = new Date();
+    const todayFormatted = today.toISOString().split('T')[0]; // YYYY-MM-DD
+    dateToInput.value = todayFormatted;
+
+    // Дата "С" = дата создания проекта или 30 дней назад
+    let projectCreatedDate = null;
+    if (currentProjectData && currentProjectData.project) {
+        const createdAt = currentProjectData.project.created_at;
+        if (createdAt) {
+            // Формат может быть "YYYY-MM-DD HH:MM:SS" или "YYYY-MM-DD"
+            projectCreatedDate = createdAt.split(' ')[0]; // Берем только дату
+        }
+    }
+
+    if (projectCreatedDate) {
+        dateFromInput.value = projectCreatedDate;
+    } else {
+        // Если нет даты создания проекта - ставим 30 дней назад
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        dateFromInput.value = thirtyDaysAgo.toISOString().split('T')[0];
+    }
+
+    console.log('📅 Date range set:', dateFromInput.value, 'to', dateToInput.value);
 }
 
 function closeRefreshStatsModal() {
@@ -802,8 +832,13 @@ async function submitRefreshStats() {
         return;
     }
 
+    // Собираем даты фильтрации
+    const dateFrom = document.getElementById('refresh-date-from').value;
+    const dateTo = document.getElementById('refresh-date-to').value;
+
     console.log('🚀 Starting stats refresh for project:', projectId);
     console.log('📋 Selected platforms:', platforms);
+    console.log('📅 Date range:', dateFrom, 'to', dateTo);
 
     // Переключаем на второй шаг - показываем прогресс
     document.getElementById('refresh-step-1').classList.add('hidden');
@@ -822,7 +857,11 @@ async function submitRefreshStats() {
     console.log('🔄 Starting API call to refresh stats...');
     apiCall(`/api/projects/${projectId}/refresh_stats`, {
         method: 'POST',
-        body: JSON.stringify({ platforms })
+        body: JSON.stringify({
+            platforms,
+            date_from: dateFrom,
+            date_to: dateTo
+        })
     }).then(async (response) => {
         console.log('✅ Stats refresh started in background:', response);
         // Не показываем уведомление, так как у нас есть финальный экран

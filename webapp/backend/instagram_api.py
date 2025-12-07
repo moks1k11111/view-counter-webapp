@@ -41,7 +41,7 @@ class InstagramAPI:
         logger.error(f"❌ Не удалось извлечь username из URL: {url}")
         raise ValueError("Не удалось извлечь username из URL")
     
-    def get_user_reels(self, username, amount=100, max_pages=50, kpi_views=0):
+    def get_user_reels(self, username, amount=100, max_pages=50, kpi_views=0, date_from=None, date_to=None):
         """
         Получение reels пользователя с пагинацией
 
@@ -50,6 +50,8 @@ class InstagramAPI:
             amount: количество reels за один запрос
             max_pages: максимальное количество страниц пагинации
             kpi_views: минимальное количество просмотров для учета reels (0 = все reels)
+            date_from: Дата начала периода (YYYY-MM-DD)
+            date_to: Дата окончания периода (YYYY-MM-DD)
 
         Returns:
             dict с reels и статистикой
@@ -125,11 +127,22 @@ class InstagramAPI:
                     logger.error(f"Response: {response.text}")
                     break
             
-            # Подсчитываем статистику (с фильтрацией по KPI)
+            # Подсчитываем статистику (с фильтрацией по KPI и датам)
             total_views = 0
             total_likes = 0
             total_comments = 0
             reels_matching_kpi = 0  # Количество reels подходящих по KPI
+            reels_filtered_by_date = 0  # Количество reels отфильтрованных по дате
+
+            # Конвертируем даты в timestamp для сравнения
+            from datetime import datetime
+            date_from_ts = None
+            date_to_ts = None
+            if date_from:
+                date_from_ts = int(datetime.strptime(date_from, '%Y-%m-%d').timestamp())
+            if date_to:
+                # Добавляем 1 день чтобы включить весь день date_to
+                date_to_ts = int(datetime.strptime(date_to, '%Y-%m-%d').timestamp()) + 86400
 
             for i, reel_item in enumerate(all_reels, 1):
                 node = reel_item.get("node", {})
@@ -138,6 +151,15 @@ class InstagramAPI:
                 play_count = media.get("play_count", 0)
                 like_count = media.get("like_count", 0)
                 comment_count = media.get("comment_count", 0)
+                taken_at = media.get("taken_at", 0)  # Unix timestamp
+
+                # Фильтрация по датам
+                if date_from_ts and taken_at < date_from_ts:
+                    reels_filtered_by_date += 1
+                    continue  # Reel загружен раньше date_from
+                if date_to_ts and taken_at >= date_to_ts:
+                    reels_filtered_by_date += 1
+                    continue  # Reel загружен позже date_to
 
                 # Фильтрация по KPI
                 if kpi_views > 0 and play_count < kpi_views:
@@ -152,21 +174,24 @@ class InstagramAPI:
                     logger.info(f"  Reel {i}: 👁 {play_count:,} просмотров, ❤️ {like_count} лайков")
                 elif i == 6:
                     logger.info(f"  ... (reels 6-{len(all_reels)-5}) ...")
-            
-            # Логирование с информацией о KPI фильтрации
-            filtered_count = len(all_reels) - reels_matching_kpi
+
+            # Логирование с информацией о KPI и дате фильтрации
+            filtered_count = len(all_reels) - reels_matching_kpi - reels_filtered_by_date
 
             logger.info(f"\n{'='*60}")
             logger.info(f"📊 ИТОГОВАЯ СТАТИСТИКА:")
             logger.info(f"{'='*60}")
             logger.info(f"🎬 Всего reels получено: {len(all_reels)}")
+            if date_from or date_to:
+                logger.info(f"📅 Фильтр по датам: с {date_from or 'начала'} по {date_to or 'сегодня'}")
+                logger.info(f"❌ Отфильтровано по дате: {reels_filtered_by_date}")
             if kpi_views > 0:
                 logger.info(f"📊 KPI фильтр: >= {kpi_views:,} просмотров")
                 logger.info(f"✅ Reels подходящих под KPI: {reels_matching_kpi}")
-                logger.info(f"❌ Отфильтровано reels: {filtered_count}")
+                logger.info(f"❌ Отфильтровано по KPI: {filtered_count}")
             else:
-                logger.info(f"🎬 Reels учтено: {reels_matching_kpi} (KPI отключен)")
-            logger.info(f"👁 Всего просмотров (по KPI): {total_views:,}")
+                logger.info(f"🎬 Reels учтено: {reels_matching_kpi}")
+            logger.info(f"👁 Всего просмотров: {total_views:,}")
             logger.info(f"❤️ Всего лайков: {total_likes:,}")
             logger.info(f"💬 Всего комментариев: {total_comments:,}")
             logger.info(f"{'='*60}\n")
@@ -191,13 +216,15 @@ class InstagramAPI:
                 "error": str(e)
             }
     
-    def get_profile_with_reels_stats(self, username, kpi_views=0):
+    def get_profile_with_reels_stats(self, username, kpi_views=0, date_from=None, date_to=None):
         """
         Получение полной статистики профиля
 
         Параметры:
         - username: Instagram username
         - kpi_views: минимальное количество просмотров для учета reels (0 = все reels)
+        - date_from: Дата начала периода (YYYY-MM-DD)
+        - date_to: Дата окончания периода (YYYY-MM-DD)
 
         Возвращает:
         - username
@@ -212,7 +239,7 @@ class InstagramAPI:
             logger.info(f"{'='*60}\n")
 
             # Получаем reels (максимум 100 за запрос, 50 страниц = ~600 reels)
-            reels_data = self.get_user_reels(username, amount=100, kpi_views=kpi_views)
+            reels_data = self.get_user_reels(username, amount=100, kpi_views=kpi_views, date_from=date_from, date_to=date_to)
             
             if not reels_data.get("success"):
                 raise Exception(reels_data.get("error", "Failed to get reels"))
@@ -237,16 +264,18 @@ class InstagramAPI:
             logger.error(f"❌ Ошибка: {e}")
             raise
     
-    def get_instagram_data(self, url, kpi_views=0):
+    def get_instagram_data(self, url, kpi_views=0, date_from=None, date_to=None):
         """
         Получение данных по Instagram URL
 
         :param url: URL профиля Instagram
         :param kpi_views: минимальное количество просмотров для учета reels (0 = все reels)
+        :param date_from: Дата начала периода (YYYY-MM-DD)
+        :param date_to: Дата окончания периода (YYYY-MM-DD)
         """
         try:
             username = self.extract_username_from_url(url)
-            return self.get_profile_with_reels_stats(username, kpi_views=kpi_views)
+            return self.get_profile_with_reels_stats(username, kpi_views=kpi_views, date_from=date_from, date_to=date_to)
         except Exception as e:
             logger.error(f"❌ Ошибка обработки URL: {e}")
             raise

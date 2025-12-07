@@ -217,6 +217,8 @@ class AddUserToProject(BaseModel):
 
 class RefreshStatsRequest(BaseModel):
     platforms: Dict[str, bool]  # {"tiktok": True, "instagram": True, ...}
+    date_from: Optional[str] = None  # Дата начала периода (YYYY-MM-DD)
+    date_to: Optional[str] = None  # Дата окончания периода (YYYY-MM-DD)
 
 # ============ Telegram WebApp Аутентификация ============
 
@@ -1374,7 +1376,9 @@ async def refresh_project_stats(
         accounts=accounts,
         platforms=request.platforms,
         platform_stats=platform_stats,
-        kpi_views=kpi_views
+        kpi_views=kpi_views,
+        date_from=request.date_from,
+        date_to=request.date_to
     )
 
     logger.info(f"✅ Background task started for project {project_id}")
@@ -1393,10 +1397,15 @@ def process_accounts_background(
     accounts: list,
     platforms: dict,
     platform_stats: dict,
-    kpi_views: int
+    kpi_views: int,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None
 ):
     """
     Фоновая обработка аккаунтов с обновлением прогресса
+
+    :param date_from: Дата начала периода (YYYY-MM-DD) - учитываются только видео после этой даты
+    :param date_to: Дата окончания периода (YYYY-MM-DD) - учитываются только видео до этой даты
     """
     import time
 
@@ -1406,6 +1415,8 @@ def process_accounts_background(
     logger.info(f"{'='*70}")
     for platform, stats in platform_stats.items():
         logger.info(f"   {platform.upper()}: 0/{stats['total']} аккаунтов")
+    if date_from or date_to:
+        logger.info(f"📅 Фильтр по датам: с {date_from or 'начала'} по {date_to or 'сегодня'}")
     logger.info(f"{'='*70}\n")
 
     updated_count = 0
@@ -1427,11 +1438,11 @@ def process_accounts_background(
         try:
             stats = None
 
-            # Получаем статистику в зависимости от платформы (с KPI фильтрацией)
+            # Получаем статистику в зависимости от платформы (с KPI и датами фильтрации)
             if platform == 'tiktok' and tiktok_api:
-                stats = tiktok_api.get_tiktok_data(profile_link, kpi_views=kpi_views)
+                stats = tiktok_api.get_tiktok_data(profile_link, kpi_views=kpi_views, date_from=date_from, date_to=date_to)
             elif platform == 'instagram' and instagram_api:
-                stats = instagram_api.get_instagram_data(profile_link, kpi_views=kpi_views)
+                stats = instagram_api.get_instagram_data(profile_link, kpi_views=kpi_views, date_from=date_from, date_to=date_to)
             else:
                 logger.warning(f"⚠️ Platform {platform} not supported yet")
                 if platform in platform_stats:
