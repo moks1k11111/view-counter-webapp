@@ -445,13 +445,10 @@ async def sync_project_from_sheets(project_id: str, project: dict):
     - Если данные изменились → создает новый snapshot (БЕЗ ДУБЛИКАТОВ)
     """
     try:
-        logger.info(f"🔄 Auto-sync: Проверка изменений для проекта '{project['name']}'")
-
         # Читаем данные из Google Sheets
         accounts_data = project_sheets.get_project_accounts(project['name'])
 
         if not accounts_data:
-            logger.debug(f"📊 Auto-sync: Нет данных в Google Sheets для '{project['name']}'")
             return
 
         # Получаем все аккаунты проекта из SQLite
@@ -488,7 +485,6 @@ async def sync_project_from_sheets(project_id: str, project: dict):
             account = username_to_account.get(username)
 
             if not account:
-                logger.debug(f"⚠️ Auto-sync: Аккаунт '{username}' не найден в SQLite, пропускаем")
                 skipped_count += 1
                 continue
 
@@ -514,14 +510,10 @@ async def sync_project_from_sheets(project_id: str, project: dict):
                 synced_count += 1
 
         if synced_count > 0:
-            logger.info(f"✅ Auto-sync: Синхронизировано {synced_count} аккаунтов, пропущено {skipped_count}")
-        else:
-            logger.debug(f"📊 Auto-sync: Нет изменений ({skipped_count} аккаунтов проверено)")
+            logger.info(f"✅ Auto-sync '{project['name']}': {synced_count} обновлено")
 
     except Exception as e:
-        logger.error(f"❌ Auto-sync error: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.warning(f"⚠️ Auto-sync error for '{project['name']}': {e}")
 
 @app.get("/api/projects/{project_id}/analytics")
 async def get_project_analytics(
@@ -543,11 +535,13 @@ async def get_project_analytics(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    # 🔄 АВТОМАТИЧЕСКАЯ СИНХРОНИЗАЦИЯ В ФОНЕ: Google Sheets → SQLite
-    # Запускаем синхронизацию асинхронно, чтобы не блокировать отображение данных
+    # 🔄 АВТОМАТИЧЕСКАЯ СИНХРОНИЗАЦИЯ: Google Sheets → SQLite
+    # Синхронизируем данные для актуальности графиков (оптимизировано, быстро)
     if project_sheets:
-        import asyncio
-        asyncio.create_task(sync_project_from_sheets(project_id, project))
+        try:
+            await sync_project_from_sheets(project_id, project)
+        except Exception as e:
+            logger.warning(f"⚠️ Auto-sync failed for project {project_id}: {e}")
 
     # Получаем все профили проекта из листа проекта с fallback на SQLite
     all_profiles = []
@@ -912,10 +906,12 @@ async def get_my_analytics(
         if project:
             project_name = project['name']
 
-            # 🔄 АВТОМАТИЧЕСКАЯ СИНХРОНИЗАЦИЯ В ФОНЕ
+            # 🔄 АВТОМАТИЧЕСКАЯ СИНХРОНИЗАЦИЯ
             if project_sheets:
-                import asyncio
-                asyncio.create_task(sync_project_from_sheets(project_id, project))
+                try:
+                    await sync_project_from_sheets(project_id, project)
+                except Exception as e:
+                    logger.warning(f"⚠️ Auto-sync failed for user analytics: {e}")
 
     # Получаем профили пользователя из листа проекта
     profiles = []
