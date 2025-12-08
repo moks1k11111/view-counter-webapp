@@ -2569,6 +2569,64 @@ async def import_from_sheets(
         logger.error(f"Error importing from sheets: {e}")
         raise HTTPException(status_code=500, detail=f"Import failed: {str(e)}")
 
+@app.post("/api/admin/force_migration")
+async def force_database_migration():
+    """
+    Force database migration to add missing columns (ADMIN ONLY)
+
+    This endpoint manually adds the total_videos_fetched column to account_snapshots
+    if it's missing. Useful for fixing production databases.
+    """
+    try:
+        logger.info("🔧 [ADMIN] Force migration requested")
+
+        # Check if table exists
+        db.cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='account_snapshots'"
+        )
+
+        if not db.cursor.fetchone():
+            return {
+                "success": False,
+                "message": "Table account_snapshots does not exist"
+            }
+
+        # Check current columns
+        db.cursor.execute("PRAGMA table_info(account_snapshots)")
+        columns = [column[1] for column in db.cursor.fetchall()]
+        logger.info(f"🔍 Current columns in account_snapshots: {columns}")
+
+        # Check if migration needed
+        if 'total_videos_fetched' in columns:
+            return {
+                "success": True,
+                "message": "Column total_videos_fetched already exists",
+                "columns": columns
+            }
+
+        # Add the column
+        logger.info("➕ Adding column total_videos_fetched to account_snapshots...")
+        db.cursor.execute('ALTER TABLE account_snapshots ADD COLUMN total_videos_fetched INTEGER DEFAULT 0')
+        db.conn.commit()
+        logger.info("✅ Column total_videos_fetched added successfully")
+
+        # Verify
+        db.cursor.execute("PRAGMA table_info(account_snapshots)")
+        new_columns = [column[1] for column in db.cursor.fetchall()]
+
+        return {
+            "success": True,
+            "message": "Migration completed successfully",
+            "columns_before": columns,
+            "columns_after": new_columns
+        }
+
+    except Exception as e:
+        logger.error(f"❌ Force migration failed: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Migration failed: {str(e)}")
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
