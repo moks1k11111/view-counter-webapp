@@ -134,20 +134,28 @@ function calculateDaysRemaining(endDate) {
 
 function formatLastUpdate(lastUpdateTime) {
     if (!lastUpdateTime) {
-        // Default: 15 minutes ago as placeholder
-        return 'Обновлено 15 мин назад';
+        return 'Не обновлялось';
     }
 
     const now = new Date();
     const lastUpdate = new Date(lastUpdateTime);
     const diffMs = now - lastUpdate;
+    const diffSeconds = Math.floor(diffMs / 1000);
     const diffMinutes = Math.floor(diffMs / (1000 * 60));
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-    if (diffMinutes < 60) {
-        return `Обновлено ${diffMinutes} мин назад`;
+    if (diffSeconds < 60) {
+        return 'Обновлено только что';
+    } else if (diffMinutes < 60) {
+        return `Обновлено ${diffMinutes} мин. назад`;
+    } else if (diffHours < 24) {
+        return `Обновлено ${diffHours} ч. назад`;
     } else {
-        return `Обновлено ${diffHours}ч назад`;
+        const day = String(lastUpdate.getDate()).padStart(2, '0');
+        const month = String(lastUpdate.getMonth() + 1).padStart(2, '0');
+        const year = lastUpdate.getFullYear();
+        return `Обновлено ${day}.${month}.${year}`;
     }
 }
 
@@ -453,10 +461,14 @@ async function renderMyProjects(projects) {
     const projectsWithMyStats = await Promise.all(accessibleProjects.map(async (project) => {
         try {
             const myAnalytics = await apiCall(`/api/my-analytics?project_id=${project.id}`);
-            return { ...project, my_views: myAnalytics.total_views || 0 };
+            return {
+                ...project,
+                my_views: myAnalytics.total_views || 0,
+                chart_data: myAnalytics.chart_data || []  // Реальные данные для графика
+            };
         } catch (error) {
             console.error(`Failed to load my analytics for project ${project.id}:`, error);
-            return { ...project, my_views: 0 };
+            return { ...project, my_views: 0, chart_data: [] };
         }
     }));
 
@@ -500,9 +512,19 @@ async function renderMyProjects(projects) {
     // Render bar charts after DOM update
     setTimeout(() => {
         projectsWithMyStats.forEach((project, index) => {
-            // Generate mock data for last 7 days (placeholder)
-            const last7Days = generateMockLast7Days(project.my_views);
-            createBarChart(`chart-bar-${index}`, last7Days);
+            // Используем реальные данные chart_data из API (ежедневный прирост)
+            // chart_data = [{ date: "2025-12-08", growth: 50000 }, ...]
+            if (project.chart_data && project.chart_data.length > 0) {
+                // Берем последние 7 дней
+                const last7Days = project.chart_data.slice(-7).map(item => ({
+                    date: item.date,
+                    views: item.growth || 0  // growth переименовываем в views для совместимости с createBarChart
+                }));
+                createBarChart(`chart-bar-${index}`, last7Days);
+            } else {
+                // Если нет данных - не показываем график (или можно показать пустой)
+                console.warn(`No chart_data for project ${project.id}`);
+            }
         });
     }, 0);
 }
@@ -1332,16 +1354,17 @@ function createDailyChart(chartData) {
     const data = chartData.map(item => item.growth !== undefined ? item.growth : item.views || 0);
 
     new Chart(canvas, {
-        type: 'bar',  // Изменен с 'line' на 'bar' - прирост лучше смотрится столбцами
+        type: 'line',  // ЛИНИЯ для главного графика внутри проекта
         data: {
             labels: labels,
             datasets: [{
                 label: 'Ежедневный прирост',
                 data: data,
-                backgroundColor: 'rgba(167, 139, 250, 0.8)', // Purple bars
-                borderColor: 'rgba(167, 139, 250, 1)', // Purple border
-                borderWidth: 1,
-                borderRadius: 4,  // Скругленные углы столбцов
+                backgroundColor: 'rgba(167, 139, 250, 0.3)', // Purple gradient fill
+                borderColor: 'rgba(167, 139, 250, 1)', // Purple line
+                borderWidth: 2,
+                fill: true,
+                tension: 0.4  // Smooth curve
             }]
         },
         options: {

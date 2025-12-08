@@ -305,6 +305,17 @@ class ProjectManager:
                 has_access = self.db.cursor.fetchone()[0] > 0
 
                 if has_access:
+                    # Получаем время последнего обновления из snapshots
+                    self.db.cursor.execute('''
+                        SELECT MAX(snapshot_time)
+                        FROM account_snapshots
+                        WHERE account_id IN (
+                            SELECT id FROM project_social_accounts WHERE project_id = ?
+                        )
+                    ''', (str(project_id),))
+                    last_update_result = self.db.cursor.fetchone()
+                    last_update = last_update_result[0] if last_update_result and last_update_result[0] else None
+
                     # Пользователь имеет доступ - показываем реальные данные
                     projects.append({
                         "id": row[0],
@@ -319,7 +330,8 @@ class ProjectManager:
                         "is_finished": row[9],
                         "kpi_views": row[10],
                         "allowed_platforms": allowed_platforms,
-                        "has_access": True
+                        "has_access": True,
+                        "last_update": last_update
                     })
                 else:
                     # Пользователь НЕ имеет доступа - маскируем данные, но показываем allowed_platforms для иконок
@@ -336,7 +348,8 @@ class ProjectManager:
                         "is_finished": row[9],
                         "kpi_views": row[10],
                         "allowed_platforms": allowed_platforms,
-                        "has_access": False
+                        "has_access": False,
+                        "last_update": None
                     })
 
             return projects
