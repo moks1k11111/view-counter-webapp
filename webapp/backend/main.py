@@ -470,12 +470,13 @@ async def sync_project_from_sheets(project_id: str, project: dict):
 @app.get("/api/projects/{project_id}/analytics")
 async def get_project_analytics(
     project_id: str,
+    background_tasks: BackgroundTasks,
     user: dict = Depends(get_current_user),
     platform: Optional[str] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None
 ):
-    """Получить аналитику по проекту с историей (with Redis caching)"""
+    """Получить аналитику по проекту с историей (with Redis caching + background sync)"""
     user_id = str(user.get('id'))
 
     # Проверяем доступ
@@ -502,13 +503,12 @@ async def get_project_analytics(
             logger.info(f"🎯 Cache HIT for project {project_id} (valid data)")
             return cached_data
 
-    # 🔄 АВТОМАТИЧЕСКАЯ СИНХРОНИЗАЦИЯ: Google Sheets → SQLite (фоновая синхронизация)
-    # Синхронизируем данные для актуальности графиков (оптимизировано, быстро)
+    # 🔄 ФОНОВАЯ СИНХРОНИЗАЦИЯ: Google Sheets → SQLite (НЕ блокирует ответ!)
+    # Запускаем синхронизацию В ФОНЕ - пользователь получит ответ мгновенно!
+    # Данные обновятся через 1-2 сек в фоне, следующий запрос покажет свежие данные
     if project_sheets:
-        try:
-            await sync_project_from_sheets(project_id, project)
-        except Exception as e:
-            logger.warning(f"⚠️ Auto-sync failed for project {project_id}: {e}")
+        background_tasks.add_task(sync_project_from_sheets, project_id, project)
+        logger.info(f"🔄 [Background] Sync task scheduled for project {project_id}")
 
     # 🚀 ЧИТАЕМ ДАННЫЕ ТОЛЬКО ИЗ SQLite SNAPSHOTS (мгновенно!)
     # Google Sheets синхронизируется в фоне (auto-sync выше), а мы читаем из базы
@@ -713,10 +713,11 @@ async def get_project_analytics(
 
 @app.get("/api/my-analytics")
 async def get_my_analytics(
+    background_tasks: BackgroundTasks,
     user: dict = Depends(get_current_user),
     project_id: Optional[str] = None
 ):
-    """Получить личную аналитику пользователя (with Redis caching)"""
+    """Получить личную аналитику пользователя (with Redis caching + background sync)"""
     user_id = str(user.get('id'))
     username = user.get('username', '')
     telegram_user = f"@{username}" if username else user.get('first_name', 'Неизвестно')
@@ -744,12 +745,10 @@ async def get_my_analytics(
         if project:
             project_name = project['name']
 
-            # 🔄 АВТОМАТИЧЕСКАЯ СИНХРОНИЗАЦИЯ
+            # 🔄 ФОНОВАЯ СИНХРОНИЗАЦИЯ (НЕ блокирует ответ!)
             if project_sheets:
-                try:
-                    await sync_project_from_sheets(project_id, project)
-                except Exception as e:
-                    logger.warning(f"⚠️ Auto-sync failed for user analytics: {e}")
+                background_tasks.add_task(sync_project_from_sheets, project_id, project)
+                logger.info(f"🔄 [Background] Sync task scheduled for user {user_id} analytics")
 
     # Получаем профили пользователя из листа проекта
     profiles = []
