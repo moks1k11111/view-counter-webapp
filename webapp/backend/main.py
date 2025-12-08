@@ -38,6 +38,16 @@ from config import (
 from tiktok_api import TikTokAPI
 from instagram_api import InstagramAPI
 
+# Logging (initialize BEFORE using logger)
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
+logger = logging.getLogger(__name__)
+
+# WebApp Config
+WEBAPP_URL = "https://moks1k11111.github.io/view-counter-webapp/index.html"
+
 # Celery tasks (background processing)
 try:
     from tasks import sync_account_to_sheets, sync_project_to_sheets
@@ -46,16 +56,6 @@ try:
 except ImportError as e:
     logger.warning(f"⚠️ Celery not available: {e}. Background tasks disabled.")
     CELERY_AVAILABLE = False
-
-# WebApp Config
-WEBAPP_URL = "https://moks1k11111.github.io/view-counter-webapp/index.html"
-
-# Logging
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
-)
-logger = logging.getLogger(__name__)
 
 app = FastAPI(title="View Counter WebApp API")
 
