@@ -1018,12 +1018,17 @@ class ProjectManager:
             if not account_ids:
                 return {"history": [], "growth_24h": 0}
 
-            # Строим запрос для получения суммы views_end по датам
+            # Строим запрос для получения МАКСИМУМА views_end по датам (не суммируем снапшоты!)
             placeholders = ','.join('?' * len(account_ids))
             query = f'''
-                SELECT date, SUM(views_end) as total_views
-                FROM account_daily_stats
-                WHERE account_id IN ({placeholders})
+                SELECT date, SUM(max_views) as total_views
+                FROM (
+                    SELECT account_id, date, MAX(views_end) as max_views
+                    FROM account_daily_stats
+                    WHERE account_id IN ({placeholders})
+                    GROUP BY account_id, date
+                )
+                WHERE 1=1
             '''
             params = account_ids.copy()
 
@@ -1053,10 +1058,14 @@ class ProjectManager:
                 logger.info(f"📊 Account IDs: {account_ids}")
                 logger.info(f"📊 Date range: {start_date} to {end_date}")
 
+                # Используем MAX вместо SUM: берем максимум просмотров за день для каждого аккаунта,
+                # затем суммируем максимумы по всем аккаунтам
                 query = f'''
-                    SELECT DATE(snapshot_time) as date, SUM(views) as total_views
-                    FROM account_snapshots
-                    WHERE account_id IN ({placeholders})
+                    SELECT date, SUM(max_views) as total_views
+                    FROM (
+                        SELECT account_id, DATE(snapshot_time) as date, MAX(views) as max_views
+                        FROM account_snapshots
+                        WHERE account_id IN ({placeholders})
                 '''
                 params = account_ids.copy()
 
@@ -1068,7 +1077,11 @@ class ProjectManager:
                     query += ' AND DATE(snapshot_time) <= ?'
                     params.append(end_date)
 
-                query += ' GROUP BY DATE(snapshot_time) ORDER BY DATE(snapshot_time) ASC'
+                query += '''
+                        GROUP BY account_id, DATE(snapshot_time)
+                    )
+                    GROUP BY date ORDER BY date ASC
+                '''
 
                 logger.info(f"📊 Query: {query}")
                 logger.info(f"📊 Params: {params}")

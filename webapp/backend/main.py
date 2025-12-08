@@ -569,6 +569,20 @@ async def get_project_analytics(
             total_vids = latest_snapshot.get('total_videos_fetched', 0)
             videos_count = total_vids if total_vids > 0 else latest_snapshot.get('videos', 0)
 
+            # Форматируем время последнего обновления
+            last_update = "Не обновлялось"
+            if latest_snapshot and latest_snapshot.get('snapshot_time'):
+                try:
+                    from datetime import datetime
+                    snapshot_time = latest_snapshot.get('snapshot_time')
+                    # Парсим ISO формат: "2025-12-08T22:14:44"
+                    dt = datetime.fromisoformat(snapshot_time.replace('Z', '+00:00'))
+                    # Форматируем в "ДД.ММ.ГГГГ ЧЧ:ММ"
+                    last_update = dt.strftime('%d.%m.%Y %H:%M')
+                except Exception as e:
+                    logger.warning(f"⚠️ Failed to parse snapshot_time: {e}")
+                    last_update = "Не обновлялось"
+
             all_profiles.append({
                 'telegram_user': account.get('telegram_user', 'Unknown'),
                 'username': username,  # Username из соц сети
@@ -579,7 +593,8 @@ async def get_project_analytics(
                 'videos': videos_count,  # Все видео (используем total_videos_fetched если есть)
                 'total_views': latest_snapshot.get('views', 0),
                 'platform': account.get('platform', 'tiktok').lower(),
-                'topic': account.get('topic', 'Не указано')
+                'topic': account.get('topic', 'Не указано'),
+                'last_update': last_update  # Время последнего обновления
             })
 
         logger.info(f"✅ Loaded {len(all_profiles)} profiles from SQLite for project '{project['name']}'")

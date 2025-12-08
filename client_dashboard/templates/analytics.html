@@ -27,11 +27,12 @@
                             <th style="width: 40px;">#</th>
                             <th>Профиль</th>
                             <th class="text-end" style="width: 100px;">Просмотры</th>
+                            <th class="text-end" style="width: 120px;">Обновлено</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
-                            <td colspan="3" class="text-center py-5">
+                            <td colspan="4" class="text-center py-5">
                                 <div class="spinner-border spinner-border-sm text-primary" role="status">
                                     <span class="visually-hidden">Загрузка...</span>
                                 </div>
@@ -56,11 +57,12 @@
                             <th style="width: 40px;">#</th>
                             <th>Профиль</th>
                             <th class="text-end" style="width: 100px;">Подписчики</th>
+                            <th class="text-end" style="width: 120px;">Обновлено</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
-                            <td colspan="3" class="text-center py-5">
+                            <td colspan="4" class="text-center py-5">
                                 <div class="spinner-border spinner-border-sm text-success" role="status">
                                     <span class="visually-hidden">Загрузка...</span>
                                 </div>
@@ -176,15 +178,16 @@ async function loadTopProfiles(sortBy) {
         tbody.innerHTML = '';
         
         if (profiles.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="3" class="text-center text-muted py-4">Нет данных</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted py-4">Нет данных</td></tr>`;
             return;
         }
-        
+
         profiles.forEach((profile, index) => {
             const style = getPlatformStyle(profile.platform);
             const displayText = getProfileDisplayText(profile);
             const value = sortBy === 'views' ? (profile.views || 0) : (profile.followers || 0);
-            
+            const lastUpdate = profile.last_update || 'Не обновлялось';
+
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td class="fw-bold text-muted">${index + 1}</td>
@@ -204,14 +207,15 @@ async function loadTopProfiles(sortBy) {
                     </div>
                 </td>
                 <td class="text-end fw-bold">${value.toLocaleString('ru-RU')}</td>
+                <td class="text-end text-muted" style="font-size: 0.75rem;">${lastUpdate}</td>
             `;
             tbody.appendChild(row);
         });
-        
+
     } catch (error) {
         console.error(`Ошибка загрузки топ профилей (${sortBy}):`, error);
         const tableId = sortBy === 'views' ? 'topViewsTable' : 'topFollowersTable';
-        document.querySelector(`#${tableId} tbody`).innerHTML = `<tr><td colspan="3" class="text-center text-danger py-4">Ошибка</td></tr>`;
+        document.querySelector(`#${tableId} tbody`).innerHTML = `<tr><td colspan="4" class="text-center text-danger py-4">Ошибка</td></tr>`;
     }
 }
 
@@ -360,10 +364,9 @@ async function loadPlatformComparison() {
                         grid: { color: 'rgba(0, 0, 0, 0.06)' },
                         ticks: {
                             font: { size: 12, weight: '600' },
+                            // Показываем полные числа с разделителями тысяч (1 543 вместо 1.5K)
                             callback: (val) => {
-                                if (val >= 1000000) return `${(val / 1000000).toFixed(1)}M`;
-                                if (val >= 1000) return `${(val / 1000).toFixed(0)}K`;
-                                return val;
+                                return val.toLocaleString('ru-RU');
                             }
                         }
                     },
