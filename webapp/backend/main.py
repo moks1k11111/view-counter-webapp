@@ -447,83 +447,22 @@ async def create_project(
 
 async def sync_project_from_sheets(project_id: str, project: dict):
     """
-    Автоматическая синхронизация данных из Google Sheets в SQLite
+    Автоматическая синхронизация с использованием SmartSyncService
 
-    Google Sheets = мастер-источник данных
-    SQLite = история для графиков
-
-    Логика:
-    - Читает актуальные данные из Google Sheets
-    - Сравнивает с последним snapshot в SQLite за сегодня
-    - Если данные изменились → создает новый snapshot (БЕЗ ДУБЛИКАТОВ)
+    Применяет:
+    - Safe number parsing (formatted numbers "1 000 000")
+    - Platform-specific merge strategy (MAX for TikTok/Instagram, Sheets priority for FB/YT)
+    - Protection for manual Facebook/YouTube edits
     """
     try:
-        # Читаем данные из Google Sheets
-        accounts_data = project_sheets.get_project_accounts(project['name'])
+        # 🚀 Используем SmartSyncService вместо ручного копирования
+        from smart_sync import SmartSyncService
 
-        if not accounts_data:
-            return
+        sync_service = SmartSyncService(project_manager, project_sheets)
+        result = sync_service.sync_project(project_id)
 
-        # Получаем все аккаунты проекта из SQLite
-        sqlite_accounts = project_manager.get_project_social_accounts(project_id)
-
-        # Создаем маппинг username -> account_id
-        username_to_account = {}
-        for acc in sqlite_accounts:
-            username_to_account[acc['username']] = acc
-
-        synced_count = 0
-        skipped_count = 0
-
-        # Для каждого аккаунта из Google Sheets
-        for sheet_record in accounts_data:
-            # Извлекаем username (приоритет на Username колонку)
-            username = sheet_record.get('Username', '').strip()
-
-            if not username:
-                # Fallback на парсинг из URL
-                url = sheet_record.get('Link', '')
-                if '/@' in url:
-                    username = url.split('/@')[1].split('?')[0].split('/')[0]
-                elif url:
-                    username = url.split('/')[-1].split('?')[0]
-
-            if not username:
-                username = sheet_record.get('@Username', '').strip().lstrip('@')
-
-            if not username:
-                continue
-
-            # Находим аккаунт в SQLite
-            account = username_to_account.get(username)
-
-            if not account:
-                skipped_count += 1
-                continue
-
-            # Извлекаем метрики из Google Sheets
-            followers = int(sheet_record.get('Followers', 0) or 0)
-            likes = int(sheet_record.get('Likes', 0) or 0)
-            videos = int(sheet_record.get('Videos', 0) or 0)
-            views = int(sheet_record.get('Views', 0) or 0)
-            comments = int(sheet_record.get('Comments', 0) or 0)
-
-            # Синхронизируем snapshot (БЕЗ ДУБЛИКАТОВ!)
-            created = project_manager.sync_account_snapshot(
-                account_id=account['id'],
-                followers=followers,
-                likes=likes,
-                comments=comments,
-                videos=videos,
-                views=views,
-                total_videos_fetched=videos  # Для совместимости
-            )
-
-            if created:
-                synced_count += 1
-
-        if synced_count > 0:
-            logger.info(f"✅ Auto-sync '{project['name']}': {synced_count} обновлено")
+        if result.get('success'):
+            logger.info(f"✅ Auto-sync '{project['name']}': {result.get('snapshot_count', 0)} обновлено")
 
     except Exception as e:
         logger.warning(f"⚠️ Auto-sync error for '{project['name']}': {e}")
