@@ -191,14 +191,27 @@ class SmartSyncService:
 
             # Map by profile URL for easier lookup
             for row in rows:
-                profile_url = row.get('Account URL', '')
+                profile_url = row.get('Account URL', '') or row.get('Link', '')
                 if profile_url:
+                    # Determine platform from URL
+                    url_lower = profile_url.lower()
+                    platform = ''
+                    if 'tiktok.com' in url_lower:
+                        platform = 'tiktok'
+                    elif 'instagram.com' in url_lower:
+                        platform = 'instagram'
+                    elif 'facebook.com' in url_lower or 'fb.com' in url_lower:
+                        platform = 'facebook'
+                    elif 'youtube.com' in url_lower or 'youtu.be' in url_lower:
+                        platform = 'youtube'
+
                     sheets_data[profile_url] = {
                         'followers': self._safe_int(row.get('Followers', 0)),
                         'likes': self._safe_int(row.get('Likes', 0)),
                         'comments': self._safe_int(row.get('Comments', 0)),
                         'videos': self._safe_int(row.get('Videos', 0)),
                         'views': self._safe_int(row.get('Views', 0)),
+                        'platform': platform,  # Include platform for merge strategy
                     }
 
             logger.info(f"📥 [SmartSync] Read {len(sheets_data)} accounts from Sheets")
@@ -233,6 +246,7 @@ class SmartSyncService:
                     'comments': account.get('comments', 0),
                     'videos': account.get('videos', 0),
                     'views': account.get('views', 0),
+                    'platform': account.get('platform', '').lower(),  # Include platform for merge strategy
                 }
 
         logger.info(f"🔍 [SmartSync] Loaded {len(parsed_data)} accounts from SQLite (parsed data)")
@@ -245,17 +259,19 @@ class SmartSyncService:
         parsed_data: Dict[str, Dict]
     ) -> Dict[str, Dict]:
         """
-        Merge sheets and parsed data using MAX() strategy
+        Merge sheets and parsed data using platform-specific strategy
 
-        For each metric: final_value = MAX(sheets_value, parsed_value)
-        This preserves manual edits in Sheets while updating with fresh data
+        TikTok/Instagram: MAX(sheets_value, parsed_value) - take higher value
+        Facebook/YouTube: Sheets priority - use Sheets if > 0, ignore parsed (protects manual edits)
+
+        This prevents overwriting manual FB/YT edits with parser zeros.
 
         Args:
-            sheets_data: Data from Google Sheets
+            sheets_data: Data from Google Sheets (includes manual edits)
             parsed_data: Fresh parsed data
 
         Returns:
-            dict: Merged data with MAX values
+            dict: Merged data with appropriate strategy per platform
         """
         merged = {}
 
@@ -266,29 +282,30 @@ class SmartSyncService:
             sheets = sheets_data.get(url, {})
             parsed = parsed_data.get(url, {})
 
-            # For each metric, take the maximum value
-            merged[url] = {
-                'followers': max(
-                    sheets.get('followers', 0),
-                    parsed.get('followers', 0)
-                ),
-                'likes': max(
-                    sheets.get('likes', 0),
-                    parsed.get('likes', 0)
-                ),
-                'comments': max(
-                    sheets.get('comments', 0),
-                    parsed.get('comments', 0)
-                ),
-                'videos': max(
-                    sheets.get('videos', 0),
-                    parsed.get('videos', 0)
-                ),
-                'views': max(
-                    sheets.get('views', 0),
-                    parsed.get('views', 0)
-                ),
-            }
+            # Determine platform (prefer sheets platform, fallback to parsed)
+            platform = sheets.get('platform', '') or parsed.get('platform', '')
+
+            # Platform-specific merge strategy
+            if platform in ['facebook', 'youtube']:
+                # FB/YT: Strict Sheets priority - protect manual edits from parser zeros
+                merged[url] = {
+                    'followers': sheets.get('followers', 0) if sheets.get('followers', 0) > 0 else parsed.get('followers', 0),
+                    'likes': sheets.get('likes', 0) if sheets.get('likes', 0) > 0 else parsed.get('likes', 0),
+                    'comments': sheets.get('comments', 0) if sheets.get('comments', 0) > 0 else parsed.get('comments', 0),
+                    'videos': sheets.get('videos', 0) if sheets.get('videos', 0) > 0 else parsed.get('videos', 0),
+                    'views': sheets.get('views', 0) if sheets.get('views', 0) > 0 else parsed.get('views', 0),
+                }
+                logger.debug(f"🛡️ [SmartSync] {platform.upper()} Sheets priority for {url}")
+            else:
+                # TikTok/Instagram: MAX() strategy - take higher value
+                merged[url] = {
+                    'followers': max(sheets.get('followers', 0), parsed.get('followers', 0)),
+                    'likes': max(sheets.get('likes', 0), parsed.get('likes', 0)),
+                    'comments': max(sheets.get('comments', 0), parsed.get('comments', 0)),
+                    'videos': max(sheets.get('videos', 0), parsed.get('videos', 0)),
+                    'views': max(sheets.get('views', 0), parsed.get('views', 0)),
+                }
+                logger.debug(f"📊 [SmartSync] {platform.upper() or 'UNKNOWN'} MAX strategy for {url}")
 
         logger.info(f"🔀 [SmartSync] Merged {len(merged)} accounts using MAX() strategy")
 

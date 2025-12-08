@@ -109,6 +109,44 @@ class ProjectSheetsManager:
             logger.error(f"❌ Ошибка подключения к Google Sheets: {e}")
             raise
 
+    @staticmethod
+    def _safe_int(value) -> int:
+        """
+        Безопасное преобразование значения из Google Sheets в число
+
+        Проблема: Числа в Sheets могут быть отформатированы как "1 000 000" (с пробелами).
+        Python int() падает с ошибкой на таких строках.
+
+        Решение: Удаляем пробелы, неразрывные пробелы (\\xa0) и запятые перед преобразованием.
+
+        :param value: Значение из ячейки Sheets
+        :return: Число (int) или 0 при ошибке
+        """
+        try:
+            if value is None or value == '':
+                return 0
+
+            # Если уже число
+            if isinstance(value, (int, float)):
+                return int(value)
+
+            # Если строка - очищаем от форматирования
+            if isinstance(value, str):
+                # Удаляем все пробелы (обычные и неразрывные), запятые
+                cleaned = value.replace(' ', '').replace('\xa0', '').replace(',', '').strip()
+
+                # Пробуем конвертировать
+                if cleaned:
+                    return int(float(cleaned))  # float() для случая "1.5K" -> 1
+                return 0
+
+            # Неизвестный тип - пробуем привести к int напрямую
+            return int(value)
+
+        except (ValueError, TypeError, AttributeError) as e:
+            logger.warning(f"⚠️ Failed to parse number from '{value}': {e}")
+            return 0
+
     @retry_on_quota_error(max_retries=3, delay=5)
     def create_project_sheet(self, project_name: str) -> bool:
         """
@@ -282,12 +320,23 @@ class ProjectSheetsManager:
         """
         Получение всех аккаунтов из листа проекта
 
+        Применяет безопасный парсинг чисел через _safe_int для полей метрик.
+
         :param project_name: Название проекта
-        :return: Список аккаунтов
+        :return: Список аккаунтов с корректно распаршенными числами
         """
         try:
             worksheet = self.spreadsheet.worksheet(project_name)
             records = worksheet.get_all_records()
+
+            # Применяем безопасный парсинг чисел для всех метрик
+            metric_fields = ['Views', 'Likes', 'Followers', 'Comments', 'Videos']
+
+            for record in records:
+                for field in metric_fields:
+                    if field in record:
+                        record[field] = self._safe_int(record[field])
+
             return records
 
         except gspread.exceptions.WorksheetNotFound:

@@ -552,8 +552,16 @@ async def get_project_analytics(
     cache_key = get_project_analytics_key(project_id)
     cached_data = cache.get(cache_key)
     if cached_data:
-        logger.info(f"🎯 Cache HIT for project {project_id}")
-        return cached_data
+        # Validate cache: reject if shows 0 views but has profiles (data race/stale cache)
+        total_views = cached_data.get('total_views', 0)
+        total_profiles = cached_data.get('total_profiles', 0)
+
+        if total_views == 0 and total_profiles > 0:
+            logger.warning(f"⚠️ Invalid cache for project {project_id}: 0 views with {total_profiles} profiles - forcing sync")
+            cache.delete(cache_key)  # Invalidate stale cache
+        else:
+            logger.info(f"🎯 Cache HIT for project {project_id} (valid data)")
+            return cached_data
 
     # 🔄 АВТОМАТИЧЕСКАЯ СИНХРОНИЗАЦИЯ: Google Sheets → SQLite
     # Синхронизируем данные для актуальности графиков (оптимизировано, быстро)
@@ -934,8 +942,16 @@ async def get_my_analytics(
         cache_key = get_user_analytics_key(user_id, project_id)
         cached_data = cache.get(cache_key)
         if cached_data:
-            logger.info(f"🎯 Cache HIT for user {user_id} analytics in project {project_id}")
-            return cached_data
+            # Validate cache: reject if shows 0 views but has profiles
+            total_views = cached_data.get('total_views', 0)
+            total_profiles = len(cached_data.get('profiles', []))
+
+            if total_views == 0 and total_profiles > 0:
+                logger.warning(f"⚠️ Invalid cache for user {user_id} in project {project_id}: 0 views with {total_profiles} profiles - forcing sync")
+                cache.delete(cache_key)  # Invalidate stale cache
+            else:
+                logger.info(f"🎯 Cache HIT for user {user_id} analytics in project {project_id} (valid data)")
+                return cached_data
 
     # Если указан проект, фильтруем по нему
     project_name = None
