@@ -303,13 +303,23 @@ class SmartSyncService:
         """
         updated_count = 0
 
+        # Get all accounts for this project to map profile_link to account_id
+        accounts = self.project_manager.get_project_social_accounts(project_id)
+        account_map = {acc['profile_link']: acc['id'] for acc in accounts}
+
         for profile_link, metrics in merged_data.items():
             try:
+                # Find account_id by profile_link
+                account_id = account_map.get(profile_link)
+                if not account_id:
+                    logger.warning(f"⚠️ [SmartSync] Account not found for {profile_link}")
+                    continue
+
                 # Update account in SQLite
+                # update_social_account signature: (account_id, **kwargs)
                 self.project_manager.update_social_account(
-                    project_id=project_id,
-                    profile_link=profile_link,
-                    updates=metrics
+                    account_id=account_id,
+                    **metrics
                 )
                 updated_count += 1
 
@@ -348,18 +358,17 @@ class SmartSyncService:
 
             try:
                 # Check if snapshot already exists for today
+                # get_account_snapshots signature: (account_id, start_date, end_date, limit)
+                today_str = today.isoformat()
                 existing_snapshots = self.project_manager.get_account_snapshots(
-                    account_id,
-                    days=1
+                    account_id=account_id,
+                    start_date=today_str,
+                    end_date=today_str,
+                    limit=1
                 )
 
                 # Check if we already have a snapshot from today
-                has_today_snapshot = any(
-                    datetime.fromisoformat(s['snapshot_time']).date() == today
-                    for s in existing_snapshots
-                )
-
-                if has_today_snapshot:
+                if existing_snapshots and len(existing_snapshots) > 0:
                     logger.debug(f"⏭️ [SmartSync] Snapshot already exists for account {account_id} today")
                     continue
 
