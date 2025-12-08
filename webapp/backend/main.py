@@ -574,27 +574,39 @@ async def get_project_analytics(
             if latest_snapshot and latest_snapshot.get('snapshot_time'):
                 try:
                     snapshot_time = latest_snapshot.get('snapshot_time')
-                    # Парсим ISO формат: "2025-12-08T22:14:44"
-                    dt = datetime.fromisoformat(snapshot_time.replace('Z', '+00:00'))
 
-                    # Вычисляем разницу с текущим временем
+                    # Парсим ISO формат и убираем timezone info для корректного сравнения
+                    # SQLite хранит в UTC без timezone, поэтому парсим как naive datetime
+                    if 'T' in snapshot_time:
+                        # Формат: "2025-12-08T22:14:44" или "2025-12-08T22:14:44.123456"
+                        dt_str = snapshot_time.split('.')[0]  # Убираем микросекунды если есть
+                        dt = datetime.strptime(dt_str, '%Y-%m-%dT%H:%M:%S')
+                    else:
+                        # Формат: "2025-12-08 22:14:44"
+                        dt = datetime.strptime(snapshot_time.split('.')[0], '%Y-%m-%d %H:%M:%S')
+
+                    # Вычисляем разницу с текущим временем (оба naive datetime)
                     now = datetime.now()
                     diff = now - dt
-
-                    # Форматируем относительно
                     total_seconds = int(diff.total_seconds())
-                    if total_seconds < 60:
-                        last_update = f"{total_seconds} сек назад"
+
+                    # Форматируем относительно с улучшенной логикой
+                    if total_seconds < 0:
+                        # Время в будущем (ошибка часов)
+                        last_update = "Только что"
+                    elif total_seconds < 60:
+                        last_update = "Только что"
                     elif total_seconds < 3600:  # Меньше 1 часа
                         minutes = total_seconds // 60
-                        last_update = f"{minutes} мин назад"
+                        last_update = f"{minutes} мин. назад"
                     elif total_seconds < 86400:  # Меньше 1 дня
                         hours = total_seconds // 3600
-                        last_update = f"{hours} ч назад"
+                        last_update = f"{hours} ч. назад"
                     else:  # Больше суток - показываем дату
-                        last_update = dt.strftime('%d.%m.%Y %H:%M')
+                        last_update = dt.strftime('%d.%m.%Y')
+
                 except Exception as e:
-                    logger.warning(f"⚠️ Failed to parse snapshot_time: {e}")
+                    logger.warning(f"⚠️ Failed to parse snapshot_time '{snapshot_time}' for account {account.get('id')}: {e}")
                     last_update = "Не обновлялось"
 
             all_profiles.append({
@@ -709,6 +721,23 @@ async def get_project_analytics(
 
             logger.info(f"📊 Added today's dynamic point: {today} with {total_views} views (growth: +{growth_24h})")
 
+    # Вычисляем ежедневный прирост для графика (вместо нарастающего итога)
+    daily_growth = []
+    for i, day in enumerate(history):
+        if i == 0:
+            # Первый день - прирост = значение первого дня
+            growth = day['views']
+        else:
+            # Остальные дни - разница с предыдущим днем
+            growth = day['views'] - history[i-1]['views']
+
+        daily_growth.append({
+            "date": day['date'],
+            "growth": max(0, growth)  # Не показываем отрицательный прирост
+        })
+
+    logger.info(f"📊 Daily growth calculated: {len(daily_growth)} days")
+
     # DEBUG: Log all_profiles before returning
     logger.info(f"🔍 DEBUG FINAL all_profiles count: {len(all_profiles)}")
     for idx, prof in enumerate(all_profiles):
@@ -726,7 +755,8 @@ async def get_project_analytics(
         "profiles": all_profiles,  # Список всех профилей для диаграммы аккаунтов
         "target_views": project['target_views'],
         "progress_percent": min(100, round((total_views / project['target_views'] * 100), 2)) if project['target_views'] > 0 else 0,
-        "history": history,
+        "history": history,  # Оставляем для обратной совместимости
+        "chart_data": daily_growth,  # Новые данные для графика (ежедневный прирост)
         "growth_24h": growth_24h,
         "backend_version": "v2.1_redis_cache"  # Для отладки версии бэкенда
     }

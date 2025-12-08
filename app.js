@@ -1304,53 +1304,68 @@ function createProfilesSlide(analytics) {
 }
 
 function renderAllCharts(analytics) {
-    // Используем данные истории из API
-    const dailyHistory = analytics.history || [];
+    // Используем chart_data (ежедневный прирост) вместо history (нарастающий итог)
+    const chartData = analytics.chart_data || analytics.history || [];
     const profiles = analytics.profiles || [];
 
-    createDailyChart(dailyHistory);
+    createDailyChart(chartData);
     createTopicsChart(analytics.topic_stats);
     createPlatformsChart(analytics.platform_stats);
     createProfilesChart(profiles);
 }
 
-function createDailyChart(history) {
+function createDailyChart(chartData) {
     const canvas = document.getElementById('daily-chart');
     if (!canvas) return;
 
-    // Подготавливаем данные из истории
+    // Используем данные прироста (chart_data) вместо нарастающего итога (history)
+    // chartData = [{ date: "2025-12-08", growth: 50000 }, ...] или старый формат [{ date: "2025-12-08", views: 50000 }]
+
     // Форматируем даты в короткий вид (ДД.ММ)
-    const labels = history.map(item => {
+    const labels = chartData.map(item => {
         const date = new Date(item.date);
         const day = String(date.getDate()).padStart(2, '0');
         const month = String(date.getMonth() + 1).padStart(2, '0');
         return `${day}.${month}`;
     });
-    const data = history.map(item => item.views);
+    // Используем growth (новый формат) или views (старый формат для обратной совместимости)
+    const data = chartData.map(item => item.growth !== undefined ? item.growth : item.views || 0);
 
     new Chart(canvas, {
-        type: 'line',
+        type: 'bar',  // Изменен с 'line' на 'bar' - прирост лучше смотрится столбцами
         data: {
             labels: labels,
             datasets: [{
-                label: 'Просмотры',
+                label: 'Ежедневный прирост',
                 data: data,
-                backgroundColor: 'rgba(167, 139, 250, 0.3)', // Purple gradient fill
-                borderColor: 'rgba(167, 139, 250, 1)', // Purple line
-                borderWidth: 2,
-                fill: true,
-                tension: 0.4 // Smooth curve
+                backgroundColor: 'rgba(167, 139, 250, 0.8)', // Purple bars
+                borderColor: 'rgba(167, 139, 250, 1)', // Purple border
+                borderWidth: 1,
+                borderRadius: 4,  // Скругленные углы столбцов
             }]
         },
         options: {
             responsive: true,
             plugins: {
-                legend: { display: false }
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return 'Прирост: ' + context.parsed.y.toLocaleString('ru-RU');
+                        }
+                    }
+                }
             },
             scales: {
                 y: {
                     beginAtZero: true,
-                    ticks: { color: '#fff' },
+                    ticks: {
+                        color: '#fff',
+                        callback: function(value) {
+                            // Показываем полные числа с разделителями
+                            return value.toLocaleString('ru-RU');
+                        }
+                    },
                     grid: { color: 'rgba(255,255,255,0.1)' }
                 },
                 x: {
