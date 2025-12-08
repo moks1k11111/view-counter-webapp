@@ -259,19 +259,19 @@ class SmartSyncService:
         parsed_data: Dict[str, Dict]
     ) -> Dict[str, Dict]:
         """
-        Merge sheets and parsed data using platform-specific strategy
+        Merge sheets and parsed data using SHEETS PRIORITY strategy for ALL platforms
 
-        TikTok/Instagram: MAX(sheets_value, parsed_value) - take higher value
-        Facebook/YouTube: Sheets priority - use Sheets if > 0, ignore parsed (protects manual edits)
+        ALL platforms: Sheets priority - use Sheets if > 0, otherwise fallback to parsed
 
-        This prevents overwriting manual FB/YT edits with parser zeros.
+        This ensures Google Sheets is the SOURCE OF TRUTH for all manual edits,
+        while still allowing fallback to parsed data if Sheets is empty.
 
         Args:
-            sheets_data: Data from Google Sheets (includes manual edits)
-            parsed_data: Fresh parsed data
+            sheets_data: Data from Google Sheets (includes manual edits) - SOURCE OF TRUTH
+            parsed_data: Fresh parsed data (fallback only)
 
         Returns:
-            dict: Merged data with appropriate strategy per platform
+            dict: Merged data with Sheets priority for all platforms
         """
         merged = {}
 
@@ -285,29 +285,18 @@ class SmartSyncService:
             # Determine platform (prefer sheets platform, fallback to parsed)
             platform = sheets.get('platform', '') or parsed.get('platform', '')
 
-            # Platform-specific merge strategy
-            if platform in ['facebook', 'youtube']:
-                # FB/YT: Strict Sheets priority - protect manual edits from parser zeros
-                merged[url] = {
-                    'followers': sheets.get('followers', 0) if sheets.get('followers', 0) > 0 else parsed.get('followers', 0),
-                    'likes': sheets.get('likes', 0) if sheets.get('likes', 0) > 0 else parsed.get('likes', 0),
-                    'comments': sheets.get('comments', 0) if sheets.get('comments', 0) > 0 else parsed.get('comments', 0),
-                    'videos': sheets.get('videos', 0) if sheets.get('videos', 0) > 0 else parsed.get('videos', 0),
-                    'views': sheets.get('views', 0) if sheets.get('views', 0) > 0 else parsed.get('views', 0),
-                }
-                logger.info(f"🛡️ [SmartSync] {platform.upper()} Sheets priority for {url}")
-            else:
-                # TikTok/Instagram: MAX() strategy - take higher value
-                merged[url] = {
-                    'followers': max(sheets.get('followers', 0), parsed.get('followers', 0)),
-                    'likes': max(sheets.get('likes', 0), parsed.get('likes', 0)),
-                    'comments': max(sheets.get('comments', 0), parsed.get('comments', 0)),
-                    'videos': max(sheets.get('videos', 0), parsed.get('videos', 0)),
-                    'views': max(sheets.get('views', 0), parsed.get('views', 0)),
-                }
-                logger.info(f"📊 [SmartSync] {platform.upper() or 'UNKNOWN'} MAX strategy for {url}")
+            # SHEETS PRIORITY for ALL platforms - Google Sheets is the SOURCE OF TRUTH
+            # If Sheets has value > 0, use it. Otherwise fallback to parsed data.
+            merged[url] = {
+                'followers': sheets.get('followers', 0) if sheets.get('followers', 0) > 0 else parsed.get('followers', 0),
+                'likes': sheets.get('likes', 0) if sheets.get('likes', 0) > 0 else parsed.get('likes', 0),
+                'comments': sheets.get('comments', 0) if sheets.get('comments', 0) > 0 else parsed.get('comments', 0),
+                'videos': sheets.get('videos', 0) if sheets.get('videos', 0) > 0 else parsed.get('videos', 0),
+                'views': sheets.get('views', 0) if sheets.get('views', 0) > 0 else parsed.get('views', 0),
+            }
+            logger.info(f"📊 [SmartSync] {platform.upper() or 'UNKNOWN'} Sheets priority (source of truth) for {url}")
 
-        logger.info(f"🔀 [SmartSync] Merged {len(merged)} accounts using MAX() strategy")
+        logger.info(f"🔀 [SmartSync] Merged {len(merged)} accounts using SHEETS PRIORITY strategy")
 
         return merged
 
