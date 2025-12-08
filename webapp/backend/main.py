@@ -2627,6 +2627,94 @@ async def force_database_migration():
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Migration failed: {str(e)}")
 
+
+@app.post("/api/admin/smart_sync")
+async def trigger_smart_sync(project_id: Optional[str] = None):
+    """
+    Trigger smart sync manually or via cron job
+
+    This endpoint can be called:
+    - Manually for testing
+    - By Render Cron Jobs (free tier alternative to Celery Beat)
+    - By any external scheduler
+
+    Query params:
+        project_id (optional): Sync specific project, or all projects if not provided
+
+    Returns:
+        Sync results with statistics
+    """
+    try:
+        logger.info(f"🔄 [ADMIN] Smart sync triggered via HTTP (project_id={project_id})")
+
+        from config import DEFAULT_GOOGLE_SHEETS_NAME, GOOGLE_SHEETS_CREDENTIALS_JSON
+        from smart_sync import sync_all_projects_standalone, sync_single_project_standalone
+
+        if project_id:
+            # Sync single project
+            result = sync_single_project_standalone(
+                db=db,
+                sheets_credentials=GOOGLE_SHEETS_CREDENTIALS_JSON,
+                sheets_name=DEFAULT_GOOGLE_SHEETS_NAME,
+                project_id=project_id
+            )
+            logger.info(f"✅ [ADMIN] Smart sync completed for project {project_id}")
+        else:
+            # Sync all projects
+            result = sync_all_projects_standalone(
+                db=db,
+                sheets_credentials=GOOGLE_SHEETS_CREDENTIALS_JSON,
+                sheets_name=DEFAULT_GOOGLE_SHEETS_NAME
+            )
+            logger.info(f"✅ [ADMIN] Smart sync completed for all projects")
+
+        return result
+
+    except Exception as e:
+        logger.error(f"❌ Smart sync failed: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Smart sync failed: {str(e)}")
+
+
+@app.get("/api/admin/sync_status")
+async def get_sync_status():
+    """
+    Get sync status and statistics
+
+    Returns information about:
+    - Total projects
+    - Active projects
+    - Last sync time (if available)
+    - Cache status
+
+    Useful for monitoring and debugging
+    """
+    try:
+        from project_manager import ProjectManager
+
+        pm = ProjectManager(db)
+
+        # Get project counts
+        all_projects = pm.get_all_projects()
+        active_projects = [p for p in all_projects if p.get('is_active', 1) == 1]
+
+        # Check cache status
+        from cache import cache
+
+        return {
+            "success": True,
+            "total_projects": len(all_projects),
+            "active_projects": len(active_projects),
+            "cache_enabled": cache.enabled,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+
+    except Exception as e:
+        logger.error(f"❌ Failed to get sync status: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get sync status: {str(e)}")
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

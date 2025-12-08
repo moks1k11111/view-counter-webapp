@@ -252,12 +252,103 @@ def periodic_sync_all_projects():
         }
 
 
+@task(name='smart_sync_all_projects')
+def smart_sync_all_projects():
+    """
+    Smart sync for all active projects using MAX() merge strategy
+
+    This is a Celery task wrapper around the standalone smart_sync function.
+    It implements CQRS-lite architecture:
+    1. Read from Google Sheets (manual edits)
+    2. Parse fresh data (from parsers/SQLite)
+    3. Merge using MAX() strategy
+    4. Update SQLite
+    5. Create daily snapshots
+
+    Returns:
+        dict: Sync results
+    """
+    logger.info("🔄 [Celery] Starting smart sync for all projects")
+
+    try:
+        from database_sqlite import SQLiteDatabase
+        from config import DEFAULT_GOOGLE_SHEETS_NAME, GOOGLE_SHEETS_CREDENTIALS_JSON
+        from smart_sync import sync_all_projects_standalone
+
+        # Initialize database
+        db = SQLiteDatabase()
+
+        # Run smart sync
+        result = sync_all_projects_standalone(
+            db=db,
+            sheets_credentials=GOOGLE_SHEETS_CREDENTIALS_JSON,
+            sheets_name=DEFAULT_GOOGLE_SHEETS_NAME
+        )
+
+        logger.info(f"✅ [Celery] Smart sync completed: {result.get('success_count', 0)} projects")
+
+        return result
+
+    except Exception as e:
+        logger.error(f"❌ [Celery] Smart sync failed: {e}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+@task(name='smart_sync_single_project')
+def smart_sync_single_project(project_id: str):
+    """
+    Smart sync for a single project
+
+    Args:
+        project_id: Project ID to sync
+
+    Returns:
+        dict: Sync results
+    """
+    logger.info(f"🔄 [Celery] Starting smart sync for project {project_id}")
+
+    try:
+        from database_sqlite import SQLiteDatabase
+        from config import DEFAULT_GOOGLE_SHEETS_NAME, GOOGLE_SHEETS_CREDENTIALS_JSON
+        from smart_sync import sync_single_project_standalone
+
+        # Initialize database
+        db = SQLiteDatabase()
+
+        # Run smart sync
+        result = sync_single_project_standalone(
+            db=db,
+            sheets_credentials=GOOGLE_SHEETS_CREDENTIALS_JSON,
+            sheets_name=DEFAULT_GOOGLE_SHEETS_NAME,
+            project_id=project_id
+        )
+
+        logger.info(f"✅ [Celery] Smart sync completed for project {project_id}")
+
+        return result
+
+    except Exception as e:
+        logger.error(f"❌ [Celery] Smart sync failed for project {project_id}: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+            "project_id": project_id
+        }
+
+
 # Periodic Tasks Schedule (Celery Beat)
 if CELERY_AVAILABLE and celery_app:
     celery_app.conf.beat_schedule = {
         'sync-all-projects-every-10-minutes': {
             'task': 'periodic_sync_all_projects',
             'schedule': 600.0,  # 10 minutes
+        },
+        'smart-sync-all-projects-every-30-minutes': {
+            'task': 'smart_sync_all_projects',
+            'schedule': 1800.0,  # 30 minutes
         },
     }
 
