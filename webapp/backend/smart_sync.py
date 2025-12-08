@@ -407,7 +407,7 @@ def sync_all_projects_standalone(db, sheets_credentials: str, sheets_name: str) 
 
     Args:
         db: Database instance
-        sheets_credentials: Path to Google Sheets credentials JSON
+        sheets_credentials: JSON string or path to Google Sheets credentials
         sheets_name: Name of the Google Sheets document
 
     Returns:
@@ -419,7 +419,13 @@ def sync_all_projects_standalone(db, sheets_credentials: str, sheets_name: str) 
 
         # Initialize managers
         project_manager = ProjectManager(db)
-        sheets_manager = ProjectSheetsManager(sheets_name, sheets_credentials)
+
+        # ProjectSheetsManager expects: (credentials_file, spreadsheet_name, credentials_json)
+        sheets_manager = ProjectSheetsManager(
+            credentials_file="",  # Empty since we use credentials_json
+            spreadsheet_name=sheets_name,
+            credentials_json=sheets_credentials
+        )
 
         # Create sync service and run
         sync_service = SmartSyncService(project_manager, sheets_manager)
@@ -448,7 +454,7 @@ def sync_single_project_standalone(
 
     Args:
         db: Database instance
-        sheets_credentials: Path to Google Sheets credentials JSON
+        sheets_credentials: JSON string or path to Google Sheets credentials
         sheets_name: Name of the Google Sheets document
         project_id: Project ID to sync
 
@@ -461,7 +467,13 @@ def sync_single_project_standalone(
 
         # Initialize managers
         project_manager = ProjectManager(db)
-        sheets_manager = ProjectSheetsManager(sheets_name, sheets_credentials)
+
+        # ProjectSheetsManager expects: (credentials_file, spreadsheet_name, credentials_json)
+        sheets_manager = ProjectSheetsManager(
+            credentials_file="",  # Empty since we use credentials_json
+            spreadsheet_name=sheets_name,
+            credentials_json=sheets_credentials
+        )
 
         # Create sync service and run
         sync_service = SmartSyncService(project_manager, sheets_manager)
