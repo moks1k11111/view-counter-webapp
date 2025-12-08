@@ -5,6 +5,12 @@ Implements CQRS-lite architecture with intelligent synchronization:
 1. Read from Google Sheets (source of truth for manual edits)
 2. Parse fresh data from social media platforms
 3. Merge using MAX() strategy to preserve manual edits while updating with fresh data
+4. Store metrics in account_snapshots (one snapshot per day per account)
+
+Data Architecture:
+- Metrics (views, likes, followers, etc.) are stored ONLY in account_snapshots table
+- project_social_accounts table contains only metadata (username, profile_link, status, topic)
+- Frontend should read metrics from snapshots or cache, not from project_social_accounts
 
 This service can be run:
 - As a Celery Beat scheduled task (when Redis available)
@@ -28,8 +34,10 @@ class SmartSyncService:
     1. Read current data from Google Sheets (includes manual edits)
     2. Parse fresh data from social media platforms
     3. Merge: Take MAX(sheets_value, parsed_value) for each metric
-    4. Update SQLite with merged data
-    5. Create daily snapshot for historical tracking
+    4. Create daily snapshots (primary storage for metrics and historical tracking)
+
+    Note: Metrics are stored only in account_snapshots table.
+    The project_social_accounts table contains only metadata (username, profile_link, status, topic).
     """
 
     def __init__(self, project_manager, sheets_manager):
@@ -91,20 +99,16 @@ class SmartSyncService:
             # Step 3: Merge using MAX() strategy
             merged_data = self._merge_max_strategy(sheets_data, parsed_data)
 
-            # Step 4: Update SQLite with merged data
-            updated_count = self._update_sqlite(project_id, merged_data)
-
-            # Step 5: Create daily snapshots
+            # Step 4: Create daily snapshots (primary storage for metrics)
             snapshot_count = self._create_daily_snapshots(project_id, merged_data)
 
-            logger.info(f"✅ [SmartSync] Completed for {project_name}: {updated_count} accounts updated, {snapshot_count} snapshots")
+            logger.info(f"✅ [SmartSync] Completed for {project_name}: {snapshot_count} snapshots created")
 
             return {
                 "success": True,
                 "project_id": project_id,
                 "project_name": project_name,
                 "total_accounts": len(accounts),
-                "updated_count": updated_count,
                 "snapshot_count": snapshot_count,
                 "timestamp": datetime.utcnow().isoformat()
             }
@@ -289,46 +293,6 @@ class SmartSyncService:
         logger.info(f"🔀 [SmartSync] Merged {len(merged)} accounts using MAX() strategy")
 
         return merged
-
-    def _update_sqlite(self, project_id: str, merged_data: Dict[str, Dict]) -> int:
-        """
-        Update SQLite with merged data
-
-        Args:
-            project_id: Project ID
-            merged_data: Merged data to update
-
-        Returns:
-            int: Number of accounts updated
-        """
-        updated_count = 0
-
-        # Get all accounts for this project to map profile_link to account_id
-        accounts = self.project_manager.get_project_social_accounts(project_id)
-        account_map = {acc['profile_link']: acc['id'] for acc in accounts}
-
-        for profile_link, metrics in merged_data.items():
-            try:
-                # Find account_id by profile_link
-                account_id = account_map.get(profile_link)
-                if not account_id:
-                    logger.warning(f"⚠️ [SmartSync] Account not found for {profile_link}")
-                    continue
-
-                # Update account in SQLite
-                # update_social_account signature: (account_id, **kwargs)
-                self.project_manager.update_social_account(
-                    account_id=account_id,
-                    **metrics
-                )
-                updated_count += 1
-
-            except Exception as e:
-                logger.error(f"❌ [SmartSync] Failed to update account {profile_link}: {e}")
-
-        logger.info(f"💾 [SmartSync] Updated {updated_count} accounts in SQLite")
-
-        return updated_count
 
     def _create_daily_snapshots(self, project_id: str, merged_data: Dict[str, Dict]) -> int:
         """
