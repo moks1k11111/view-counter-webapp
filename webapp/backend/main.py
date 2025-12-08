@@ -569,16 +569,30 @@ async def get_project_analytics(
             total_vids = latest_snapshot.get('total_videos_fetched', 0)
             videos_count = total_vids if total_vids > 0 else latest_snapshot.get('videos', 0)
 
-            # Форматируем время последнего обновления
+            # Форматируем время последнего обновления в относительном формате
             last_update = "Не обновлялось"
             if latest_snapshot and latest_snapshot.get('snapshot_time'):
                 try:
-                    from datetime import datetime
                     snapshot_time = latest_snapshot.get('snapshot_time')
                     # Парсим ISO формат: "2025-12-08T22:14:44"
                     dt = datetime.fromisoformat(snapshot_time.replace('Z', '+00:00'))
-                    # Форматируем в "ДД.ММ.ГГГГ ЧЧ:ММ"
-                    last_update = dt.strftime('%d.%m.%Y %H:%M')
+
+                    # Вычисляем разницу с текущим временем
+                    now = datetime.now()
+                    diff = now - dt
+
+                    # Форматируем относительно
+                    total_seconds = int(diff.total_seconds())
+                    if total_seconds < 60:
+                        last_update = f"{total_seconds} сек назад"
+                    elif total_seconds < 3600:  # Меньше 1 часа
+                        minutes = total_seconds // 60
+                        last_update = f"{minutes} мин назад"
+                    elif total_seconds < 86400:  # Меньше 1 дня
+                        hours = total_seconds // 3600
+                        last_update = f"{hours} ч назад"
+                    else:  # Больше суток - показываем дату
+                        last_update = dt.strftime('%d.%m.%Y %H:%M')
                 except Exception as e:
                     logger.warning(f"⚠️ Failed to parse snapshot_time: {e}")
                     last_update = "Не обновлялось"

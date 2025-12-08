@@ -1099,37 +1099,18 @@ class ProjectManager:
 
                 logger.info(f"📊 Loaded {len(history)} days from account_snapshots")
 
-            # Вычисляем growth_24h в реальном времени из snapshots за последние 24 часа
+            # Вычисляем growth_24h как разницу между сегодня и вчера (из истории)
             growth_24h = 0
-            if account_ids:
-                from datetime import datetime, timedelta
-                now = datetime.now()
-                twenty_four_hours_ago = (now - timedelta(hours=24)).isoformat()
-
-                for account_id in account_ids:
-                    # Получаем самый последний snapshot
-                    self.db.cursor.execute('''
-                        SELECT views FROM account_snapshots
-                        WHERE account_id = ?
-                        ORDER BY snapshot_time DESC
-                        LIMIT 1
-                    ''', (account_id,))
-                    latest = self.db.cursor.fetchone()
-
-                    # Получаем snapshot ~24 часа назад
-                    self.db.cursor.execute('''
-                        SELECT views FROM account_snapshots
-                        WHERE account_id = ? AND snapshot_time <= ?
-                        ORDER BY snapshot_time DESC
-                        LIMIT 1
-                    ''', (account_id, twenty_four_hours_ago))
-                    prev = self.db.cursor.fetchone()
-
-                    if latest and prev:
-                        growth_24h += (latest[0] - prev[0])
-                    elif latest:
-                        # Если нет старого snapshot, весь прирост = текущие просмотры
-                        growth_24h += latest[0]
+            if len(history) >= 2:
+                # Берем последние 2 дня из истории
+                today_views = history[-1]['views']
+                yesterday_views = history[-2]['views']
+                growth_24h = today_views - yesterday_views
+                logger.info(f"📊 Growth 24h: {today_views} - {yesterday_views} = {growth_24h}")
+            elif len(history) == 1:
+                # Только один день в истории - прирост = 0
+                growth_24h = 0
+                logger.info(f"📊 Growth 24h: Only 1 day in history, growth = 0")
 
             logger.info(f"📊 История проекта {project_id}: {len(history)} дней, прирост 24ч: {growth_24h}")
             return {"history": history, "growth_24h": growth_24h}
