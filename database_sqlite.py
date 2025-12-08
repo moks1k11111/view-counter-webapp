@@ -265,14 +265,28 @@ class SQLiteDatabase:
                 logger.info("✅ Таблица account_daily_stats создана")
 
             # Проверяем наличие поля total_videos_fetched в таблице account_snapshots
-            self.cursor.execute("PRAGMA table_info(account_snapshots)")
-            columns = [column[1] for column in self.cursor.fetchall()]
+            # Сначала проверяем что таблица существует
+            self.cursor.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='account_snapshots'"
+            )
 
-            if 'total_videos_fetched' not in columns:
-                logger.info("Добавляю поле total_videos_fetched в таблицу account_snapshots...")
-                self.cursor.execute('ALTER TABLE account_snapshots ADD COLUMN total_videos_fetched INTEGER DEFAULT 0')
-                self.conn.commit()
-                logger.info("✅ Поле total_videos_fetched добавлено в account_snapshots")
+            if self.cursor.fetchone():
+                # Таблица существует, проверяем колонки
+                self.cursor.execute("PRAGMA table_info(account_snapshots)")
+                columns = [column[1] for column in self.cursor.fetchall()]
+
+                if 'total_videos_fetched' not in columns:
+                    logger.info("Добавляю поле total_videos_fetched в таблицу account_snapshots...")
+                    try:
+                        self.cursor.execute('ALTER TABLE account_snapshots ADD COLUMN total_videos_fetched INTEGER DEFAULT 0')
+                        self.conn.commit()
+                        logger.info("✅ Поле total_videos_fetched добавлено в account_snapshots")
+                    except Exception as alter_error:
+                        logger.error(f"❌ Ошибка добавления колонки total_videos_fetched: {alter_error}")
+                else:
+                    logger.info("✅ Поле total_videos_fetched уже существует в account_snapshots")
+            else:
+                logger.warning("⚠️ Таблица account_snapshots не существует, миграция пропущена")
 
         except Exception as e:
             logger.error(f"Ошибка при миграции базы данных: {e}")
