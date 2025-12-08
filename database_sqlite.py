@@ -33,6 +33,11 @@ class SQLiteDatabase:
             self.conn.row_factory = sqlite3.Row  # Для получения результатов в виде словарей
             self.cursor = self.conn.cursor()
 
+            # Включаем WAL режим для параллельного чтения/записи
+            self.cursor.execute("PRAGMA journal_mode=WAL")
+            self.cursor.execute("PRAGMA synchronous=NORMAL")  # Баланс между скоростью и надёжностью
+            logger.info("✅ WAL режим включён для SQLite")
+
             # Создаем базовые таблицы
             self._create_tables()
 
@@ -190,12 +195,16 @@ class SQLiteDatabase:
                 )
                 ''')
 
+                # Создаём индексы для быстрых запросов
                 self.cursor.execute(
                     'CREATE INDEX IF NOT EXISTS idx_social_accounts_project ON project_social_accounts(project_id)'
                 )
+                self.cursor.execute(
+                    'CREATE INDEX IF NOT EXISTS idx_social_accounts_project_active ON project_social_accounts(project_id, is_active)'
+                )
 
                 self.conn.commit()
-                logger.info("✅ Таблица project_social_accounts создана")
+                logger.info("✅ Таблица project_social_accounts создана с индексами")
 
             # Проверяем наличие таблицы account_snapshots
             self.cursor.execute(
@@ -287,6 +296,23 @@ class SQLiteDatabase:
                     logger.info("✅ Поле total_videos_fetched уже существует в account_snapshots")
             else:
                 logger.warning("⚠️ Таблица account_snapshots не существует, миграция пропущена")
+
+            # Добавляем недостающие индексы для производительности (миграция для существующих БД)
+            logger.info("Проверяю наличие оптимизационных индексов...")
+
+            # Индекс для запросов по project_id + is_active
+            self.cursor.execute(
+                "SELECT name FROM sqlite_master WHERE type='index' AND name='idx_social_accounts_project_active'"
+            )
+            if not self.cursor.fetchone():
+                logger.info("Создаю индекс idx_social_accounts_project_active...")
+                self.cursor.execute(
+                    'CREATE INDEX IF NOT EXISTS idx_social_accounts_project_active ON project_social_accounts(project_id, is_active)'
+                )
+                self.conn.commit()
+                logger.info("✅ Индекс idx_social_accounts_project_active создан")
+            else:
+                logger.info("✅ Индекс idx_social_accounts_project_active уже существует")
 
         except Exception as e:
             logger.error(f"Ошибка при миграции базы данных: {e}")
