@@ -33,6 +33,17 @@ class SQLiteDatabase:
         self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
         self.cursor = self.conn.cursor()
+
+        # --- ОПТИМИЗАЦИЯ СКОРОСТИ (WAL MODE) ---
+        try:
+            self.cursor.execute("PRAGMA journal_mode=WAL;")
+            self.cursor.execute("PRAGMA synchronous=NORMAL;")  # Ускоряет запись
+            self.conn.commit()
+            print("🚀 SQLite WAL mode enabled")
+        except Exception as e:
+            print(f"⚠️ Failed to enable WAL mode: {e}")
+        # ---------------------------------------
+
         self._create_tables()
         self._migrate_database()
     
