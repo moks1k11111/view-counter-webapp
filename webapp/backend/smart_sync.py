@@ -295,7 +295,7 @@ class SmartSyncService:
                     'videos': sheets.get('videos', 0) if sheets.get('videos', 0) > 0 else parsed.get('videos', 0),
                     'views': sheets.get('views', 0) if sheets.get('views', 0) > 0 else parsed.get('views', 0),
                 }
-                logger.debug(f"🛡️ [SmartSync] {platform.upper()} Sheets priority for {url}")
+                logger.info(f"🛡️ [SmartSync] {platform.upper()} Sheets priority for {url}")
             else:
                 # TikTok/Instagram: MAX() strategy - take higher value
                 merged[url] = {
@@ -305,7 +305,7 @@ class SmartSyncService:
                     'videos': max(sheets.get('videos', 0), parsed.get('videos', 0)),
                     'views': max(sheets.get('views', 0), parsed.get('views', 0)),
                 }
-                logger.debug(f"📊 [SmartSync] {platform.upper() or 'UNKNOWN'} MAX strategy for {url}")
+                logger.info(f"📊 [SmartSync] {platform.upper() or 'UNKNOWN'} MAX strategy for {url}")
 
         logger.info(f"🔀 [SmartSync] Merged {len(merged)} accounts using MAX() strategy")
 
