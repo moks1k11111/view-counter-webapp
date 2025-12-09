@@ -794,12 +794,10 @@ async function resetProjectTimestamp() {
         });
 
         if (response.success) {
-            showSuccess(`Время обновлено для ${response.updated_count} аккаунтов! Теперь показывает "Обновлено только что"`);
+            showSuccess(`Счетчик времени сброшен для ${response.updated_count} аккаунтов!`);
 
-            // Перезагружаем проект чтобы показать новое время
-            setTimeout(() => {
-                openProject(projectId, currentProjectMode);
-            }, 1500);
+            // НЕ перезагружаем проект - просто сбросили timestamp в БД
+            // Пользователи увидят новое время при следующей загрузке страницы
         } else {
             showError(response.error || 'Не удалось обновить время');
         }
