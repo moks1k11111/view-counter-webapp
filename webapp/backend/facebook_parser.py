@@ -144,8 +144,14 @@ class FacebookAPI:
                             logger.warning(f"⚠️ Неожиданный статус: {response_status}")
                             break
 
-                        # Получаем видео из ответа
-                        videos = data.get("videos", [])
+                        # Получаем видео из ответа (details - это массив видео)
+                        details = data.get("details", [])
+                        # Если details - dict, конвертируем в list
+                        if isinstance(details, dict):
+                            videos = list(details.values())
+                        else:
+                            videos = details
+
                         count_posts = data.get("countPosts", 0)
                         has_next_page = data.get("hasNextPage", False)
                         cursor = data.get("cursor", None)
