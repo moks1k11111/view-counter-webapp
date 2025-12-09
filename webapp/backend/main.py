@@ -2649,11 +2649,23 @@ async def reset_project_timestamp(
 
         db.conn.commit()
 
-        # Инвалидируем кеш проекта
-        cache_key = get_project_analytics_key(project_id)
-        cache.delete(cache_key)
+        # Инвалидируем все кеши связанные с проектом
+        # 1. Кеш полной аналитики проекта
+        cache_key_project = get_project_analytics_key(project_id)
+        cache.delete(cache_key_project)
 
-        logger.info(f"✅ [Admin] Reset timestamp for {updated_count} accounts in project {project_id}")
+        # 2. Кеш персональной аналитики для всех пользователей проекта
+        # Получаем всех пользователей проекта
+        db.cursor.execute('''
+            SELECT DISTINCT user_id FROM project_users WHERE project_id = ?
+        ''', (project_id,))
+        user_ids = [row[0] for row in db.cursor.fetchall()]
+
+        for uid in user_ids:
+            cache_key_user = get_user_analytics_key(str(uid), project_id)
+            cache.delete(cache_key_user)
+
+        logger.info(f"✅ [Admin] Reset timestamp for {updated_count} accounts, invalidated cache for {len(user_ids)} users in project {project_id}")
 
         return {
             "success": True,
