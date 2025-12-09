@@ -18,7 +18,7 @@ class FacebookAPI:
         self.api_key = api_key
         self.api_host = api_host
         self.app_id = app_id
-        self.base_url = "https://rapidapi.com"  # Базовый URL для RapidAPI
+        self.base_url = f"https://{api_host}"
         self.headers = {
             "X-RapidAPI-Key": self.api_key,
             "X-RapidAPI-Host": self.api_host
@@ -101,14 +101,13 @@ class FacebookAPI:
             page_number = 1
             total_fetched = 0
 
-            # Endpoint для получения Reels (нужно будет уточнить реальный endpoint)
-            endpoint = f"{self.base_url}/api/facebook/reels"  # TODO: Уточнить endpoint
+            # Endpoint для получения Reels
+            endpoint = f"{self.base_url}/fba/facebook-lookup-reels"
 
             while total_fetched < max_videos:
                 # Параметры запроса
                 params = {
-                    "page": page_name,
-                    "app_id": self.app_id
+                    "url": page_url  # Передаем полный URL страницы
                 }
 
                 # Добавляем cursor для пагинации
@@ -117,7 +116,7 @@ class FacebookAPI:
 
                 logger.info(f"📄 Страница {page_number}...")
                 logger.info(f"📤 Запрос: {endpoint}")
-                logger.info(f"📦 Параметры: page={page_name}" +
+                logger.info(f"📦 Параметры: url={page_url}" +
                            (f", cursor=..." if cursor else ""))
 
                 try:

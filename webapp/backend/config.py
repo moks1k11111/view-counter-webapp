@@ -18,8 +18,8 @@ INSTAGRAM_BASE_URL = "https://instagram-scraper-stable-api.p.rapidapi.com"
 
 # ============ FACEBOOK API ============
 FACEBOOK_RAPIDAPI_KEY = os.getenv("FACEBOOK_RAPIDAPI_KEY", "0789149b93msh06026dfc8f10553p1e22d9jsn3a9694ecc1b0")
-FACEBOOK_RAPIDAPI_HOST = "rapidapi.com"
-FACEBOOK_BASE_URL = "https://rapidapi.com"
+FACEBOOK_RAPIDAPI_HOST = "axesso-facebook-data-service.p.rapidapi.com"
+FACEBOOK_BASE_URL = "https://axesso-facebook-data-service.p.rapidapi.com"
 FACEBOOK_APP_ID = os.getenv("FACEBOOK_APP_ID", "default-application_11159613")
 
 # ============ GOOGLE SHEETS ============
