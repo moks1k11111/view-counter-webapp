@@ -2594,6 +2594,82 @@ async def trigger_smart_sync(project_id: Optional[str] = None):
         raise HTTPException(status_code=500, detail=f"Smart sync failed: {str(e)}")
 
 
+@app.post("/api/admin/projects/{project_id}/reset-timestamp")
+async def reset_project_timestamp(
+    project_id: str,
+    user: dict = Depends(get_current_user)
+):
+    """
+    Сбросить timestamp для всех аккаунтов проекта (кнопка 'Данные обновлены')
+
+    Обновляет snapshot_time на текущее время для всех аккаунтов проекта.
+    Показывает пользователям что данные свежие.
+
+    Только для админов.
+    """
+    user_id = str(user.get('id'))
+
+    # Проверка прав администратора
+    if user_id not in [str(admin_id) for admin_id in ADMIN_IDS]:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    try:
+        from datetime import datetime
+
+        # Получаем все аккаунты проекта
+        accounts = project_manager.get_project_social_accounts(project_id)
+
+        if not accounts:
+            return {
+                "success": False,
+                "error": "No accounts found in project",
+                "project_id": project_id
+            }
+
+        # Обновляем timestamp для всех аккаунтов
+        current_time = datetime.utcnow().isoformat()
+        updated_count = 0
+
+        for account in accounts:
+            account_id = account.get('id')
+
+            # Получаем последний snapshot
+            snapshots = project_manager.get_account_snapshots(account_id, limit=1)
+            if snapshots:
+                snapshot_id = snapshots[0].get('id')
+
+                # Обновляем только timestamp, остальные данные не трогаем
+                db.cursor.execute('''
+                    UPDATE account_snapshots
+                    SET snapshot_time = ?
+                    WHERE id = ?
+                ''', (current_time, snapshot_id))
+
+                updated_count += 1
+
+        db.conn.commit()
+
+        # Инвалидируем кеш проекта
+        cache_key = get_project_analytics_key(project_id)
+        cache.delete(cache_key)
+
+        logger.info(f"✅ [Admin] Reset timestamp for {updated_count} accounts in project {project_id}")
+
+        return {
+            "success": True,
+            "project_id": project_id,
+            "updated_count": updated_count,
+            "new_timestamp": current_time,
+            "message": f"Timestamp обновлен для {updated_count} аккаунтов"
+        }
+
+    except Exception as e:
+        logger.error(f"❌ Failed to reset timestamp for project {project_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Failed to reset timestamp: {str(e)}")
+
+
 @app.get("/api/admin/sync_status")
 async def get_sync_status():
     """

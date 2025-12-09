@@ -781,6 +781,38 @@ async function finishProject(id) {
     }
 }
 
+async function resetProjectTimestamp() {
+    const projectId = window.currentProjectId;
+    if (!projectId) {
+        showError('Проект не выбран');
+        return;
+    }
+
+    try {
+        showLoading();
+
+        const response = await apiCall(`/api/admin/projects/${projectId}/reset-timestamp`, {
+            method: 'POST'
+        });
+
+        if (response.success) {
+            showSuccess(`Время обновлено для ${response.updated_count} аккаунтов! Теперь показывает "Обновлено только что"`);
+
+            // Перезагружаем проект чтобы показать новое время
+            setTimeout(() => {
+                openProject(projectId, currentProjectMode);
+            }, 1000);
+        } else {
+            showError(response.error || 'Не удалось обновить время');
+        }
+    } catch (error) {
+        console.error('Failed to reset timestamp:', error);
+        showError('Ошибка при обновлении времени: ' + error.message);
+    } finally {
+        hideLoading();
+    }
+}
+
 async function refreshProjectStats() {
     console.log('🎯🎯🎯 refreshProjectStats CALLED');
     // Открываем модальное окно выбора платформ
