@@ -789,8 +789,6 @@ async function resetProjectTimestamp() {
     }
 
     try {
-        showLoading();
-
         const response = await apiCall(`/api/admin/projects/${projectId}/reset-timestamp`, {
             method: 'POST'
         });
@@ -801,15 +799,13 @@ async function resetProjectTimestamp() {
             // Перезагружаем проект чтобы показать новое время
             setTimeout(() => {
                 openProject(projectId, currentProjectMode);
-            }, 1000);
+            }, 1500);
         } else {
             showError(response.error || 'Не удалось обновить время');
         }
     } catch (error) {
         console.error('Failed to reset timestamp:', error);
         showError('Ошибка при обновлении времени: ' + error.message);
-    } finally {
-        hideLoading();
     }
 }
 
