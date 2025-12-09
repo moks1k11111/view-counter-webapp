@@ -837,11 +837,17 @@ async function resetProjectTimestamp() {
 function updateAllProjectCardsTimestamp(projectId) {
     // Находим все элементы с классом last-update-text для этого проекта
     const timestampElements = document.querySelectorAll(`.last-update-text[data-project-id="${projectId}"]`);
-    const newText = getProjectTimestampText(projectId);
+    console.log(`🔍 [Timestamp] Найдено карточек для обновления:`, timestampElements.length);
 
-    timestampElements.forEach(element => {
+    const newText = getProjectTimestampText(projectId);
+    console.log(`📝 [Timestamp] Новый текст для карточек:`, newText);
+
+    timestampElements.forEach((element, index) => {
+        console.log(`✏️ [Timestamp] Обновляем карточку ${index + 1}:`, element);
         element.textContent = newText;
     });
+
+    console.log(`✅ [Timestamp] Обновлено ${timestampElements.length} карточек`);
 }
 
 // Функция для обновления отображения времени
