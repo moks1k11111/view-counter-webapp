@@ -346,17 +346,17 @@ class SmartSyncService:
                     old_views = existing_snapshot.get('views', 0)
                     new_views = metrics.get('views', 0)
 
-                    # Проверяем изменились ли Views
+                    # Проверяем изменились ли Views (для логов)
                     views_changed = old_views != new_views
 
+                    # ВСЕГДА обновляем timestamp при синхронизации
+                    # Это показывает что данные проверены и актуальны
+                    new_timestamp = datetime.utcnow().isoformat()
+
                     if views_changed:
-                        # ОБНОВЛЯЕМ timestamp ТОЛЬКО если Views изменились!
-                        logger.info(f"📝 [SmartSync] Views changed ({old_views} → {new_views}) - updating snapshot {existing_snapshot_id} with NEW timestamp")
-                        new_timestamp = datetime.utcnow().isoformat()
+                        logger.info(f"📝 [SmartSync] Views changed ({old_views} → {new_views}) - updating snapshot {existing_snapshot_id}")
                     else:
-                        # Views не изменились - сохраняем старый timestamp
-                        logger.info(f"⏭️ [SmartSync] Views unchanged ({old_views}) - keeping old timestamp for snapshot {existing_snapshot_id}")
-                        new_timestamp = existing_snapshot.get('snapshot_time')
+                        logger.info(f"✅ [SmartSync] Views unchanged ({old_views}) - updating timestamp to show data is fresh")
 
                     # Update snapshot in database
                     self.project_manager.db.cursor.execute('''
@@ -371,7 +371,7 @@ class SmartSyncService:
                         metrics.get('videos', 0),
                         new_views,
                         metrics.get('videos', 0),
-                        new_timestamp,  # Новый timestamp только если Views изменились!
+                        new_timestamp,  # ВСЕГДА новый timestamp при синхронизации!
                         existing_snapshot_id
                     ))
                     self.project_manager.db.commit()
