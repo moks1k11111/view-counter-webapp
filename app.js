@@ -796,8 +796,11 @@ async function resetProjectTimestamp() {
         if (response.success) {
             showSuccess(`Счетчик времени сброшен для ${response.updated_count} аккаунтов!`);
 
-            // НЕ перезагружаем проект - просто сбросили timestamp в БД
-            // Пользователи увидят новое время при следующей загрузке страницы
+            // Перезагружаем данные проекта чтобы показать обновленное время
+            // Используем текущий режим (обычно 'admin' в этом контексте)
+            if (currentProjectMode) {
+                await openProject(projectId, currentProjectMode);
+            }
         } else {
             showError(response.error || 'Не удалось обновить время');
         }
@@ -1231,6 +1234,13 @@ function displaySummaryStats(analytics) {
     growth24hElement.textContent = formatNumber(growth24hValue);
     // Зеленый цвет если прирост > 0
     growth24hElement.style.color = growth24hValue > 0 ? '#4CAF50' : '#fff';
+
+    // Время последнего обновления
+    const lastUpdateElement = document.getElementById('detail-last-update');
+    if (lastUpdateElement) {
+        const lastUpdateText = formatLastUpdate(project.last_update);
+        lastUpdateElement.textContent = lastUpdateText;
+    }
 }
 
 function createChartSlides(analytics, mode = 'user') {
