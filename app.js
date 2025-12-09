@@ -26,9 +26,16 @@ async function apiCall(endpoint, options = {}) {
             ...options.headers
         };
 
-        console.log('API Call:', endpoint, 'Init Data length:', (tg.initData || '').length);
+        // Обход browser/CDN cache после reset timestamp
+        let finalEndpoint = endpoint;
+        if (window.cacheInvalidatedAt && (!options.method || options.method === 'GET')) {
+            const separator = endpoint.includes('?') ? '&' : '?';
+            finalEndpoint = `${endpoint}${separator}_t=${window.cacheInvalidatedAt}`;
+        }
 
-        const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        console.log('API Call:', finalEndpoint, 'Init Data length:', (tg.initData || '').length);
+
+        const response = await fetch(`${API_BASE_URL}${finalEndpoint}`, {
             ...options,
             headers
         });
@@ -794,13 +801,30 @@ async function resetProjectTimestamp() {
         });
 
         if (response.success) {
-            showSuccess(`Счетчик времени сброшен для ${response.updated_count} аккаунтов! Новое время отобразится через несколько секунд.`);
+            showSuccess(`Счетчик времени сброшен для ${response.updated_count} аккаунтов!`);
 
-            // Обновляем только элемент "Обновлено" на странице без полной перезагрузки
+            // 1. Обновляем элемент "Обновлено" на странице детального просмотра проекта
             const lastUpdateElement = document.getElementById('detail-last-update');
             if (lastUpdateElement) {
                 lastUpdateElement.textContent = 'Только что';
             }
+
+            // 2. Инвалидируем browser cache добавлением timestamp к следующим запросам
+            // Сохраняем флаг что кэш нужно обновить
+            window.cacheInvalidatedAt = Date.now();
+
+            // 3. Если пользователь сейчас на странице "Мои проекты" или "Все проекты" -
+            // перезагружаем список чтобы показать новое время
+            const currentPage = document.querySelector('.page:not(.hidden)')?.id;
+            if (currentPage === 'home-page') {
+                console.log('🔄 Reloading home page to show updated timestamp');
+                await loadHomeProjects();
+            } else if (currentPage === 'projects-page') {
+                console.log('🔄 Reloading my projects to show updated timestamp');
+                await loadMyProjects();
+            }
+
+            console.log('✅ Timestamp reset successful and UI updated');
         } else {
             showError(response.error || 'Не удалось обновить время');
         }
