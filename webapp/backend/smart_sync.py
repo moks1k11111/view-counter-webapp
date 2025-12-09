@@ -337,23 +337,44 @@ class SmartSyncService:
                     limit=1
                 )
 
-                # Check if we already have a snapshot from today
-                if existing_snapshots and len(existing_snapshots) > 0:
-                    logger.debug(f"⏭️ [SmartSync] Snapshot already exists for account {account_id} today")
-                    continue
-
-                # Create snapshot with merged data
                 metrics = merged_data[profile_link]
-                self.project_manager.add_account_snapshot(
-                    account_id=account_id,
-                    followers=metrics.get('followers', 0),
-                    likes=metrics.get('likes', 0),
-                    comments=metrics.get('comments', 0),
-                    videos=metrics.get('videos', 0),
-                    views=metrics.get('views', 0),
-                    total_videos_fetched=metrics.get('videos', 0)
-                )
-                snapshot_count += 1
+
+                # UPDATE existing snapshot if it exists, otherwise CREATE new one
+                if existing_snapshots and len(existing_snapshots) > 0:
+                    # Update existing snapshot with new data AND new timestamp
+                    existing_snapshot_id = existing_snapshots[0].get('id')
+                    logger.info(f"📝 [SmartSync] Updating existing snapshot {existing_snapshot_id} for account {account_id}")
+
+                    # Update snapshot in database with current UTC time
+                    self.project_manager.db.cursor.execute('''
+                        UPDATE account_snapshots
+                        SET followers = ?, likes = ?, comments = ?, videos = ?, views = ?,
+                            total_videos_fetched = ?, snapshot_time = ?
+                        WHERE id = ?
+                    ''', (
+                        metrics.get('followers', 0),
+                        metrics.get('likes', 0),
+                        metrics.get('comments', 0),
+                        metrics.get('videos', 0),
+                        metrics.get('views', 0),
+                        metrics.get('videos', 0),
+                        datetime.utcnow().isoformat(),  # NEW timestamp!
+                        existing_snapshot_id
+                    ))
+                    self.project_manager.db.commit()
+                    snapshot_count += 1
+                else:
+                    # Create new snapshot with merged data
+                    self.project_manager.add_account_snapshot(
+                        account_id=account_id,
+                        followers=metrics.get('followers', 0),
+                        likes=metrics.get('likes', 0),
+                        comments=metrics.get('comments', 0),
+                        videos=metrics.get('videos', 0),
+                        views=metrics.get('views', 0),
+                        total_videos_fetched=metrics.get('videos', 0)
+                    )
+                    snapshot_count += 1
 
             except Exception as e:
                 logger.error(f"❌ [SmartSync] Failed to create snapshot for account {account_id}: {e}")
