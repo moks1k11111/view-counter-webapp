@@ -809,54 +809,78 @@ async def get_my_analytics(
                 background_tasks.add_task(sync_project_from_sheets, project_id, project)
                 logger.info(f"🔄 [Background] Sync task scheduled for user {user_id} analytics")
 
-    # Получаем профили пользователя из листа проекта
+    # 🚀 ЧИТАЕМ ПРОФИЛИ ИЗ SQLite SNAPSHOTS (так же как в /api/projects/{project_id}/analytics)
+    # Это гарантирует консистентность данных между "Все проекты" и "Мои проекты"
     profiles = []
-    if project_sheets and project_name:
+    if project_id:
         try:
-            accounts_data = project_sheets.get_project_accounts(project_name)
-            # Конвертируем и фильтруем по пользователю
-            for account in accounts_data:
-                if account.get('@Username', '') == telegram_user:
-                    # ПРИОРИТЕТ: берем username из Google Sheets напрямую
-                    url = account.get('Link', '')
+            # Получаем социальные аккаунты пользователя из SQLite
+            sqlite_accounts = project_manager.get_project_social_accounts(project_id, platform=None)
 
-                    # СНАЧАЛА пробуем взять username напрямую из Google Sheets
-                    username = account.get('Username', '').strip()
+            # Фильтруем по текущему пользователю
+            for account in sqlite_accounts:
+                if account.get('telegram_user', '') == telegram_user.lstrip('@'):
+                    # Получаем последний snapshot для каждого аккаунта
+                    snapshots = project_manager.get_account_snapshots(account['id'], limit=1)
+                    latest_snapshot = snapshots[0] if snapshots else {}
 
-                    # Только если Username в Sheets пустой - пробуем парсить из URL
-                    if not username:
-                        username = 'Unknown'
-                        if '/@' in url:
-                            # TikTok, Instagram: https://www.tiktok.com/@username
-                            username = url.split('/@')[1].split('?')[0].split('/')[0]
-                        elif 'facebook.com/share/' in url or 'facebook.com/' in url:
-                            # Facebook: извлекаем ID или username
-                            parts = url.split('/')
+                    # Извлекаем username из URL (так же как для Sheets)
+                    url = account.get('profile_link', '').strip()
+                    username = None
+
+                    if '/@' in url:
+                        username = url.split('/@')[1].split('?')[0].split('/')[0]
+                    elif 'facebook.com' in url.lower() or 'fb.com' in url.lower():
+                        # Facebook: проверяем формат profile.php?id=...
+                        url_lower_local = url.lower()
+                        if 'profile.php?id=' in url_lower_local:
+                            try:
+                                import urllib.parse
+                                parsed = urllib.parse.urlparse(url)
+                                params = urllib.parse.parse_qs(parsed.query)
+                                if 'id' in params:
+                                    username = params['id'][0]
+                            except:
+                                pass
+                        else:
+                            # Обычный формат
+                            clean_url = url.rstrip('/').split('?')[0]
+                            parts = [p for p in clean_url.split('/') if p]
+
                             if 'share' in parts:
                                 idx = parts.index('share')
                                 if idx + 1 < len(parts):
-                                    username = parts[idx + 1].split('?')[0]
-                            else:
-                                username = parts[-1].split('?')[0] if parts[-1] else parts[-2]
+                                    username = parts[idx + 1]
+                            elif len(parts) > 0:
+                                for part in reversed(parts):
+                                    if part and part not in ['facebook.com', 'www.facebook.com', 'fb.com', 'https:', 'http:']:
+                                        username = part
+                                        break
 
-                    # Если все равно нет username, ставим Unknown
+                    # Fallback на username из базы или telegram_user
                     if not username:
-                        username = 'Unknown'
+                        username = account.get('username') or account.get('telegram_user') or 'Unknown'
+                        if username and username.startswith('@'):
+                            username = username[1:]
+
+                    # Используем total_videos_fetched если > 0, иначе fallback на videos
+                    total_vids = latest_snapshot.get('total_videos_fetched', 0)
+                    videos_count = total_vids if total_vids > 0 else latest_snapshot.get('videos', 0)
 
                     profiles.append({
-                        'telegram_user': account.get('@Username', ''),
-                        'username': username,  # Username из соц сети
+                        'telegram_user': account.get('telegram_user', 'Unknown'),
+                        'username': username,
                         'url': url,
-                        'followers': int(account.get('Followers', 0) or 0),
-                        'likes': int(account.get('Likes', 0) or 0),
-                        'comments': int(account.get('Comments', 0) or 0),
-                        'videos': int(account.get('Videos', 0) or 0),
-                        'total_views': int(account.get('Views', 0) or 0),
-                        'platform': account.get('Platform', 'tiktok').lower(),
-                        'topic': account.get('Тематика', 'Не указано')
+                        'followers': latest_snapshot.get('followers', 0),
+                        'likes': latest_snapshot.get('likes', 0),
+                        'comments': latest_snapshot.get('comments', 0),
+                        'videos': videos_count,
+                        'total_views': latest_snapshot.get('views', 0),
+                        'platform': account.get('platform', 'tiktok').lower(),
+                        'topic': account.get('topic', 'Не указано')
                     })
         except Exception as e:
-            logger.warning(f"⚠️ Could not load user profiles from sheets for project {project_name}: {e}")
+            logger.warning(f"⚠️ Could not load user profiles from SQLite for project {project_id}: {e}")
 
     # Статистика
     platform_stats = {"tiktok": 0, "instagram": 0, "facebook": 0, "youtube": 0, "threads": 0}
