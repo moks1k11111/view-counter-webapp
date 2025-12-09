@@ -972,50 +972,8 @@ async def get_my_analytics(
 
         logger.info(f"📊 [My Analytics] Daily growth calculated: {len(daily_growth)} days for chart")
 
-        # Вычисляем last_update для проекта (самый свежий snapshot среди аккаунтов пользователя)
-        last_update = "Не обновлялось"
-        latest_snapshot_time_str = None
-
-        for account in sqlite_accounts:
-            account_telegram_user = account.get('telegram_user', '').lstrip('@')
-            if account_telegram_user == normalized_telegram_user:
-                snapshots = project_manager.get_account_snapshots(account['id'], limit=1)
-                if snapshots and snapshots[0].get('snapshot_time'):
-                    snapshot_time = snapshots[0]['snapshot_time']
-                    if not latest_snapshot_time_str or snapshot_time > latest_snapshot_time_str:
-                        latest_snapshot_time_str = snapshot_time
-
-        # Форматируем last_update
-        if latest_snapshot_time_str:
-            try:
-                if 'T' in latest_snapshot_time_str:
-                    dt_str = latest_snapshot_time_str.split('.')[0]
-                    dt = datetime.strptime(dt_str, '%Y-%m-%dT%H:%M:%S')
-                else:
-                    dt = datetime.strptime(latest_snapshot_time_str.split('.')[0], '%Y-%m-%d %H:%M:%S')
-
-                now = datetime.now()
-                diff = now - dt
-                total_seconds = int(diff.total_seconds())
-
-                if total_seconds < 60:
-                    last_update = "Только что"
-                elif total_seconds < 3600:
-                    minutes = total_seconds // 60
-                    last_update = f"{minutes} мин. назад"
-                elif total_seconds < 86400:
-                    hours = total_seconds // 3600
-                    last_update = f"{hours} ч. назад"
-                else:
-                    last_update = dt.strftime('%d.%m.%Y')
-            except Exception as e:
-                logger.warning(f"⚠️ Failed to parse last_update: {e}")
-
-        # Добавляем last_update к объекту project
-        project_with_update = {**project, 'last_update': last_update}
-
         response_data = {
-            "project": project_with_update,
+            "project": project,
             "total_views": total_views,
             "total_videos": total_videos,
             "total_profiles": len(profiles),
@@ -2634,90 +2592,6 @@ async def trigger_smart_sync(project_id: Optional[str] = None):
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Smart sync failed: {str(e)}")
-
-
-@app.post("/api/admin/projects/{project_id}/reset-timestamp")
-async def reset_project_timestamp(
-    project_id: str,
-    user: dict = Depends(get_current_user)
-):
-    """
-    Сбросить timestamp для всех аккаунтов проекта (кнопка 'Данные обновлены')
-
-    Обновляет snapshot_time на текущее время для всех аккаунтов проекта.
-    Показывает пользователям что данные свежие.
-
-    Только для админов.
-    """
-    logger.info(f"🔵🔵🔵 [RESET TIMESTAMP] Endpoint called for project {project_id}")
-    user_id = str(user.get('id'))
-    logger.info(f"🔵 [RESET TIMESTAMP] User ID: {user_id}, ADMIN_IDS: {ADMIN_IDS}")
-
-    # Проверка прав администратора
-    if user_id not in [str(admin_id) for admin_id in ADMIN_IDS]:
-        logger.error(f"❌ [RESET TIMESTAMP] Access denied for user {user_id}")
-        raise HTTPException(status_code=403, detail="Access denied")
-
-    try:
-        from datetime import datetime
-
-        # Получаем все аккаунты проекта
-        accounts = project_manager.get_project_social_accounts(project_id)
-
-        if not accounts:
-            return {
-                "success": False,
-                "error": "No accounts found in project",
-                "project_id": project_id
-            }
-
-        # Обновляем timestamp для всех аккаунтов
-        current_time = datetime.utcnow().isoformat()
-        updated_count = 0
-
-        for account in accounts:
-            account_id = account.get('id')
-
-            # Получаем последний snapshot
-            snapshots = project_manager.get_account_snapshots(account_id, limit=1)
-            if snapshots:
-                snapshot_id = snapshots[0].get('id')
-
-                # Обновляем только timestamp, остальные данные не трогаем
-                db.cursor.execute('''
-                    UPDATE account_snapshots
-                    SET snapshot_time = ?
-                    WHERE id = ?
-                ''', (current_time, snapshot_id))
-
-                updated_count += 1
-                logger.info(f"🔵 [RESET TIMESTAMP] Updated snapshot {snapshot_id} for account {account_id}")
-
-        db.conn.commit()
-        logger.info(f"🔵 [RESET TIMESTAMP] Committed {updated_count} updates to database")
-
-        # Инвалидируем кэш для этого проекта чтобы новое время сразу отобразилось
-        try:
-            cache.invalidate_project(project_id)
-            logger.info(f"🗑️🗑️🗑️ [RESET TIMESTAMP] Cache invalidated for project {project_id}")
-        except Exception as e:
-            logger.warning(f"⚠️ [RESET TIMESTAMP] Failed to invalidate cache: {e}")
-
-        logger.info(f"✅✅✅ [RESET TIMESTAMP] Completed! {updated_count} accounts updated, new_timestamp={current_time}")
-
-        return {
-            "success": True,
-            "project_id": project_id,
-            "updated_count": updated_count,
-            "new_timestamp": current_time,
-            "message": f"Timestamp обновлен для {updated_count} аккаунтов"
-        }
-
-    except Exception as e:
-        logger.error(f"❌ Failed to reset timestamp for project {project_id}: {e}")
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Failed to reset timestamp: {str(e)}")
 
 
 @app.get("/api/admin/sync_status")

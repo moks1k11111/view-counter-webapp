@@ -26,16 +26,9 @@ async function apiCall(endpoint, options = {}) {
             ...options.headers
         };
 
-        // Обход browser/CDN cache после reset timestamp
-        let finalEndpoint = endpoint;
-        if (window.cacheInvalidatedAt && (!options.method || options.method === 'GET')) {
-            const separator = endpoint.includes('?') ? '&' : '?';
-            finalEndpoint = `${endpoint}${separator}_t=${window.cacheInvalidatedAt}`;
-        }
+        console.log('API Call:', endpoint, 'Init Data length:', (tg.initData || '').length);
 
-        console.log('API Call:', finalEndpoint, 'Init Data length:', (tg.initData || '').length);
-
-        const response = await fetch(`${API_BASE_URL}${finalEndpoint}`, {
+        const response = await fetch(`${API_BASE_URL}${endpoint}`, {
             ...options,
             headers
         });
