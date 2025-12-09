@@ -33,10 +33,12 @@ from config import (
     TELEGRAM_TOKEN, DEFAULT_GOOGLE_SHEETS_NAME, GOOGLE_SHEETS_CREDENTIALS,
     GOOGLE_SHEETS_CREDENTIALS_JSON, ADMIN_IDS,
     RAPIDAPI_KEY, RAPIDAPI_HOST, RAPIDAPI_BASE_URL,
-    INSTAGRAM_RAPIDAPI_KEY, INSTAGRAM_RAPIDAPI_HOST, INSTAGRAM_BASE_URL
+    INSTAGRAM_RAPIDAPI_KEY, INSTAGRAM_RAPIDAPI_HOST, INSTAGRAM_BASE_URL,
+    FACEBOOK_RAPIDAPI_KEY, FACEBOOK_RAPIDAPI_HOST, FACEBOOK_APP_ID
 )
 from tiktok_api import TikTokAPI
 from instagram_api import InstagramAPI
+from facebook_parser import FacebookAPI
 
 # Logging (initialize BEFORE using logger)
 logging.basicConfig(
@@ -96,11 +98,13 @@ except Exception as e:
 try:
     tiktok_api = TikTokAPI(api_key=RAPIDAPI_KEY, api_host=RAPIDAPI_HOST, base_url=RAPIDAPI_BASE_URL)
     instagram_api = InstagramAPI(api_key=INSTAGRAM_RAPIDAPI_KEY, api_host=INSTAGRAM_RAPIDAPI_HOST, base_url=INSTAGRAM_BASE_URL)
-    logger.info("✅ TikTok and Instagram API clients initialized")
+    facebook_api = FacebookAPI(api_key=FACEBOOK_RAPIDAPI_KEY, api_host=FACEBOOK_RAPIDAPI_HOST, app_id=FACEBOOK_APP_ID)
+    logger.info("✅ TikTok, Instagram and Facebook API clients initialized")
 except Exception as e:
     logger.error(f"⚠️  Failed to initialize API clients: {e}")
     tiktok_api = None
     instagram_api = None
+    facebook_api = None
 
 # ============ TELEGRAM BOT LOGIC ============
 
@@ -1471,7 +1475,7 @@ async def refresh_project_stats(
     if not project_sheets:
         raise HTTPException(status_code=503, detail="Google Sheets not available")
 
-    if not tiktok_api and not instagram_api:
+    if not tiktok_api and not instagram_api and not facebook_api:
         raise HTTPException(status_code=503, detail="Stats API clients not available")
 
     # Получаем KPI проекта
@@ -1553,6 +1557,24 @@ def process_accounts_background(
                 stats = tiktok_api.get_tiktok_data(profile_link, kpi_views=kpi_views, date_from=date_from, date_to=date_to)
             elif platform == 'instagram' and instagram_api:
                 stats = instagram_api.get_instagram_data(profile_link, kpi_views=kpi_views, date_from=date_from, date_to=date_to)
+            elif platform == 'facebook' and facebook_api:
+                # Facebook использует другую структуру данных (Reels API)
+                result = facebook_api.get_page_reels(profile_link, kpi_views=kpi_views, date_from=date_from, date_to=date_to)
+                if result.get('success'):
+                    # Преобразуем результат Facebook в общий формат
+                    stats = {
+                        'total_views': result.get('total_views', 0),
+                        'total_likes': result.get('total_likes', 0),
+                        'videos': result.get('total_videos', 0),
+                        'reels': result.get('total_videos', 0),
+                        'total_videos_fetched': result.get('total_videos', 0),
+                        'total_reels_fetched': result.get('total_videos', 0),
+                        'followers': 0,  # Facebook API не возвращает followers в Reels API
+                        'likes': result.get('total_likes', 0)
+                    }
+                else:
+                    stats = None
+                    logger.error(f"❌ Facebook API error: {result.get('error', 'Unknown error')}")
             else:
                 logger.warning(f"⚠️ Platform {platform} not supported yet")
                 if platform in platform_stats:
