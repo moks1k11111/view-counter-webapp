@@ -415,7 +415,7 @@ async function renderProjects(projects) {
                             <div class="stat-value">${hasAccess ? 'от ' + formatNumber(project.kpi_views || 1000) : '***'}</div>
                         </div>
                     </div>
-                    <div class="last-update-text">${formatLastUpdate(project.last_update)}</div>
+                    <div class="last-update-text" data-project-id="${project.id}">${getProjectTimestampText(project.id)}</div>
                     <div class="project-platforms">
                         ${renderPlatformIcons(project.allowed_platforms)}
                     </div>
@@ -500,7 +500,7 @@ async function renderMyProjects(projects) {
                     <canvas id="chart-bar-${index}" height="120"></canvas>
                 </div>
                 <div class="chart-legend">Last 7 days activity</div>
-                <div class="last-update-text">${formatLastUpdate(project.last_update)}</div>
+                <div class="last-update-text" data-project-id="${project.id}">${getProjectTimestampText(project.id)}</div>
                 <div class="project-platforms">
                     ${renderPlatformIcons(project.allowed_platforms)}
                 </div>
@@ -795,16 +795,30 @@ function resetProjectTimestamp() {
     const now = new Date().toISOString();
     localStorage.setItem(`project_${projectId}_last_update`, now);
 
-    // Обновляем отображение
+    // Обновляем отображение на детальной странице
     const lastUpdateElement = document.getElementById('detail-last-update');
     if (lastUpdateElement) {
         lastUpdateElement.textContent = 'Только что';
     }
 
+    // Обновляем все карточки проектов на всех страницах
+    updateAllProjectCardsTimestamp(projectId);
+
     showSuccess('Таймер сброшен!');
 
     // Запускаем обновление каждую минуту
     startTimestampUpdater(projectId);
+}
+
+// Обновить timestamp на всех карточках проектов
+function updateAllProjectCardsTimestamp(projectId) {
+    // Находим все элементы с классом last-update-text для этого проекта
+    const timestampElements = document.querySelectorAll(`.last-update-text[data-project-id="${projectId}"]`);
+    const newText = getProjectTimestampText(projectId);
+
+    timestampElements.forEach(element => {
+        element.textContent = newText;
+    });
 }
 
 // Функция для обновления отображения времени
@@ -839,6 +853,29 @@ function startTimestampUpdater(projectId) {
             lastUpdateElement.textContent = text;
         }
     }, 60000); // каждую минуту
+}
+
+// Получить текст timestamp для отображения на карточке проекта
+function getProjectTimestampText(projectId) {
+    const savedTime = localStorage.getItem(`project_${projectId}_last_update`);
+
+    if (!savedTime) {
+        return '—';
+    }
+
+    const lastUpdate = new Date(savedTime);
+    const now = new Date();
+    const diff = Math.floor((now - lastUpdate) / 1000); // секунды
+
+    if (diff < 60) {
+        return 'Обновлено только что';
+    } else if (diff < 3600) {
+        const minutes = Math.floor(diff / 60);
+        return `Обновлено ${minutes} мин. назад`;
+    } else {
+        const hours = Math.floor(diff / 3600);
+        return `Обновлено ${hours} ч. назад`;
+    }
 }
 
 // Вызываем при загрузке проекта чтобы восстановить таймер
