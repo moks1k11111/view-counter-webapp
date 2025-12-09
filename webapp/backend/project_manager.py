@@ -128,6 +128,16 @@ class ProjectManager:
             from datetime import datetime
             now = datetime.utcnow().isoformat()
 
+            # Проверяем существует ли поле last_admin_update
+            self.db.cursor.execute("PRAGMA table_info(projects)")
+            columns = [column[1] for column in self.db.cursor.fetchall()]
+
+            if 'last_admin_update' not in columns:
+                logger.warning(f"⚠️ Поле last_admin_update не существует, добавляем...")
+                self.db.cursor.execute('ALTER TABLE projects ADD COLUMN last_admin_update TEXT DEFAULT NULL')
+                self.db.commit()
+                logger.info("✅ Поле last_admin_update добавлено")
+
             self.db.cursor.execute('''
                 UPDATE projects
                 SET last_admin_update = ?
@@ -140,6 +150,8 @@ class ProjectManager:
 
         except Exception as e:
             logger.error(f"❌ Ошибка обновления timestamp для проекта {project_id}: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
             return False
 
     def get_all_projects(self, active_only: bool = False) -> List[Dict]:
