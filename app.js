@@ -862,7 +862,9 @@ function startTimestampUpdater(projectId) {
         const savedTime = localStorage.getItem(`project_${projectId}_last_update`);
         if (!savedTime) return;
 
-        const lastUpdate = new Date(savedTime);
+        // Парсим время (может быть с "Z" или без)
+        const timeString = savedTime.endsWith('Z') ? savedTime : savedTime + 'Z';
+        const lastUpdate = new Date(timeString);
         const now = new Date();
         const diff = Math.floor((now - lastUpdate) / 1000); // секунды
 
@@ -908,10 +910,13 @@ function getProjectTimestampText(projectId, apiTimestamp) {
         return '—';
     }
 
-    const lastUpdate = new Date(savedTime);
+    // Парсим время (может быть с "Z" или без)
+    // Если без "Z" - это UTC время, добавляем "Z" для правильного парсинга
+    const timeString = savedTime.endsWith('Z') ? savedTime : savedTime + 'Z';
+    const lastUpdate = new Date(timeString);
     const now = new Date();
     const diff = Math.floor((now - lastUpdate) / 1000); // секунды
-    console.log(`⏱️ [getProjectTimestampText] Разница: ${diff} секунд`);
+    console.log(`⏱️ [getProjectTimestampText] savedTime: ${savedTime}, parsed: ${timeString}, diff: ${diff} секунд`);
 
     if (diff < 60) {
         console.log(`✅ [getProjectTimestampText] Возвращаем: "Обновлено только что"`);
@@ -946,7 +951,9 @@ function initProjectTimestamp(projectId, projectData) {
 
     if (savedTime) {
         // Вычисляем и показываем текущее время
-        const lastUpdate = new Date(savedTime);
+        // Парсим время (может быть с "Z" или без)
+        const timeString = savedTime.endsWith('Z') ? savedTime : savedTime + 'Z';
+        const lastUpdate = new Date(timeString);
         const now = new Date();
         const diff = Math.floor((now - lastUpdate) / 1000); // секунды
 
