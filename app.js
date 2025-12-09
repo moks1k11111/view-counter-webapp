@@ -886,34 +886,43 @@ function startTimestampUpdater(projectId) {
 
 // Получить текст timestamp для отображения на карточке проекта
 function getProjectTimestampText(projectId, apiTimestamp) {
+    console.log(`🕐 [getProjectTimestampText] projectId=${projectId}, apiTimestamp=${apiTimestamp}`);
+
     // Приоритет: сначала проверяем API данные, затем localStorage
     let savedTime = null;
 
     if (apiTimestamp) {
         // Используем timestamp из API
         savedTime = apiTimestamp;
+        console.log(`📡 [getProjectTimestampText] Используем API timestamp: ${savedTime}`);
         // Синхронизируем с localStorage
         localStorage.setItem(`project_${projectId}_last_update`, savedTime);
     } else {
         // Fallback на localStorage
         savedTime = localStorage.getItem(`project_${projectId}_last_update`);
+        console.log(`💾 [getProjectTimestampText] Читаем из localStorage: ${savedTime}`);
     }
 
     if (!savedTime) {
+        console.log(`⚠️ [getProjectTimestampText] Нет сохраненного времени`);
         return '—';
     }
 
     const lastUpdate = new Date(savedTime);
     const now = new Date();
     const diff = Math.floor((now - lastUpdate) / 1000); // секунды
+    console.log(`⏱️ [getProjectTimestampText] Разница: ${diff} секунд`);
 
     if (diff < 60) {
+        console.log(`✅ [getProjectTimestampText] Возвращаем: "Обновлено только что"`);
         return 'Обновлено только что';
     } else if (diff < 3600) {
         const minutes = Math.floor(diff / 60);
+        console.log(`✅ [getProjectTimestampText] Возвращаем: "Обновлено ${minutes} мин. назад"`);
         return `Обновлено ${minutes} мин. назад`;
     } else {
         const hours = Math.floor(diff / 3600);
+        console.log(`✅ [getProjectTimestampText] Возвращаем: "Обновлено ${hours} ч. назад"`);
         return `Обновлено ${hours} ч. назад`;
     }
 }
