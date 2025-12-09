@@ -2655,15 +2655,11 @@ async def reset_project_timestamp(
         logger.info(f"🔵 [RESET TIMESTAMP] Committed {updated_count} updates to database")
 
         # Инвалидируем кэш для этого проекта чтобы новое время сразу отобразилось
-        if redis_client:
-            try:
-                cache_key = f"project_analytics:{project_id}"
-                deleted = redis_client.delete(cache_key)
-                logger.info(f"🗑️🗑️🗑️ [RESET TIMESTAMP] Cache invalidation: key={cache_key}, deleted={deleted}")
-            except Exception as e:
-                logger.warning(f"⚠️ [RESET TIMESTAMP] Failed to invalidate cache: {e}")
-        else:
-            logger.warning(f"⚠️ [RESET TIMESTAMP] Redis client is None, cache not invalidated!")
+        try:
+            cache.invalidate_project(project_id)
+            logger.info(f"🗑️🗑️🗑️ [RESET TIMESTAMP] Cache invalidated for project {project_id}")
+        except Exception as e:
+            logger.warning(f"⚠️ [RESET TIMESTAMP] Failed to invalidate cache: {e}")
 
         logger.info(f"✅✅✅ [RESET TIMESTAMP] Completed! {updated_count} accounts updated, new_timestamp={current_time}")
 
