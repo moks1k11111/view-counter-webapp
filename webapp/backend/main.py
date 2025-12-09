@@ -972,8 +972,50 @@ async def get_my_analytics(
 
         logger.info(f"📊 [My Analytics] Daily growth calculated: {len(daily_growth)} days for chart")
 
+        # Вычисляем last_update для проекта (самый свежий snapshot среди аккаунтов пользователя)
+        last_update = "Не обновлялось"
+        latest_snapshot_time_str = None
+
+        for account in sqlite_accounts:
+            account_telegram_user = account.get('telegram_user', '').lstrip('@')
+            if account_telegram_user == normalized_telegram_user:
+                snapshots = project_manager.get_account_snapshots(account['id'], limit=1)
+                if snapshots and snapshots[0].get('snapshot_time'):
+                    snapshot_time = snapshots[0]['snapshot_time']
+                    if not latest_snapshot_time_str or snapshot_time > latest_snapshot_time_str:
+                        latest_snapshot_time_str = snapshot_time
+
+        # Форматируем last_update
+        if latest_snapshot_time_str:
+            try:
+                if 'T' in latest_snapshot_time_str:
+                    dt_str = latest_snapshot_time_str.split('.')[0]
+                    dt = datetime.strptime(dt_str, '%Y-%m-%dT%H:%M:%S')
+                else:
+                    dt = datetime.strptime(latest_snapshot_time_str.split('.')[0], '%Y-%m-%d %H:%M:%S')
+
+                now = datetime.now()
+                diff = now - dt
+                total_seconds = int(diff.total_seconds())
+
+                if total_seconds < 60:
+                    last_update = "Только что"
+                elif total_seconds < 3600:
+                    minutes = total_seconds // 60
+                    last_update = f"{minutes} мин. назад"
+                elif total_seconds < 86400:
+                    hours = total_seconds // 3600
+                    last_update = f"{hours} ч. назад"
+                else:
+                    last_update = dt.strftime('%d.%m.%Y')
+            except Exception as e:
+                logger.warning(f"⚠️ Failed to parse last_update: {e}")
+
+        # Добавляем last_update к объекту project
+        project_with_update = {**project, 'last_update': last_update}
+
         response_data = {
-            "project": project,
+            "project": project_with_update,
             "total_views": total_views,
             "total_videos": total_videos,
             "total_profiles": len(profiles),
