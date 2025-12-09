@@ -1043,16 +1043,21 @@ async def update_project_timestamp(
         raise HTTPException(status_code=403, detail="Admin access required")
 
     try:
+        logger.info(f"🔄 [Timestamp] Начинаем обновление timestamp для проекта {project_id}, админ {user_id}")
+
         # Обновляем timestamp в базе данных
         success = project_manager.update_project_admin_timestamp(project_id)
 
+        logger.info(f"🔍 [Timestamp] Результат update_project_admin_timestamp: {success}")
+
         if not success:
-            raise HTTPException(status_code=500, detail="Failed to update timestamp")
+            logger.error(f"❌ [Timestamp] update_project_admin_timestamp вернул False для проекта {project_id}")
+            raise HTTPException(status_code=500, detail="Failed to update timestamp in database")
 
         # Инвалидируем кеш проекта
         cache.invalidate_project(project_id)
 
-        logger.info(f"✅ Timestamp обновлен для проекта {project_id} админом {user_id}")
+        logger.info(f"✅ [Timestamp] Timestamp обновлен для проекта {project_id} админом {user_id}")
 
         return {
             "success": True,
@@ -1063,8 +1068,10 @@ async def update_project_timestamp(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"❌ Ошибка обновления timestamp для проекта {project_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"❌ [Timestamp] Исключение при обновлении timestamp для проекта {project_id}: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Exception: {str(e)}")
 
 @app.post("/api/admin/clear-snapshots")
 async def clear_all_snapshots(
