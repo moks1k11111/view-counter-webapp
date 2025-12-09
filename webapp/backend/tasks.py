@@ -342,13 +342,9 @@ def smart_sync_single_project(project_id: str):
 # Periodic Tasks Schedule (Celery Beat)
 if CELERY_AVAILABLE and celery_app:
     celery_app.conf.beat_schedule = {
-        'sync-all-projects-every-10-minutes': {
-            'task': 'periodic_sync_all_projects',
-            'schedule': 600.0,  # 10 minutes
-        },
-        'smart-sync-all-projects-every-30-minutes': {
+        'smart-sync-all-projects-every-5-minutes': {
             'task': 'smart_sync_all_projects',
-            'schedule': 1800.0,  # 30 minutes
+            'schedule': 300.0,  # 5 minutes - быстрые обновления для актуальных данных
         },
     }
 
