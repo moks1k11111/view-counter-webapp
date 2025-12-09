@@ -817,9 +817,20 @@ async def get_my_analytics(
             # Получаем социальные аккаунты пользователя из SQLite
             sqlite_accounts = project_manager.get_project_social_accounts(project_id, platform=None)
 
+            # Нормализуем telegram_user для сравнения (убираем @ если есть)
+            normalized_telegram_user = telegram_user.lstrip('@')
+
+            logger.info(f"🔍 [MyAnalytics] Looking for user: '{normalized_telegram_user}' in project {project_id}")
+            logger.info(f"🔍 [MyAnalytics] Found {len(sqlite_accounts)} total accounts in project")
+
             # Фильтруем по текущему пользователю
             for account in sqlite_accounts:
-                if account.get('telegram_user', '') == telegram_user.lstrip('@'):
+                # Нормализуем telegram_user из базы (убираем @ если есть)
+                account_telegram_user = account.get('telegram_user', '').lstrip('@')
+
+                logger.debug(f"🔍 [MyAnalytics] Comparing: '{account_telegram_user}' == '{normalized_telegram_user}'")
+
+                if account_telegram_user == normalized_telegram_user:
                     # Получаем последний snapshot для каждого аккаунта
                     snapshots = project_manager.get_account_snapshots(account['id'], limit=1)
                     latest_snapshot = snapshots[0] if snapshots else {}
@@ -879,8 +890,12 @@ async def get_my_analytics(
                         'platform': account.get('platform', 'tiktok').lower(),
                         'topic': account.get('topic', 'Не указано')
                     })
+
+            logger.info(f"✅ [MyAnalytics] Found {len(profiles)} profiles for user '{normalized_telegram_user}'")
         except Exception as e:
-            logger.warning(f"⚠️ Could not load user profiles from SQLite for project {project_id}: {e}")
+            logger.error(f"❌ [MyAnalytics] Could not load user profiles from SQLite for project {project_id}: {e}")
+            import traceback
+            traceback.print_exc()
 
     # Статистика
     platform_stats = {"tiktok": 0, "instagram": 0, "facebook": 0, "youtube": 0, "threads": 0}
