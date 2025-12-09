@@ -4,6 +4,7 @@ import json
 import logging
 import time
 from datetime import datetime
+from urllib.parse import quote
 from config import FACEBOOK_RAPIDAPI_KEY, FACEBOOK_RAPIDAPI_HOST, FACEBOOK_APP_ID, FACEBOOK_URL_PATTERN
 
 logging.basicConfig(
@@ -55,11 +56,6 @@ class FacebookAPI:
     def parse_date(self, date_string):
         """Парсинг даты из различных форматов"""
         try:
-            # Попытка парсить ISO формат: 2025-12-09T10:30:00Z
-            if 'T' in date_string:
-                dt = datetime.fromisoformat(date_string.replace('Z', '+00:00'))
-                return dt
-
             # Попытка парсить формат Facebook: "Tuesday, December 9, 2025 at 07:53 PM"
             if ' at ' in date_string:
                 # Убираем день недели и парсим: "December 9, 2025 at 07:53 PM"
@@ -68,6 +64,11 @@ class FacebookAPI:
                     date_part = parts[1]  # "December 9, 2025 at 07:53 PM"
                     dt = datetime.strptime(date_part, '%B %d, %Y at %I:%M %p')
                     return dt
+
+            # Попытка парсить ISO формат: 2025-12-09T10:30:00Z
+            if 'T' in date_string:
+                dt = datetime.fromisoformat(date_string.replace('Z', '+00:00'))
+                return dt
 
             # Попытка парсить простой формат: 2025-12-09
             dt = datetime.strptime(date_string[:10], '%Y-%m-%d')
@@ -128,6 +129,7 @@ class FacebookAPI:
                 if cursor:
                     cursor_preview = cursor[:50] + "..." if len(str(cursor)) > 50 else cursor
                     logger.info(f"📦 Параметры: url={page_url}, cursor={cursor_preview}")
+                    logger.info(f"🔍 Полная длина cursor: {len(cursor)} символов")
                 else:
                     logger.info(f"📦 Параметры: url={page_url}")
 
@@ -139,6 +141,8 @@ class FacebookAPI:
                         timeout=15
                     )
                     logger.info(f"📨 Статус: {response.status_code}")
+                    if cursor:
+                        logger.info(f"🔗 Финальный URL: {response.request.url[:150]}...")
                 except requests.Timeout:
                     logger.error(f"⏱️ Timeout на странице {page_number}, завершаем")
                     break
