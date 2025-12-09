@@ -83,7 +83,7 @@ class ProjectManager:
         try:
             self.db.cursor.execute('''
                 SELECT id, name, google_sheet_name, start_date, end_date,
-                       target_views, geo, kpi_views, created_at, is_active, allowed_platforms
+                       target_views, geo, kpi_views, created_at, is_active, allowed_platforms, last_admin_update
                 FROM projects
                 WHERE id = ?
             ''', (project_id,))
@@ -107,7 +107,8 @@ class ProjectManager:
                     "kpi_views": row[7] if row[7] is not None else 1000,
                     "created_at": row[8],
                     "is_active": row[9],
-                    "allowed_platforms": allowed_platforms
+                    "allowed_platforms": allowed_platforms,
+                    "last_admin_update": row[11]  # Время последнего нажатия кнопки админом
                 }
 
             return None
@@ -115,6 +116,31 @@ class ProjectManager:
         except Exception as e:
             logger.error(f"Ошибка получения проекта: {e}")
             return None
+
+    def update_project_admin_timestamp(self, project_id: str) -> bool:
+        """
+        Обновить timestamp последнего нажатия кнопки "Данные обновлены" админом
+
+        :param project_id: ID проекта
+        :return: True если успешно
+        """
+        try:
+            from datetime import datetime
+            now = datetime.utcnow().isoformat()
+
+            self.db.cursor.execute('''
+                UPDATE projects
+                SET last_admin_update = ?
+                WHERE id = ?
+            ''', (now, project_id))
+
+            self.db.commit()
+            logger.info(f"✅ Обновлен timestamp для проекта {project_id}: {now}")
+            return True
+
+        except Exception as e:
+            logger.error(f"❌ Ошибка обновления timestamp для проекта {project_id}: {e}")
+            return False
 
     def get_all_projects(self, active_only: bool = False) -> List[Dict]:
         """
@@ -126,7 +152,7 @@ class ProjectManager:
         try:
             query = '''
                 SELECT id, name, google_sheet_name, start_date, end_date,
-                       target_views, geo, created_at, is_active
+                       target_views, geo, created_at, is_active, last_admin_update
                 FROM projects
             '''
 
@@ -149,7 +175,8 @@ class ProjectManager:
                     "target_views": row[5],
                     "geo": row[6],
                     "created_at": row[7],
-                    "is_active": row[8]
+                    "is_active": row[8],
+                    "last_admin_update": row[9]
                 })
 
             return projects
@@ -279,7 +306,7 @@ class ProjectManager:
             # Получаем все проекты (активные и неактивные)
             self.db.cursor.execute('''
                 SELECT p.id, p.name, p.google_sheet_name, p.start_date, p.end_date,
-                       p.target_views, p.geo, p.created_at, p.is_active, p.is_finished, p.kpi_views, p.allowed_platforms
+                       p.target_views, p.geo, p.created_at, p.is_active, p.is_finished, p.kpi_views, p.allowed_platforms, p.last_admin_update
                 FROM projects p
                 ORDER BY p.is_active DESC, p.created_at DESC
             ''')
@@ -294,6 +321,9 @@ class ProjectManager:
                 # Десериализуем allowed_platforms
                 allowed_platforms_str = row[11] if row[11] else '{"tiktok": true, "instagram": true, "facebook": true, "youtube": true, "threads": true}'
                 allowed_platforms = json.loads(allowed_platforms_str)
+
+                # Время последнего нажатия админом кнопки "Данные обновлены"
+                last_admin_update = row[12]
 
                 # Проверяем, является ли пользователь участником проекта
                 # Convert both to strings to avoid type mismatch
@@ -331,7 +361,8 @@ class ProjectManager:
                         "kpi_views": row[10],
                         "allowed_platforms": allowed_platforms,
                         "has_access": True,
-                        "last_update": last_update
+                        "last_update": last_update,  # Время последнего snapshot (для карточек это будет заменено на last_admin_update)
+                        "last_admin_update": last_admin_update  # Время последнего нажатия кнопки админом
                     })
                 else:
                     # Пользователь НЕ имеет доступа - маскируем данные, но показываем allowed_platforms для иконок

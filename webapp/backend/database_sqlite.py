@@ -180,6 +180,16 @@ class SQLiteDatabase:
                 self.conn.commit()
                 logger.info("✅ Поле allowed_platforms добавлено в таблицу projects")
 
+            # Проверяем наличие поля last_admin_update в таблице projects
+            self.cursor.execute("PRAGMA table_info(projects)")
+            columns = [column[1] for column in self.cursor.fetchall()]
+
+            if 'last_admin_update' not in columns:
+                logger.info("Добавляю поле last_admin_update в таблицу projects...")
+                self.cursor.execute('ALTER TABLE projects ADD COLUMN last_admin_update TEXT DEFAULT NULL')
+                self.conn.commit()
+                logger.info("✅ Поле last_admin_update добавлено в таблицу projects")
+
             # Проверяем наличие таблицы project_social_accounts
             self.cursor.execute(
                 "SELECT name FROM sqlite_master WHERE type='table' AND name='project_social_accounts'"

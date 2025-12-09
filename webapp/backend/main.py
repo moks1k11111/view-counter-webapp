@@ -1026,6 +1026,46 @@ async def add_bonus(
         "bonus": bonus.dict()
     }
 
+@app.post("/api/admin/projects/{project_id}/update-timestamp")
+async def update_project_timestamp(
+    project_id: str,
+    user: dict = Depends(get_current_user)
+):
+    """
+    Обновить timestamp последнего нажатия кнопки 'Данные обновлены' (только для админов)
+
+    Сохраняет текущее время в поле last_admin_update для синхронизации между устройствами.
+    """
+    user_id = user.get('id')
+
+    # Проверка на админа
+    if user_id not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    try:
+        # Обновляем timestamp в базе данных
+        success = project_manager.update_project_admin_timestamp(project_id)
+
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to update timestamp")
+
+        # Инвалидируем кеш проекта
+        cache.invalidate_project(project_id)
+
+        logger.info(f"✅ Timestamp обновлен для проекта {project_id} админом {user_id}")
+
+        return {
+            "success": True,
+            "message": "Timestamp updated successfully",
+            "timestamp": datetime.utcnow().isoformat()
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Ошибка обновления timestamp для проекта {project_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/api/admin/clear-snapshots")
 async def clear_all_snapshots(
     user: dict = Depends(get_current_user)

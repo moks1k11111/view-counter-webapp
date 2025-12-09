@@ -415,7 +415,7 @@ async function renderProjects(projects) {
                             <div class="stat-value">${hasAccess ? 'от ' + formatNumber(project.kpi_views || 1000) : '***'}</div>
                         </div>
                     </div>
-                    <div class="last-update-text" data-project-id="${project.id}">${getProjectTimestampText(project.id)}</div>
+                    <div class="last-update-text" data-project-id="${project.id}">${getProjectTimestampText(project.id, project.last_admin_update)}</div>
                     <div class="project-platforms">
                         ${renderPlatformIcons(project.allowed_platforms)}
                     </div>
@@ -500,7 +500,7 @@ async function renderMyProjects(projects) {
                     <canvas id="chart-bar-${index}" height="120"></canvas>
                 </div>
                 <div class="chart-legend">Last 7 days activity</div>
-                <div class="last-update-text" data-project-id="${project.id}">${getProjectTimestampText(project.id)}</div>
+                <div class="last-update-text" data-project-id="${project.id}">${getProjectTimestampText(project.id, project.last_admin_update)}</div>
                 <div class="project-platforms">
                     ${renderPlatformIcons(project.allowed_platforms)}
                 </div>
@@ -690,8 +690,8 @@ async function openProject(projectId, mode = 'user') {
             await loadProjectSocialAccounts(projectId, mode);
         }
 
-        // Инициализируем таймер обновления если он был сохранен
-        initProjectTimestamp(projectId);
+        // Инициализируем таймер обновления, передаем данные проекта для загрузки timestamp из API
+        initProjectTimestamp(projectId, analytics.project);
 
     } catch (error) {
         console.error('Failed to load project details:', error);
@@ -784,30 +784,44 @@ async function finishProject(id) {
     }
 }
 
-function resetProjectTimestamp() {
+async function resetProjectTimestamp() {
     const projectId = window.currentProjectId;
     if (!projectId) {
         showError('Проект не выбран');
         return;
     }
 
-    // Сохраняем текущее время в localStorage
-    const now = new Date().toISOString();
-    localStorage.setItem(`project_${projectId}_last_update`, now);
+    try {
+        // Вызываем API для сохранения времени в базе данных
+        const response = await apiCall(`/api/admin/projects/${projectId}/update-timestamp`, {
+            method: 'POST'
+        });
 
-    // Обновляем отображение на детальной странице
-    const lastUpdateElement = document.getElementById('detail-last-update');
-    if (lastUpdateElement) {
-        lastUpdateElement.textContent = 'Только что';
+        if (response.success) {
+            // Сохраняем время в localStorage для мгновенного отображения
+            const timestamp = response.timestamp || new Date().toISOString();
+            localStorage.setItem(`project_${projectId}_last_update`, timestamp);
+
+            // Обновляем отображение на детальной странице
+            const lastUpdateElement = document.getElementById('detail-last-update');
+            if (lastUpdateElement) {
+                lastUpdateElement.textContent = 'Только что';
+            }
+
+            // Обновляем все карточки проектов на всех страницах
+            updateAllProjectCardsTimestamp(projectId);
+
+            showSuccess('Таймер сброшен!');
+
+            // Запускаем обновление каждую минуту
+            startTimestampUpdater(projectId);
+        } else {
+            throw new Error('Failed to update timestamp');
+        }
+    } catch (error) {
+        console.error('Failed to reset timestamp:', error);
+        showError('Не удалось сбросить таймер');
     }
-
-    // Обновляем все карточки проектов на всех страницах
-    updateAllProjectCardsTimestamp(projectId);
-
-    showSuccess('Таймер сброшен!');
-
-    // Запускаем обновление каждую минуту
-    startTimestampUpdater(projectId);
 }
 
 // Обновить timestamp на всех карточках проектов
@@ -856,8 +870,19 @@ function startTimestampUpdater(projectId) {
 }
 
 // Получить текст timestamp для отображения на карточке проекта
-function getProjectTimestampText(projectId) {
-    const savedTime = localStorage.getItem(`project_${projectId}_last_update`);
+function getProjectTimestampText(projectId, apiTimestamp) {
+    // Приоритет: сначала проверяем API данные, затем localStorage
+    let savedTime = null;
+
+    if (apiTimestamp) {
+        // Используем timestamp из API
+        savedTime = apiTimestamp;
+        // Синхронизируем с localStorage
+        localStorage.setItem(`project_${projectId}_last_update`, savedTime);
+    } else {
+        // Fallback на localStorage
+        savedTime = localStorage.getItem(`project_${projectId}_last_update`);
+    }
 
     if (!savedTime) {
         return '—';
@@ -879,11 +904,21 @@ function getProjectTimestampText(projectId) {
 }
 
 // Вызываем при загрузке проекта чтобы восстановить таймер
-function initProjectTimestamp(projectId) {
-    const savedTime = localStorage.getItem(`project_${projectId}_last_update`);
+function initProjectTimestamp(projectId, projectData) {
     const lastUpdateElement = document.getElementById('detail-last-update');
 
     if (!lastUpdateElement) return;
+
+    // Проверяем есть ли timestamp в данных проекта из API
+    let savedTime = null;
+    if (projectData && projectData.last_admin_update) {
+        savedTime = projectData.last_admin_update;
+        // Сохраняем в localStorage для синхронизации
+        localStorage.setItem(`project_${projectId}_last_update`, savedTime);
+    } else {
+        // Fallback на localStorage если нет данных из API
+        savedTime = localStorage.getItem(`project_${projectId}_last_update`);
+    }
 
     if (savedTime) {
         // Вычисляем и показываем текущее время
