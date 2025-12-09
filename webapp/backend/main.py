@@ -2607,10 +2607,13 @@ async def reset_project_timestamp(
 
     Только для админов.
     """
+    logger.info(f"🔵🔵🔵 [RESET TIMESTAMP] Endpoint called for project {project_id}")
     user_id = str(user.get('id'))
+    logger.info(f"🔵 [RESET TIMESTAMP] User ID: {user_id}, ADMIN_IDS: {ADMIN_IDS}")
 
     # Проверка прав администратора
     if user_id not in [str(admin_id) for admin_id in ADMIN_IDS]:
+        logger.error(f"❌ [RESET TIMESTAMP] Access denied for user {user_id}")
         raise HTTPException(status_code=403, detail="Access denied")
 
     try:
@@ -2646,19 +2649,23 @@ async def reset_project_timestamp(
                 ''', (current_time, snapshot_id))
 
                 updated_count += 1
+                logger.info(f"🔵 [RESET TIMESTAMP] Updated snapshot {snapshot_id} for account {account_id}")
 
         db.conn.commit()
+        logger.info(f"🔵 [RESET TIMESTAMP] Committed {updated_count} updates to database")
 
         # Инвалидируем кэш для этого проекта чтобы новое время сразу отобразилось
         if redis_client:
             try:
                 cache_key = f"project_analytics:{project_id}"
-                redis_client.delete(cache_key)
-                logger.info(f"🗑️ [Cache] Invalidated cache for project {project_id}")
+                deleted = redis_client.delete(cache_key)
+                logger.info(f"🗑️🗑️🗑️ [RESET TIMESTAMP] Cache invalidation: key={cache_key}, deleted={deleted}")
             except Exception as e:
-                logger.warning(f"⚠️ Failed to invalidate cache: {e}")
+                logger.warning(f"⚠️ [RESET TIMESTAMP] Failed to invalidate cache: {e}")
+        else:
+            logger.warning(f"⚠️ [RESET TIMESTAMP] Redis client is None, cache not invalidated!")
 
-        logger.info(f"✅ [Admin] Reset timestamp for {updated_count} accounts in project {project_id}")
+        logger.info(f"✅✅✅ [RESET TIMESTAMP] Completed! {updated_count} accounts updated, new_timestamp={current_time}")
 
         return {
             "success": True,
