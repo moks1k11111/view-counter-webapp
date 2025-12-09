@@ -792,23 +792,31 @@ async function resetProjectTimestamp() {
     }
 
     try {
+        console.log('🔄 [Timestamp] Вызываем API update-timestamp для проекта:', projectId);
+
         // Вызываем API для сохранения времени в базе данных
         const response = await apiCall(`/api/admin/projects/${projectId}/update-timestamp`, {
             method: 'POST'
         });
 
+        console.log('✅ [Timestamp] Ответ от API:', response);
+
         if (response.success) {
             // Сохраняем время в localStorage для мгновенного отображения
             const timestamp = response.timestamp || new Date().toISOString();
+            console.log('💾 [Timestamp] Сохраняем timestamp в localStorage:', timestamp);
             localStorage.setItem(`project_${projectId}_last_update`, timestamp);
 
             // Обновляем отображение на детальной странице
             const lastUpdateElement = document.getElementById('detail-last-update');
+            console.log('🎯 [Timestamp] Элемент detail-last-update:', lastUpdateElement);
             if (lastUpdateElement) {
                 lastUpdateElement.textContent = 'Только что';
+                console.log('✅ [Timestamp] Обновили текст на "Только что"');
             }
 
             // Обновляем все карточки проектов на всех страницах
+            console.log('🔄 [Timestamp] Обновляем карточки проектов...');
             updateAllProjectCardsTimestamp(projectId);
 
             showSuccess('Таймер сброшен!');
@@ -816,6 +824,7 @@ async function resetProjectTimestamp() {
             // Запускаем обновление каждую минуту
             startTimestampUpdater(projectId);
         } else {
+            console.error('❌ [Timestamp] response.success = false');
             throw new Error('Failed to update timestamp');
         }
     } catch (error) {
