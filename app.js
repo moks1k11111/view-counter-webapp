@@ -697,6 +697,9 @@ async function openProject(projectId, mode = 'user') {
             await loadProjectSocialAccounts(projectId, mode);
         }
 
+        // Инициализируем таймер обновления если он был сохранен
+        initProjectTimestamp(projectId);
+
     } catch (error) {
         console.error('Failed to load project details:', error);
         showError('Не удалось загрузить детали проекта');
@@ -788,49 +791,68 @@ async function finishProject(id) {
     }
 }
 
-async function resetProjectTimestamp() {
+function resetProjectTimestamp() {
     const projectId = window.currentProjectId;
     if (!projectId) {
         showError('Проект не выбран');
         return;
     }
 
-    try {
-        const response = await apiCall(`/api/admin/projects/${projectId}/reset-timestamp`, {
-            method: 'POST'
-        });
+    // Сохраняем текущее время в localStorage
+    const now = new Date().toISOString();
+    localStorage.setItem(`project_${projectId}_last_update`, now);
 
-        if (response.success) {
-            showSuccess(`Счетчик времени сброшен для ${response.updated_count} аккаунтов!`);
+    // Обновляем отображение
+    const lastUpdateElement = document.getElementById('detail-last-update');
+    if (lastUpdateElement) {
+        lastUpdateElement.textContent = 'Только что';
+    }
 
-            // 1. Обновляем элемент "Обновлено" на странице детального просмотра проекта
-            const lastUpdateElement = document.getElementById('detail-last-update');
-            if (lastUpdateElement) {
-                lastUpdateElement.textContent = 'Только что';
-            }
+    showSuccess('Таймер сброшен!');
 
-            // 2. Инвалидируем browser cache добавлением timestamp к следующим запросам
-            // Сохраняем флаг что кэш нужно обновить
-            window.cacheInvalidatedAt = Date.now();
+    // Запускаем обновление каждую минуту
+    startTimestampUpdater(projectId);
+}
 
-            // 3. Если пользователь сейчас на странице "Мои проекты" или "Все проекты" -
-            // перезагружаем список чтобы показать новое время
-            const currentPage = document.querySelector('.page:not(.hidden)')?.id;
-            if (currentPage === 'home-page') {
-                console.log('🔄 Reloading home page to show updated timestamp');
-                await loadHomeProjects();
-            } else if (currentPage === 'projects-page') {
-                console.log('🔄 Reloading my projects to show updated timestamp');
-                await loadMyProjects();
-            }
+// Функция для обновления отображения времени
+function startTimestampUpdater(projectId) {
+    // Очищаем предыдущий интервал если был
+    if (window.timestampInterval) {
+        clearInterval(window.timestampInterval);
+    }
 
-            console.log('✅ Timestamp reset successful and UI updated');
+    // Обновляем каждую минуту
+    window.timestampInterval = setInterval(() => {
+        const savedTime = localStorage.getItem(`project_${projectId}_last_update`);
+        if (!savedTime) return;
+
+        const lastUpdate = new Date(savedTime);
+        const now = new Date();
+        const diff = Math.floor((now - lastUpdate) / 1000); // секунды
+
+        let text;
+        if (diff < 60) {
+            text = 'Только что';
+        } else if (diff < 3600) {
+            const minutes = Math.floor(diff / 60);
+            text = `${minutes} мин. назад`;
         } else {
-            showError(response.error || 'Не удалось обновить время');
+            const hours = Math.floor(diff / 3600);
+            text = `${hours} ч. назад`;
         }
-    } catch (error) {
-        console.error('Failed to reset timestamp:', error);
-        showError('Ошибка при обновлении времени: ' + error.message);
+
+        const lastUpdateElement = document.getElementById('detail-last-update');
+        if (lastUpdateElement) {
+            lastUpdateElement.textContent = text;
+        }
+    }, 60000); // каждую минуту
+}
+
+// Вызываем при загрузке проекта чтобы восстановить таймер
+function initProjectTimestamp(projectId) {
+    const savedTime = localStorage.getItem(`project_${projectId}_last_update`);
+    if (savedTime) {
+        startTimestampUpdater(projectId);
     }
 }
 
