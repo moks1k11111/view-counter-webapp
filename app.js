@@ -844,8 +844,34 @@ function startTimestampUpdater(projectId) {
 // Вызываем при загрузке проекта чтобы восстановить таймер
 function initProjectTimestamp(projectId) {
     const savedTime = localStorage.getItem(`project_${projectId}_last_update`);
+    const lastUpdateElement = document.getElementById('detail-last-update');
+
+    if (!lastUpdateElement) return;
+
     if (savedTime) {
+        // Вычисляем и показываем текущее время
+        const lastUpdate = new Date(savedTime);
+        const now = new Date();
+        const diff = Math.floor((now - lastUpdate) / 1000); // секунды
+
+        let text;
+        if (diff < 60) {
+            text = 'Только что';
+        } else if (diff < 3600) {
+            const minutes = Math.floor(diff / 60);
+            text = `${minutes} мин. назад`;
+        } else {
+            const hours = Math.floor(diff / 3600);
+            text = `${hours} ч. назад`;
+        }
+
+        lastUpdateElement.textContent = text;
+
+        // Запускаем обновление каждую минуту
         startTimestampUpdater(projectId);
+    } else {
+        // Если нет сохраненного времени, показываем "—"
+        lastUpdateElement.textContent = '—';
     }
 }
 
@@ -1274,12 +1300,8 @@ function displaySummaryStats(analytics) {
     // Зеленый цвет если прирост > 0
     growth24hElement.style.color = growth24hValue > 0 ? '#4CAF50' : '#fff';
 
-    // Время последнего обновления
-    const lastUpdateElement = document.getElementById('detail-last-update');
-    if (lastUpdateElement) {
-        const lastUpdateText = formatLastUpdate(project.last_update);
-        lastUpdateElement.textContent = lastUpdateText;
-    }
+    // Время последнего обновления НЕ устанавливаем здесь
+    // Это контролируется frontend localStorage в initProjectTimestamp()
 }
 
 function createChartSlides(analytics, mode = 'user') {
