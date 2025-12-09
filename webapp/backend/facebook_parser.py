@@ -60,6 +60,15 @@ class FacebookAPI:
                 dt = datetime.fromisoformat(date_string.replace('Z', '+00:00'))
                 return dt
 
+            # Попытка парсить формат Facebook: "Tuesday, December 9, 2025 at 07:53 PM"
+            if ' at ' in date_string:
+                # Убираем день недели и парсим: "December 9, 2025 at 07:53 PM"
+                parts = date_string.split(', ', 1)
+                if len(parts) == 2:
+                    date_part = parts[1]  # "December 9, 2025 at 07:53 PM"
+                    dt = datetime.strptime(date_part, '%B %d, %Y at %I:%M %p')
+                    return dt
+
             # Попытка парсить простой формат: 2025-12-09
             dt = datetime.strptime(date_string[:10], '%Y-%m-%d')
             return dt
@@ -116,8 +125,11 @@ class FacebookAPI:
 
                 logger.info(f"📄 Страница {page_number}...")
                 logger.info(f"📤 Запрос: {endpoint}")
-                logger.info(f"📦 Параметры: url={page_url}" +
-                           (f", cursor=..." if cursor else ""))
+                if cursor:
+                    cursor_preview = cursor[:50] + "..." if len(str(cursor)) > 50 else cursor
+                    logger.info(f"📦 Параметры: url={page_url}, cursor={cursor_preview}")
+                else:
+                    logger.info(f"📦 Параметры: url={page_url}")
 
                 try:
                     response = requests.get(
@@ -158,6 +170,8 @@ class FacebookAPI:
 
                         logger.info(f"📊 Получено видео: {count_posts}")
                         logger.info(f"📑 Есть следующая страница: {has_next_page}")
+                        if cursor:
+                            logger.info(f"🔑 Cursor для следующей страницы: {cursor[:50]}..." if len(str(cursor)) > 50 else f"🔑 Cursor: {cursor}")
 
                         # Обрабатываем каждое видео
                         for video in videos:
