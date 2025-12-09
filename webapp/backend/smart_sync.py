@@ -341,11 +341,24 @@ class SmartSyncService:
 
                 # UPDATE existing snapshot if it exists, otherwise CREATE new one
                 if existing_snapshots and len(existing_snapshots) > 0:
-                    # Update existing snapshot with new data AND new timestamp
-                    existing_snapshot_id = existing_snapshots[0].get('id')
-                    logger.info(f"📝 [SmartSync] Updating existing snapshot {existing_snapshot_id} for account {account_id}")
+                    existing_snapshot = existing_snapshots[0]
+                    existing_snapshot_id = existing_snapshot.get('id')
+                    old_views = existing_snapshot.get('views', 0)
+                    new_views = metrics.get('views', 0)
 
-                    # Update snapshot in database with current UTC time
+                    # Проверяем изменились ли Views
+                    views_changed = old_views != new_views
+
+                    if views_changed:
+                        # ОБНОВЛЯЕМ timestamp ТОЛЬКО если Views изменились!
+                        logger.info(f"📝 [SmartSync] Views changed ({old_views} → {new_views}) - updating snapshot {existing_snapshot_id} with NEW timestamp")
+                        new_timestamp = datetime.utcnow().isoformat()
+                    else:
+                        # Views не изменились - сохраняем старый timestamp
+                        logger.info(f"⏭️ [SmartSync] Views unchanged ({old_views}) - keeping old timestamp for snapshot {existing_snapshot_id}")
+                        new_timestamp = existing_snapshot.get('snapshot_time')
+
+                    # Update snapshot in database
                     self.project_manager.db.cursor.execute('''
                         UPDATE account_snapshots
                         SET followers = ?, likes = ?, comments = ?, videos = ?, views = ?,
@@ -356,9 +369,9 @@ class SmartSyncService:
                         metrics.get('likes', 0),
                         metrics.get('comments', 0),
                         metrics.get('videos', 0),
-                        metrics.get('views', 0),
+                        new_views,
                         metrics.get('videos', 0),
-                        datetime.utcnow().isoformat(),  # NEW timestamp!
+                        new_timestamp,  # Новый timestamp только если Views изменились!
                         existing_snapshot_id
                     ))
                     self.project_manager.db.commit()

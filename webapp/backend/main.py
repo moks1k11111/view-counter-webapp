@@ -590,17 +590,19 @@ async def get_project_analytics(
                     diff = now - dt
                     total_seconds = int(diff.total_seconds())
 
-                    # Форматируем относительно с улучшенной логикой
+                    # Форматируем относительно с детальным временем
                     if total_seconds < 0:
                         # Время в будущем (ошибка часов)
                         last_update = "Только что"
                     elif total_seconds < 60:
+                        # Меньше минуты
                         last_update = "Только что"
-                    elif total_seconds < 3600:  # Меньше 1 часа
+                    elif total_seconds < 3600:  # Меньше 1 часа (до 59 минут)
                         minutes = total_seconds // 60
                         last_update = f"{minutes} мин. назад"
-                    elif total_seconds < 86400:  # Меньше 1 дня
+                    elif total_seconds < 86400:  # От 1 часа до 24 часов
                         hours = total_seconds // 3600
+                        # Показываем каждый час: "1 ч. назад", "2 ч. назад", "23 ч. назад"
                         last_update = f"{hours} ч. назад"
                     else:  # Больше суток - показываем дату
                         last_update = dt.strftime('%d.%m.%Y')
