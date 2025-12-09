@@ -135,7 +135,7 @@ class ProjectManager:
             if 'last_admin_update' not in columns:
                 logger.warning(f"⚠️ Поле last_admin_update не существует, добавляем...")
                 self.db.cursor.execute('ALTER TABLE projects ADD COLUMN last_admin_update TEXT DEFAULT NULL')
-                self.db.commit()
+                self.db.conn.commit()
                 logger.info("✅ Поле last_admin_update добавлено")
 
             self.db.cursor.execute('''
@@ -144,7 +144,7 @@ class ProjectManager:
                 WHERE id = ?
             ''', (now, project_id))
 
-            self.db.commit()
+            self.db.conn.commit()
             logger.info(f"✅ Обновлен timestamp для проекта {project_id}: {now}")
             return True
 
