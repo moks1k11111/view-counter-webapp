@@ -794,12 +794,12 @@ async function resetProjectTimestamp() {
         });
 
         if (response.success) {
-            showSuccess(`Счетчик времени сброшен для ${response.updated_count} аккаунтов!`);
+            showSuccess(`Счетчик времени сброшен для ${response.updated_count} аккаунтов! Новое время отобразится через несколько секунд.`);
 
-            // Перезагружаем данные проекта чтобы показать обновленное время
-            // Используем текущий режим (обычно 'admin' в этом контексте)
-            if (currentProjectMode) {
-                await openProject(projectId, currentProjectMode);
+            // Обновляем только элемент "Обновлено" на странице без полной перезагрузки
+            const lastUpdateElement = document.getElementById('detail-last-update');
+            if (lastUpdateElement) {
+                lastUpdateElement.textContent = 'Только что';
             }
         } else {
             showError(response.error || 'Не удалось обновить время');
