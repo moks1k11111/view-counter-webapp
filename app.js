@@ -4251,6 +4251,10 @@ async function bulkUploadEmails() {
             return;
         }
 
+        console.log('Загружаем почты:', accounts.length, 'шт.');
+        console.log('Auth type:', authType);
+        console.log('Первый аккаунт:', accounts[0]);
+
         // Отправляем на сервер
         const response = await fetch(`${API_URL}/api/admin/emails/bulk_upload`, {
             method: 'POST',
@@ -4260,6 +4264,8 @@ async function bulkUploadEmails() {
             },
             body: JSON.stringify({ accounts })
         });
+
+        console.log('Response status:', response.status);
 
         const data = await response.json();
 
@@ -4374,21 +4380,25 @@ function saveProxyList() {
     for (const line of lines) {
         const proxy = line.trim();
 
-        // Проверяем формат socks5://user:pass@ip:port
-        if (/^socks5:\/\/.+:.+@.+:\d+$/.test(proxy)) {
+        // Проверяем формат socks5:// или socks5h://
+        // Принимаем любой формат, который начинается с socks5
+        if (/^socks5h?:\/\/.+:.+@.+:\d+$/.test(proxy)) {
             validProxies.push(proxy);
         } else {
-            showNotification(`⚠️ Неверный формат прокси: ${proxy}`, 'error');
+            console.warn(`Неверный формат прокси (пропущено): ${proxy}`);
+            // Не показываем ошибку - просто пропускаем
         }
     }
 
     if (validProxies.length === 0) {
         showNotification('❌ Нет валидных прокси для сохранения', 'error');
+        console.log('Введенный текст:', text);
         return;
     }
 
     // Сохраняем в localStorage
     localStorage.setItem('email_farm_proxies', JSON.stringify(validProxies));
+    console.log('Сохранено прокси в localStorage:', validProxies);
     showNotification(`✅ Сохранено ${validProxies.length} прокси`, 'success');
 
     closeProxySettings();
