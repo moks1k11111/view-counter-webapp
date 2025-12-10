@@ -2062,6 +2062,9 @@ function showPage(pageName) {
                 loadAdminData();
             });
         });
+    } else if (pageName === 'emails') {
+        // Загружаем список почт
+        loadMyEmails();
     }
 
     closeSidebar();
@@ -3935,3 +3938,173 @@ window.openCustomTopic = openCustomTopic;
 window.submitCustomTopic = submitCustomTopic;
 window.submitSocialAccount = submitSocialAccount;
 window.deleteSocialAccount = deleteSocialAccount;
+
+// ============ EMAIL FARM FUNCTIONS ============
+
+// Загрузка списка моих почт
+async function loadMyEmails() {
+    try {
+        const response = await fetch(`${API_URL}/api/emails/my_list`, {
+            headers: {
+                'x-telegram-init-data': window.Telegram.WebApp.initData
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to load emails');
+        }
+
+        const data = await response.json();
+
+        // Обновляем лимиты
+        document.getElementById('user-active-emails').textContent = data.emails.filter(e => e.status === 'active').length;
+        document.getElementById('user-max-emails').textContent = data.limit.max_active_emails;
+        document.getElementById('user-email-access').textContent = data.limit.can_access_emails ? '✅' : '❌';
+
+        // Отображаем список почт
+        const listContainer = document.getElementById('my-emails-list');
+
+        if (data.emails.length === 0) {
+            listContainer.innerHTML = '<p style="text-align: center; color: #888;">У вас пока нет почт</p>';
+            return;
+        }
+
+        listContainer.innerHTML = data.emails.map(email => `
+            <div class="email-item">
+                <div class="email-info">
+                    <span class="email-address">📧 ${email.email}</span>
+                    <span class="email-status status-${email.status.toLowerCase()}">${email.status}</span>
+                </div>
+                <div class="email-actions">
+                    ${email.status === 'active' ? `
+                        <button class="btn-secondary" onclick="checkEmailCode(${email.id})">
+                            🔍 Проверить код
+                        </button>
+                        <button class="btn-danger" onclick="markEmailBanned(${email.id})">
+                            🚫 Забанена
+                        </button>
+                    ` : ''}
+                </div>
+            </div>
+        `).join('');
+
+    } catch (error) {
+        console.error('Error loading emails:', error);
+        showNotification('Ошибка загрузки почт: ' + error.message, 'error');
+    }
+}
+
+// Получить новую почту
+async function allocateEmail() {
+    const button = document.getElementById('allocate-email-btn');
+    button.disabled = true;
+    button.textContent = 'Загрузка...';
+
+    try {
+        const response = await fetch(`${API_URL}/api/emails/allocate`, {
+            method: 'POST',
+            headers: {
+                'x-telegram-init-data': window.Telegram.WebApp.initData
+            }
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.detail || 'Failed to allocate email');
+        }
+
+        showNotification(`✅ Получена почта: ${data.email}`, 'success');
+        loadMyEmails(); // Перезагружаем список
+
+    } catch (error) {
+        console.error('Error allocating email:', error);
+        showNotification('Ошибка: ' + error.message, 'error');
+    } finally {
+        button.disabled = false;
+        button.textContent = '📧 Получить новую почту';
+    }
+}
+
+// Проверить код в почте
+async function checkEmailCode(emailId) {
+    try {
+        showNotification('🔍 Проверяем почту...', 'info');
+
+        const response = await fetch(`${API_URL}/api/emails/${emailId}/check_code`, {
+            method: 'POST',
+            headers: {
+                'x-telegram-init-data': window.Telegram.WebApp.initData
+            }
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.detail || 'Failed to check email');
+        }
+
+        if (!data.found_emails) {
+            showNotification('📭 Нет новых писем', 'info');
+            return;
+        }
+
+        if (!data.is_safe) {
+            showNotification(`⚠️ ВНИМАНИЕ! Подозрительное письмо!\n\nПричина: ${data.reason}\n\nТема: ${data.subject}\n\nАлерт отправлен администраторам.`, 'error');
+            return;
+        }
+
+        if (data.verification_code) {
+            showNotification(`✅ Код получен: ${data.verification_code}\n\nТема: ${data.subject}\nОт: ${data.from}`, 'success');
+
+            // Копируем код в буфер обмена
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(data.verification_code);
+                setTimeout(() => {
+                    showNotification('📋 Код скопирован в буфер обмена', 'info');
+                }, 1500);
+            }
+        } else {
+            showNotification(`📨 Письмо безопасно\n\nТема: ${data.subject}\nОт: ${data.from}\n\nНо код не найден.`, 'info');
+        }
+
+    } catch (error) {
+        console.error('Error checking email code:', error);
+        showNotification('Ошибка проверки почты: ' + error.message, 'error');
+    }
+}
+
+// Пометить почту как забаненную
+async function markEmailBanned(emailId) {
+    if (!confirm('Вы уверены, что хотите пометить эту почту как забаненную?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_URL}/api/emails/${emailId}/mark_banned`, {
+            method: 'POST',
+            headers: {
+                'x-telegram-init-data': window.Telegram.WebApp.initData
+            }
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.detail || 'Failed to mark email as banned');
+        }
+
+        showNotification('✅ Почта помечена как забаненная', 'success');
+        loadMyEmails(); // Перезагружаем список
+
+    } catch (error) {
+        console.error('Error marking email as banned:', error);
+        showNotification('Ошибка: ' + error.message, 'error');
+    }
+}
+
+// Экспортируем функции в window
+window.loadMyEmails = loadMyEmails;
+window.allocateEmail = allocateEmail;
+window.checkEmailCode = checkEmailCode;
+window.markEmailBanned = markEmailBanned;

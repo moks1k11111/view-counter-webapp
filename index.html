@@ -38,9 +38,9 @@
                 <span class="icon">👤</span>
                 <span>Мой профиль</span>
             </a>
-            <a href="#" class="sidebar-item" onclick="showPage('download')">
-                <span class="icon">⬇️</span>
-                <span>Скачать видео</span>
+            <a href="#" class="sidebar-item" onclick="showPage('emails')">
+                <span class="icon">📧</span>
+                <span>Получить почту</span>
             </a>
             <a href="#" class="sidebar-item" id="admin-menu-item" style="display: none;" onclick="showPage('admin')">
                 <span class="icon">⚙️</span>
@@ -137,7 +137,7 @@
         </div>
 
         <!-- Страница скачивания -->
-        <div id="download-page" class="page hidden">
+        <div id="emails-page" class="page hidden">
             <header class="header">
                 <button class="hamburger" onclick="openSidebar()">
                     <span></span>
@@ -145,15 +145,33 @@
                     <span></span>
                 </button>
                 <div class="header-title">
-                    <div class="greeting">Скачать видео</div>
+                    <div class="greeting">Почтовая ферма</div>
                 </div>
             </header>
 
-            <div class="download-container">
-                <div class="download-card">
-                    <h3>Скачать видео из TikTok</h3>
-                    <input type="text" id="video-url" placeholder="Вставьте ссылку на видео" class="input">
-                    <button class="btn-primary" onclick="downloadVideo()">Скачать</button>
+            <div class="emails-container">
+                <!-- Статистика пользователя -->
+                <div class="email-stats-card">
+                    <h3>📊 Мои лимиты</h3>
+                    <div id="email-limits-info">
+                        <p>Активных почт: <span id="user-active-emails">0</span> / <span id="user-max-emails">5</span></p>
+                        <p>Доступ: <span id="user-email-access">✅</span></p>
+                    </div>
+                </div>
+
+                <!-- Кнопка получить почту -->
+                <div class="email-action-card">
+                    <button class="btn-primary" onclick="allocateEmail()" id="allocate-email-btn">
+                        📧 Получить новую почту
+                    </button>
+                </div>
+
+                <!-- Список моих почт -->
+                <div class="email-list-card">
+                    <h3>📬 Мои почты</h3>
+                    <div id="my-emails-list" class="emails-list">
+                        <p style="text-align: center; color: #888;">Загрузка...</p>
+                    </div>
                 </div>
             </div>
         </div>
