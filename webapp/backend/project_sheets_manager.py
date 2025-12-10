@@ -282,13 +282,35 @@ class ProjectSheetsManager:
             cell = None
 
             if profile_link:
+                # Нормализуем URL для поиска (убираем http/https, www, trailing slash)
+                def normalize_url(url):
+                    """Нормализует URL для сравнения"""
+                    if not url:
+                        return ""
+                    url = url.lower().strip()
+                    url = url.replace('https://', '').replace('http://', '')
+                    url = url.replace('www.', '')
+                    url = url.rstrip('/')
+                    return url
+
                 # Ищем по URL в колонке Link (колонка 2)
                 try:
-                    cell = worksheet.find(profile_link, in_column=2)
-                    if cell:
-                        logger.info(f"✅ Найден аккаунт по URL: {profile_link}")
-                except:
-                    logger.warning(f"⚠️ Не удалось найти по URL: {profile_link}")
+                    normalized_search = normalize_url(profile_link)
+
+                    # Получаем все значения из колонки Link
+                    all_links = worksheet.col_values(2)
+
+                    # Ищем совпадение по нормализованному URL
+                    for idx, link in enumerate(all_links, start=1):
+                        if normalize_url(link) == normalized_search:
+                            cell = gspread.Cell(row=idx, col=2, value=link)
+                            logger.info(f"✅ Найден аккаунт по URL: {profile_link} (строка {idx})")
+                            break
+
+                    if not cell:
+                        logger.warning(f"⚠️ Не удалось найти по URL: {profile_link}")
+                except Exception as e:
+                    logger.warning(f"⚠️ Ошибка поиска по URL: {e}")
 
             # Fallback: ищем по username
             if not cell:
