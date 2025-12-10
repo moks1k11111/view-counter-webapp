@@ -45,6 +45,7 @@ from facebook_parser import FacebookAPI
 from email_farm_models import EmailFarmDatabase
 from email_encryption import EmailEncryption, get_encryption
 from email_imap_client import OutlookIMAPClient
+from email_oauth2_client import OutlookOAuth2IMAPClient
 from email_smart_filter import EmailSmartFilter
 from email_sheets_manager import EmailSheetsManager
 
@@ -272,6 +273,9 @@ class EmailAccountUpload(BaseModel):
     password: str
     proxy: Optional[str] = None  # socks5://user:pass@ip:port
     project_id: Optional[int] = None
+    refresh_token: Optional[str] = None  # OAuth2 refresh token
+    client_id: Optional[str] = None  # OAuth2 client ID
+    auth_type: str = 'password'  # 'password' or 'oauth2'
 
 class EmailAccountBulkUpload(BaseModel):
     accounts: List[EmailAccountUpload]
@@ -2871,20 +2875,28 @@ async def admin_bulk_upload_emails(
 
     for account in data.accounts:
         try:
-            # Encrypt password
-            encrypted_password = email_encryption.encrypt(account.password)
+            # Encrypt password (for password auth or as placeholder)
+            encrypted_password = email_encryption.encrypt(account.password) if account.password else ""
+
+            # Encrypt OAuth2 tokens if provided
+            encrypted_refresh_token = None
+            if account.refresh_token:
+                encrypted_refresh_token = email_encryption.encrypt(account.refresh_token)
 
             # Save to database
             email_id = email_farm_db.add_email_account(
                 email=account.email,
                 password_encrypted=encrypted_password,
                 proxy_string=account.proxy,
-                project_id=account.project_id
+                project_id=account.project_id,
+                refresh_token_encrypted=encrypted_refresh_token,
+                client_id=account.client_id,
+                auth_type=account.auth_type
             )
 
             if email_id:
                 results["success"] += 1
-                logger.info(f"✅ [BULK] Added: {account.email}")
+                logger.info(f"✅ [BULK] Added: {account.email} (auth_type: {account.auth_type})")
             else:
                 results["failed"] += 1
                 results["errors"].append(f"{account.email}: Already exists")
@@ -3138,16 +3150,35 @@ async def check_email_for_code(
         if email_account['status'] != 'active':
             raise HTTPException(status_code=400, detail=f"Email status: {email_account['status']}")
 
-        # Decrypt password
-        plain_password = email_encryption.decrypt(email_account['password_encrypted'])
+        # Выбираем правильный IMAP клиент в зависимости от auth_type
+        auth_type = email_account.get('auth_type', 'password')
 
-        # Connect to IMAP
-        imap_client = OutlookIMAPClient(
-            email=email_account['email'],
-            password=plain_password,
-            proxy_string=email_account.get('proxy_string')
-        )
+        if auth_type == 'oauth2':
+            # OAuth2 аутентификация
+            if not email_account.get('refresh_token_encrypted') or not email_account.get('client_id'):
+                raise HTTPException(status_code=400, detail="OAuth2 credentials missing")
 
+            # Расшифровываем refresh token
+            refresh_token = email_encryption.decrypt(email_account['refresh_token_encrypted'])
+
+            # Создаем OAuth2 IMAP клиент
+            imap_client = OutlookOAuth2IMAPClient(
+                email=email_account['email'],
+                refresh_token=refresh_token,
+                client_id=email_account['client_id'],
+                proxy_string=email_account.get('proxy_string')
+            )
+        else:
+            # Обычная password аутентификация
+            plain_password = email_encryption.decrypt(email_account['password_encrypted'])
+
+            imap_client = OutlookIMAPClient(
+                email=email_account['email'],
+                password=plain_password,
+                proxy_string=email_account.get('proxy_string')
+            )
+
+        # Подключаемся к IMAP
         connected = await imap_client.connect()
         if not connected:
             raise HTTPException(status_code=500, detail="Failed to connect to email")

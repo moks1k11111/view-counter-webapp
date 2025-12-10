@@ -36,6 +36,9 @@ class EmailFarmDatabase:
                 email TEXT NOT NULL UNIQUE,
                 password_encrypted TEXT NOT NULL,
                 proxy_string TEXT,
+                refresh_token_encrypted TEXT,
+                client_id TEXT,
+                auth_type TEXT DEFAULT 'password',
                 status TEXT DEFAULT 'free',
                 assigned_user_id INTEGER,
                 assigned_at DATETIME,
@@ -44,7 +47,8 @@ class EmailFarmDatabase:
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 
                 FOREIGN KEY (assigned_user_id) REFERENCES users(id),
-                CHECK (status IN ('free', 'active', 'banned', 'archived'))
+                CHECK (status IN ('free', 'active', 'banned', 'archived')),
+                CHECK (auth_type IN ('password', 'oauth2'))
             )
         """)
 
@@ -99,25 +103,76 @@ class EmailFarmDatabase:
         """)
 
         self.conn.commit()
+
+        # Миграция: добавляем новые колонки если их нет
+        self._migrate_add_oauth2_columns()
+
         logger.info("✅ Email Farm tables initialized")
+
+    def _migrate_add_oauth2_columns(self):
+        """Добавить колонки для OAuth2 в существующую таблицу"""
+        cursor = self.conn.cursor()
+
+        try:
+            # Проверяем, есть ли колонка refresh_token_encrypted
+            cursor.execute("PRAGMA table_info(email_accounts)")
+            columns = [col[1] for col in cursor.fetchall()]
+
+            if 'refresh_token_encrypted' not in columns:
+                cursor.execute("ALTER TABLE email_accounts ADD COLUMN refresh_token_encrypted TEXT")
+                logger.info("✅ Добавлена колонка refresh_token_encrypted")
+
+            if 'client_id' not in columns:
+                cursor.execute("ALTER TABLE email_accounts ADD COLUMN client_id TEXT")
+                logger.info("✅ Добавлена колонка client_id")
+
+            if 'auth_type' not in columns:
+                cursor.execute("ALTER TABLE email_accounts ADD COLUMN auth_type TEXT DEFAULT 'password'")
+                logger.info("✅ Добавлена колонка auth_type")
+
+            self.conn.commit()
+
+        except Exception as e:
+            logger.error(f"⚠️ Ошибка миграции OAuth2 колонок: {e}")
+            self.conn.rollback()
 
     # ============ Email Accounts CRUD ============
 
-    def add_email_account(self, email: str, password_encrypted: str,
-                         proxy_string: Optional[str] = None,
-                         project_id: Optional[int] = None) -> Optional[int]:
-        """Add new email account to database"""
+    def add_email_account(
+        self,
+        email: str,
+        password_encrypted: str,
+        proxy_string: Optional[str] = None,
+        project_id: Optional[int] = None,
+        refresh_token_encrypted: Optional[str] = None,
+        client_id: Optional[str] = None,
+        auth_type: str = 'password'
+    ) -> Optional[int]:
+        """
+        Add new email account to database
+
+        :param email: Email address
+        :param password_encrypted: Encrypted password (or empty for OAuth2)
+        :param proxy_string: SOCKS5 proxy string
+        :param project_id: Project ID
+        :param refresh_token_encrypted: Encrypted OAuth2 refresh token
+        :param client_id: OAuth2 client ID
+        :param auth_type: 'password' or 'oauth2'
+        :return: Email ID or None
+        """
         try:
             cursor = self.conn.cursor()
             cursor.execute("""
                 INSERT INTO email_accounts
-                (email, password_encrypted, proxy_string, project_id, status)
-                VALUES (?, ?, ?, ?, 'free')
-            """, (email, password_encrypted, proxy_string, project_id))
+                (email, password_encrypted, proxy_string, project_id, status,
+                 refresh_token_encrypted, client_id, auth_type)
+                VALUES (?, ?, ?, ?, 'free', ?, ?, ?)
+            """, (email, password_encrypted, proxy_string, project_id,
+                  refresh_token_encrypted, client_id, auth_type))
 
             self.conn.commit()
             email_id = cursor.lastrowid
-            logger.info(f"✅ Added email account: {email} (ID: {email_id})")
+            logger.info(f"✅ Added email account: {email} (ID: {email_id}, auth_type: {auth_type})")
             return email_id
 
         except sqlite3.IntegrityError:
@@ -132,7 +187,8 @@ class EmailFarmDatabase:
         """Get one free email account"""
         cursor = self.conn.cursor()
         cursor.execute("""
-            SELECT id, email, password_encrypted, proxy_string, project_id
+            SELECT id, email, password_encrypted, proxy_string, project_id,
+                   refresh_token_encrypted, client_id, auth_type
             FROM email_accounts
             WHERE status = 'free'
             LIMIT 1
@@ -216,7 +272,8 @@ class EmailFarmDatabase:
         cursor = self.conn.cursor()
         cursor.execute("""
             SELECT id, email, password_encrypted, proxy_string,
-                   status, assigned_user_id, assigned_at
+                   status, assigned_user_id, assigned_at,
+                   refresh_token_encrypted, client_id, auth_type
             FROM email_accounts
             WHERE id = ?
         """, (email_id,))

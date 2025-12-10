@@ -4165,6 +4165,16 @@ async function bulkUploadEmails() {
         return;
     }
 
+    // Определяем выбранный тип аутентификации
+    const authTypeRadios = document.getElementsByName('auth-type');
+    let authType = 'password';
+    for (const radio of authTypeRadios) {
+        if (radio.checked) {
+            authType = radio.value;
+            break;
+        }
+    }
+
     button.disabled = true;
     button.textContent = 'Загрузка...';
 
@@ -4173,18 +4183,67 @@ async function bulkUploadEmails() {
         const lines = text.split('\n').filter(line => line.trim());
         const accounts = [];
 
+        // Получаем список прокси из localStorage (если есть)
+        const savedProxies = JSON.parse(localStorage.getItem('email_farm_proxies') || '[]');
+        let proxyIndex = 0;
+
         for (const line of lines) {
             const parts = line.trim().split(':');
-            if (parts.length < 2) {
-                showNotification(`Неверный формат строки: ${line}`, 'error');
-                continue;
+
+            if (authType === 'oauth2') {
+                // Формат OAuth2: email:password:refresh_token:client_id
+                if (parts.length < 4) {
+                    showNotification(`Неверный формат OAuth2 (нужно 4 части): ${line}`, 'error');
+                    continue;
+                }
+
+                const email = parts[0].trim();
+                const password = parts[1].trim();
+                const refresh_token = parts[2].trim();
+                const client_id = parts[3].trim();
+
+                // Присваиваем прокси из списка (если есть)
+                const proxy = savedProxies[proxyIndex] || null;
+                if (savedProxies.length > 0) {
+                    proxyIndex = (proxyIndex + 1) % savedProxies.length; // Циклически
+                }
+
+                accounts.push({
+                    email,
+                    password,
+                    proxy,
+                    refresh_token,
+                    client_id,
+                    auth_type: 'oauth2'
+                });
+
+            } else {
+                // Формат Password: email:password:proxy (опционально)
+                if (parts.length < 2) {
+                    showNotification(`Неверный формат строки: ${line}`, 'error');
+                    continue;
+                }
+
+                const email = parts[0].trim();
+                const password = parts[1].trim();
+
+                // Если есть 3+ части - это прокси
+                let proxy = null;
+                if (parts.length >= 3) {
+                    proxy = parts.slice(2).join(':').trim();
+                } else if (savedProxies.length > 0) {
+                    // Иначе берем из списка прокси
+                    proxy = savedProxies[proxyIndex];
+                    proxyIndex = (proxyIndex + 1) % savedProxies.length;
+                }
+
+                accounts.push({
+                    email,
+                    password,
+                    proxy,
+                    auth_type: 'password'
+                });
             }
-
-            const email = parts[0].trim();
-            const password = parts[1].trim();
-            const proxy = parts.length > 2 ? parts.slice(2).join(':').trim() : null;
-
-            accounts.push({ email, password, proxy });
         }
 
         if (accounts.length === 0) {
@@ -4279,9 +4338,93 @@ async function setUserEmailLimit() {
     }
 }
 
+// ============ Proxy Management ============
+
+function openProxySettings() {
+    const modal = document.getElementById('proxy-settings-modal');
+    const textarea = document.getElementById('proxy-list-textarea');
+
+    // Загружаем сохраненные прокси
+    const savedProxies = JSON.parse(localStorage.getItem('email_farm_proxies') || '[]');
+    textarea.value = savedProxies.join('\n');
+
+    modal.classList.remove('hidden');
+}
+
+function closeProxySettings() {
+    const modal = document.getElementById('proxy-settings-modal');
+    modal.classList.add('hidden');
+}
+
+function saveProxyList() {
+    const textarea = document.getElementById('proxy-list-textarea');
+    const text = textarea.value.trim();
+
+    if (!text) {
+        showNotification('⚠️ Список прокси пуст. Прокси очищены.', 'info');
+        localStorage.setItem('email_farm_proxies', JSON.stringify([]));
+        closeProxySettings();
+        return;
+    }
+
+    // Парсим и валидируем прокси
+    const lines = text.split('\n').filter(line => line.trim());
+    const validProxies = [];
+
+    for (const line of lines) {
+        const proxy = line.trim();
+
+        // Проверяем формат socks5://user:pass@ip:port
+        if (/^socks5:\/\/.+:.+@.+:\d+$/.test(proxy)) {
+            validProxies.push(proxy);
+        } else {
+            showNotification(`⚠️ Неверный формат прокси: ${proxy}`, 'error');
+        }
+    }
+
+    if (validProxies.length === 0) {
+        showNotification('❌ Нет валидных прокси для сохранения', 'error');
+        return;
+    }
+
+    // Сохраняем в localStorage
+    localStorage.setItem('email_farm_proxies', JSON.stringify(validProxies));
+    showNotification(`✅ Сохранено ${validProxies.length} прокси`, 'success');
+
+    closeProxySettings();
+}
+
+// ============ Auth Type Switch ============
+
+// Переключение формата при смене типа auth
+document.addEventListener('DOMContentLoaded', () => {
+    const authTypeRadios = document.getElementsByName('auth-type');
+
+    authTypeRadios.forEach(radio => {
+        radio.addEventListener('change', () => {
+            const formatHint = document.getElementById('email-format-hint');
+            const formatCode = document.getElementById('email-format-code');
+            const textarea = document.getElementById('email-bulk-upload-textarea');
+
+            if (radio.value === 'oauth2') {
+                formatHint.textContent = 'Формат OAuth2:';
+                formatCode.textContent = 'email:password:refresh_token:client_id';
+                textarea.placeholder = 'test1@outlook.com:Pass123!:refresh_token_here:client_id_here';
+            } else {
+                formatHint.textContent = 'Формат Password:';
+                formatCode.textContent = 'email:password:proxy (proxy опционально)';
+                textarea.placeholder = 'test1@outlook.com:Pass123!:socks5://user:pass@ip:port\ntest2@outlook.com:Pass456!:';
+            }
+        });
+    });
+});
+
 // Экспортируем admin функции
 window.openEmailFarmManagement = openEmailFarmManagement;
 window.closeEmailFarmManagement = closeEmailFarmManagement;
 window.loadEmailFarmStats = loadEmailFarmStats;
 window.bulkUploadEmails = bulkUploadEmails;
 window.setUserEmailLimit = setUserEmailLimit;
+window.openProxySettings = openProxySettings;
+window.closeProxySettings = closeProxySettings;
+window.saveProxyList = saveProxyList;
