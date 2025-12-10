@@ -1541,10 +1541,20 @@ def process_accounts_background(
         platform = account.get('platform', 'tiktok').lower()
         profile_link = account.get('profile_link', '')
         username = account.get('username', '')
+        status = account.get('status', '').upper()
 
         # Пропускаем если платформа не выбрана для обновления
         if not platforms.get(platform, False):
             logger.info(f"⏭️ Skipping {platform} account {username} (platform not selected)")
+            continue
+
+        # Пропускаем аккаунты со статусом OLD
+        if status == 'OLD':
+            logger.info(f"⏭️ Skipping {platform} account {username} (status: OLD)")
+            # Обновляем счетчик processed для прогресс-бара
+            if platform in platform_stats:
+                platform_stats[platform]['processed'] += 1
+                refresh_progress[project_id][platform] = platform_stats[platform].copy()
             continue
 
         logger.info(f"🔄 Updating {platform} account: {username}")
