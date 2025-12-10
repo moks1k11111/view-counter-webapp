@@ -58,8 +58,34 @@ async function apiCall(endpoint, options = {}) {
 }
 
 // ==================== UI FUNCTIONS ====================
-function showError(message) {
-    console.error('Error:', message);
+function showNotification(message, type = 'info') {
+    console.log(`[${type.toUpperCase()}] ${message}`);
+
+    // Define color schemes for different notification types
+    const themes = {
+        success: {
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            shadow: 'rgba(102, 126, 234, 0.3)',
+            icon: '✅'
+        },
+        error: {
+            background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+            shadow: 'rgba(245, 87, 108, 0.3)',
+            icon: '❌'
+        },
+        info: {
+            background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+            shadow: 'rgba(79, 172, 254, 0.3)',
+            icon: 'ℹ️'
+        },
+        warning: {
+            background: 'linear-gradient(135deg, #ffeaa7 0%, #fdcb6e 100%)',
+            shadow: 'rgba(253, 203, 110, 0.3)',
+            icon: '⚠️'
+        }
+    };
+
+    const theme = themes[type] || themes.info;
 
     // Create toast notification
     const notification = document.createElement('div');
@@ -68,23 +94,28 @@ function showError(message) {
         top: 20px;
         left: 50%;
         transform: translateX(-50%);
-        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        background: ${theme.background};
         color: white;
         padding: 15px 25px;
         border-radius: 12px;
         z-index: 9999;
         font-weight: 600;
-        box-shadow: 0 10px 30px rgba(245, 87, 108, 0.3);
+        box-shadow: 0 10px 30px ${theme.shadow};
         max-width: 80%;
         text-align: center;
     `;
-    notification.textContent = message;
+    notification.textContent = `${theme.icon} ${message}`;
     document.body.appendChild(notification);
 
     // Remove after 4 seconds
     setTimeout(() => {
         notification.remove();
     }, 4000);
+}
+
+function showError(message) {
+    // Redirect to showNotification for consistency
+    showNotification(message, 'error');
 }
 
 function formatNumber(num) {
