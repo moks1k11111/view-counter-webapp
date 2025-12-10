@@ -307,6 +307,10 @@ class ProjectSheetsManager:
 
             worksheet.update_cells(updates)
             logger.info(f"✅ Статистика {username} обновлена в {project_name}")
+
+            # Задержка 2 секунды для соблюдения квоты Google Sheets API (60 req/min)
+            time.sleep(2)
+
             return True
 
         except gspread.exceptions.WorksheetNotFound:
@@ -337,6 +341,9 @@ class ProjectSheetsManager:
                 for field in metric_fields:
                     if field in record:
                         record[field] = self._safe_int(record[field])
+
+            # Задержка 1 секунда после чтения для соблюдения квоты
+            time.sleep(1)
 
             return records
 
