@@ -2254,6 +2254,9 @@ async function loadAdminData() {
         const adminTotalProjectsDisplay = document.getElementById('admin-total-projects-display');
         if (adminTotalProjectsDisplay) adminTotalProjectsDisplay.textContent = totalProjects;
 
+        // Загружаем статистику Email Farm
+        loadEmailFarmStats();
+
         console.log('Admin data loaded successfully');
 
         // Загружаем список пользователей
@@ -4108,3 +4111,177 @@ window.loadMyEmails = loadMyEmails;
 window.allocateEmail = allocateEmail;
 window.checkEmailCode = checkEmailCode;
 window.markEmailBanned = markEmailBanned;
+
+// ============ EMAIL FARM ADMIN FUNCTIONS ============
+
+// Открыть управление Email Farm
+function openEmailFarmManagement() {
+    showPage('email-farm-management');
+    loadEmailFarmStats();
+}
+
+// Закрыть управление Email Farm
+function closeEmailFarmManagement() {
+    showPage('admin');
+}
+
+// Загрузить статистику Email Farm
+async function loadEmailFarmStats() {
+    try {
+        const response = await fetch(`${API_URL}/api/admin/emails/stats`, {
+            headers: {
+                'x-telegram-init-data': window.Telegram.WebApp.initData
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to load email farm stats');
+        }
+
+        const stats = await response.json();
+
+        document.getElementById('email-farm-total').textContent = stats.total_emails || 0;
+        document.getElementById('email-farm-free').textContent = stats.free || 0;
+        document.getElementById('email-farm-active').textContent = stats.active || 0;
+        document.getElementById('email-farm-banned').textContent = stats.banned || 0;
+
+        // Обновляем счетчик в админке
+        document.getElementById('admin-total-emails-display').textContent = stats.total_emails || 0;
+
+    } catch (error) {
+        console.error('Error loading email farm stats:', error);
+        showNotification('Ошибка загрузки статистики Email Farm', 'error');
+    }
+}
+
+// Массовая загрузка почт
+async function bulkUploadEmails() {
+    const textarea = document.getElementById('email-bulk-upload-textarea');
+    const button = document.getElementById('bulk-upload-btn');
+    const text = textarea.value.trim();
+
+    if (!text) {
+        showNotification('Введите почты для загрузки', 'error');
+        return;
+    }
+
+    button.disabled = true;
+    button.textContent = 'Загрузка...';
+
+    try {
+        // Парсим строки
+        const lines = text.split('\n').filter(line => line.trim());
+        const accounts = [];
+
+        for (const line of lines) {
+            const parts = line.trim().split(':');
+            if (parts.length < 2) {
+                showNotification(`Неверный формат строки: ${line}`, 'error');
+                continue;
+            }
+
+            const email = parts[0].trim();
+            const password = parts[1].trim();
+            const proxy = parts.length > 2 ? parts.slice(2).join(':').trim() : null;
+
+            accounts.push({ email, password, proxy });
+        }
+
+        if (accounts.length === 0) {
+            showNotification('Нет валидных почт для загрузки', 'error');
+            return;
+        }
+
+        // Отправляем на сервер
+        const response = await fetch(`${API_URL}/api/admin/emails/bulk_upload`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-telegram-init-data': window.Telegram.WebApp.initData
+            },
+            body: JSON.stringify({ accounts })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.detail || 'Failed to upload emails');
+        }
+
+        showNotification(`✅ Загружено: ${data.success}\n❌ Ошибок: ${data.failed}`, 'success');
+
+        // Очищаем текстареа и обновляем статистику
+        textarea.value = '';
+        loadEmailFarmStats();
+
+        // Показываем ошибки если есть
+        if (data.errors && data.errors.length > 0) {
+            console.log('Upload errors:', data.errors);
+        }
+
+    } catch (error) {
+        console.error('Error uploading emails:', error);
+        showNotification('Ошибка загрузки почт: ' + error.message, 'error');
+    } finally {
+        button.disabled = false;
+        button.textContent = '📤 Загрузить почты';
+    }
+}
+
+// Установить лимит пользователю
+async function setUserEmailLimit() {
+    const userIdInput = document.getElementById('email-limit-user-id');
+    const maxEmailsInput = document.getElementById('email-limit-max');
+    const accessCheckbox = document.getElementById('email-limit-access');
+
+    const userId = parseInt(userIdInput.value);
+    const maxEmails = parseInt(maxEmailsInput.value);
+    const canAccess = accessCheckbox.checked;
+
+    if (!userId || isNaN(userId)) {
+        showNotification('Введите корректный Telegram User ID', 'error');
+        return;
+    }
+
+    if (!maxEmails || isNaN(maxEmails) || maxEmails < 0) {
+        showNotification('Введите корректное количество почт', 'error');
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_URL}/api/admin/emails/set_limit`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-telegram-init-data': window.Telegram.WebApp.initData
+            },
+            body: JSON.stringify({
+                user_id: userId,
+                max_emails: maxEmails,
+                can_access: canAccess
+            })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.detail || 'Failed to set limit');
+        }
+
+        showNotification(`✅ Лимит установлен для user ${userId}: ${maxEmails} почт`, 'success');
+
+        // Очищаем поле user_id
+        userIdInput.value = '';
+
+    } catch (error) {
+        console.error('Error setting email limit:', error);
+        showNotification('Ошибка установки лимита: ' + error.message, 'error');
+    }
+}
+
+// Экспортируем admin функции
+window.openEmailFarmManagement = openEmailFarmManagement;
+window.closeEmailFarmManagement = closeEmailFarmManagement;
+window.loadEmailFarmStats = loadEmailFarmStats;
+window.bulkUploadEmails = bulkUploadEmails;
+window.setUserEmailLimit = setUserEmailLimit;

@@ -337,6 +337,18 @@
                     </div>
                 </div>
 
+                <div class="admin-card admin-card-clickable" onclick="openEmailFarmManagement()">
+                    <div class="admin-card-header">
+                        <h3>📧 Email Farm</h3>
+                        <div class="admin-users-count">
+                            <span id="admin-total-emails-display">0</span> почт
+                        </div>
+                    </div>
+                    <div class="admin-card-arrow">
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </div>
+                </div>
+
                 <div class="admin-card" style="border: 2px solid #ef4444;">
                     <div class="admin-card-header">
                         <h3 style="color: #ef4444;">⚠️ Очистка базы данных</h3>
@@ -437,6 +449,88 @@
 
                 <div id="project-management-list" class="user-management-list">
                     <!-- Список проектов будет добавлен динамически -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Страница управления Email Farm -->
+        <div id="email-farm-management-page" class="page hidden">
+            <header class="header">
+                <button class="back-btn" onclick="closeEmailFarmManagement()">
+                    <i class="fa-solid fa-arrow-left"></i>
+                </button>
+                <div class="header-title">
+                    <div class="greeting">📧 Email Farm</div>
+                </div>
+            </header>
+
+            <div class="user-management-container">
+                <!-- Статистика Email Farm -->
+                <div class="admin-card" style="margin-bottom: 20px;">
+                    <h3>📊 Статистика</h3>
+                    <div class="admin-stats">
+                        <div class="admin-stat-item">
+                            <div class="admin-stat-label">Всего почт</div>
+                            <div class="admin-stat-value" id="email-farm-total">0</div>
+                        </div>
+                        <div class="admin-stat-item">
+                            <div class="admin-stat-label">Свободных</div>
+                            <div class="admin-stat-value" id="email-farm-free" style="color: #2196F3;">0</div>
+                        </div>
+                        <div class="admin-stat-item">
+                            <div class="admin-stat-label">Активных</div>
+                            <div class="admin-stat-value" id="email-farm-active" style="color: #4CAF50;">0</div>
+                        </div>
+                        <div class="admin-stat-item">
+                            <div class="admin-stat-label">Забанено</div>
+                            <div class="admin-stat-value" id="email-farm-banned" style="color: #F44336;">0</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Форма загрузки почт -->
+                <div class="admin-card" style="margin-bottom: 20px;">
+                    <h3>➕ Загрузить почты</h3>
+                    <p style="font-size: 14px; color: rgba(255,255,255,0.6); margin-bottom: 15px;">
+                        Формат: <code>email:password:proxy</code> (по одной на строку)
+                    </p>
+                    <textarea
+                        id="email-bulk-upload-textarea"
+                        class="input"
+                        placeholder="test1@outlook.com:Pass123!:socks5://user:pass@ip:port&#10;test2@outlook.com:Pass456!:"
+                        rows="6"
+                        style="font-family: monospace; margin-bottom: 15px; width: 100%;"
+                    ></textarea>
+                    <button class="btn-primary" onclick="bulkUploadEmails()" id="bulk-upload-btn" style="width: 100%;">
+                        📤 Загрузить почты
+                    </button>
+                </div>
+
+                <!-- Форма установки лимита -->
+                <div class="admin-card">
+                    <h3>⚙️ Установить лимит пользователю</h3>
+                    <input
+                        type="number"
+                        id="email-limit-user-id"
+                        class="input"
+                        placeholder="Telegram User ID"
+                        style="margin-bottom: 10px;"
+                    >
+                    <input
+                        type="number"
+                        id="email-limit-max"
+                        class="input"
+                        placeholder="Максимум активных почт"
+                        value="5"
+                        style="margin-bottom: 10px;"
+                    >
+                    <label style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px; color: rgba(255,255,255,0.8);">
+                        <input type="checkbox" id="email-limit-access" checked style="width: auto;">
+                        <span>Разрешить доступ к почтам</span>
+                    </label>
+                    <button class="btn-primary" onclick="setUserEmailLimit()" style="width: 100%;">
+                        💾 Установить лимит
+                    </button>
                 </div>
             </div>
         </div>
