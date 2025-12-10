@@ -34,11 +34,18 @@ from config import (
     GOOGLE_SHEETS_CREDENTIALS_JSON, ADMIN_IDS,
     RAPIDAPI_KEY, RAPIDAPI_HOST, RAPIDAPI_BASE_URL,
     INSTAGRAM_RAPIDAPI_KEY, INSTAGRAM_RAPIDAPI_HOST, INSTAGRAM_BASE_URL,
-    FACEBOOK_RAPIDAPI_KEY, FACEBOOK_RAPIDAPI_HOST, FACEBOOK_APP_ID
+    FACEBOOK_RAPIDAPI_KEY, FACEBOOK_RAPIDAPI_HOST, FACEBOOK_APP_ID,
+    DB_ENCRYPTION_KEY, LOG_CHANNEL_ID
 )
 from tiktok_api import TikTokAPI
 from instagram_api import InstagramAPI
 from facebook_parser import FacebookAPI
+
+# Email Farm imports
+from email_farm_models import EmailFarmDatabase
+from email_encryption import EmailEncryption, get_encryption
+from email_imap_client import OutlookIMAPClient
+from email_smart_filter import EmailSmartFilter
 
 # Logging (initialize BEFORE using logger)
 logging.basicConfig(
@@ -105,6 +112,18 @@ except Exception as e:
     tiktok_api = None
     instagram_api = None
     facebook_api = None
+
+# Инициализация Email Farm
+try:
+    email_farm_db = EmailFarmDatabase(db_path="tiktok_analytics.db")
+    email_encryption = get_encryption()
+    email_filter = EmailSmartFilter()
+    logger.info("✅ Email Farm system initialized")
+except Exception as e:
+    logger.error(f"⚠️  Failed to initialize Email Farm: {e}")
+    email_farm_db = None
+    email_encryption = None
+    email_filter = None
 
 # ============ TELEGRAM BOT LOGIC ============
 
@@ -236,6 +255,56 @@ class RefreshStatsRequest(BaseModel):
     platforms: Dict[str, bool]  # {"tiktok": True, "instagram": True, ...}
     date_from: Optional[str] = None  # Дата начала периода (YYYY-MM-DD)
     date_to: Optional[str] = None  # Дата окончания периода (YYYY-MM-DD)
+
+# ============ Email Farm Models ============
+
+class EmailAccountUpload(BaseModel):
+    email: str
+    password: str
+    proxy: Optional[str] = None  # socks5://user:pass@ip:port
+    project_id: Optional[int] = None
+
+class EmailAccountBulkUpload(BaseModel):
+    accounts: List[EmailAccountUpload]
+
+class SetUserEmailLimit(BaseModel):
+    user_id: int
+    max_emails: int
+    can_access: bool = True
+
+class CheckEmailCodeRequest(BaseModel):
+    email_id: int
+
+# ============ Email Farm Helper Functions ============
+
+async def send_security_alert(user_id: int, email: str, subject: str, reason: str):
+    """Send security alert to admin channel"""
+    if not LOG_CHANNEL_ID:
+        logger.warning("⚠️ LOG_CHANNEL_ID not configured, skipping security alert")
+        return
+
+    try:
+        from telegram import Bot
+        bot = Bot(token=TELEGRAM_TOKEN)
+
+        message = (
+            f"🚨 <b>Security Alert - Email Farm</b>\n\n"
+            f"👤 User ID: <code>{user_id}</code>\n"
+            f"📧 Email: <code>{email}</code>\n"
+            f"📝 Subject: <i>{subject}</i>\n\n"
+            f"⚠️ <b>Reason:</b> {reason}\n\n"
+            f"🕐 Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        )
+
+        await bot.send_message(
+            chat_id=LOG_CHANNEL_ID,
+            text=message,
+            parse_mode='HTML'
+        )
+        logger.info(f"✅ Security alert sent to channel {LOG_CHANNEL_ID}")
+
+    except Exception as e:
+        logger.error(f"❌ Failed to send security alert: {e}")
 
 # ============ Telegram WebApp Аутентификация ============
 
@@ -2697,6 +2766,476 @@ async def get_sync_status():
     except Exception as e:
         logger.error(f"❌ Failed to get sync status: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to get sync status: {str(e)}")
+
+
+# ============ EMAIL FARM ENDPOINTS ============
+
+@app.post("/api/admin/emails/upload")
+async def admin_upload_email_account(
+    data: EmailAccountUpload,
+    x_telegram_init_data: str = Header(None)
+):
+    """
+    [ADMIN ONLY] Upload single email account to farm
+
+    Body:
+    - email: Email address
+    - password: Plain password (will be encrypted)
+    - proxy: Optional proxy string (socks5://user:pass@ip:port)
+    - project_id: Optional project ID
+    """
+    if not email_farm_db or not email_encryption:
+        raise HTTPException(status_code=503, detail="Email Farm not initialized")
+
+    # Validate user
+    user_data = validate_telegram_init_data(x_telegram_init_data)
+    user_id = user_data['id']
+
+    # Check admin
+    if user_id not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    try:
+        # Encrypt password
+        encrypted_password = email_encryption.encrypt(data.password)
+
+        # Save to database
+        email_id = email_farm_db.add_email_account(
+            email=data.email,
+            password_encrypted=encrypted_password,
+            proxy_string=data.proxy,
+            project_id=data.project_id
+        )
+
+        if not email_id:
+            raise HTTPException(status_code=400, detail="Email already exists")
+
+        logger.info(f"✅ [ADMIN {user_id}] Added email: {data.email}")
+
+        return {
+            "success": True,
+            "email_id": email_id,
+            "email": data.email,
+            "status": "free"
+        }
+
+    except Exception as e:
+        logger.error(f"❌ Failed to upload email: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/admin/emails/bulk_upload")
+async def admin_bulk_upload_emails(
+    data: EmailAccountBulkUpload,
+    x_telegram_init_data: str = Header(None)
+):
+    """
+    [ADMIN ONLY] Bulk upload email accounts
+
+    Accepts text format:
+    email:password:proxy
+    or
+    email:password
+
+    Example:
+    accounts: [
+        {email: "test1@outlook.com", password: "pass123", proxy: "socks5://user:pass@ip:port"},
+        {email: "test2@outlook.com", password: "pass456"}
+    ]
+    """
+    if not email_farm_db or not email_encryption:
+        raise HTTPException(status_code=503, detail="Email Farm not initialized")
+
+    # Validate user
+    user_data = validate_telegram_init_data(x_telegram_init_data)
+    user_id = user_data['id']
+
+    # Check admin
+    if user_id not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    results = {
+        "success": 0,
+        "failed": 0,
+        "errors": []
+    }
+
+    for account in data.accounts:
+        try:
+            # Encrypt password
+            encrypted_password = email_encryption.encrypt(account.password)
+
+            # Save to database
+            email_id = email_farm_db.add_email_account(
+                email=account.email,
+                password_encrypted=encrypted_password,
+                proxy_string=account.proxy,
+                project_id=account.project_id
+            )
+
+            if email_id:
+                results["success"] += 1
+                logger.info(f"✅ [BULK] Added: {account.email}")
+            else:
+                results["failed"] += 1
+                results["errors"].append(f"{account.email}: Already exists")
+
+        except Exception as e:
+            results["failed"] += 1
+            results["errors"].append(f"{account.email}: {str(e)}")
+            logger.error(f"❌ Failed to add {account.email}: {e}")
+
+    logger.info(f"✅ [ADMIN {user_id}] Bulk upload: {results['success']} success, {results['failed']} failed")
+
+    return results
+
+
+@app.post("/api/admin/emails/set_limit")
+async def admin_set_user_email_limit(
+    data: SetUserEmailLimit,
+    x_telegram_init_data: str = Header(None)
+):
+    """
+    [ADMIN ONLY] Set user email access limit
+
+    Body:
+    - user_id: Telegram user ID
+    - max_emails: Maximum active emails allowed
+    - can_access: Whether user can access emails
+    """
+    if not email_farm_db:
+        raise HTTPException(status_code=503, detail="Email Farm not initialized")
+
+    # Validate admin
+    user_data = validate_telegram_init_data(x_telegram_init_data)
+    admin_id = user_data['id']
+
+    if admin_id not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    try:
+        success = email_farm_db.set_user_limit(
+            user_id=data.user_id,
+            max_emails=data.max_emails,
+            can_access=data.can_access
+        )
+
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to set limit")
+
+        logger.info(f"✅ [ADMIN {admin_id}] Set limit for user {data.user_id}: {data.max_emails} emails")
+
+        return {
+            "success": True,
+            "user_id": data.user_id,
+            "max_emails": data.max_emails,
+            "can_access": data.can_access
+        }
+
+    except Exception as e:
+        logger.error(f"❌ Failed to set user limit: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/admin/emails/stats")
+async def admin_get_email_stats(x_telegram_init_data: str = Header(None)):
+    """
+    [ADMIN ONLY] Get email farm statistics
+
+    Returns:
+    - total_emails
+    - free
+    - active
+    - banned
+    - archived
+    - users_with_access
+    """
+    if not email_farm_db:
+        raise HTTPException(status_code=503, detail="Email Farm not initialized")
+
+    # Validate admin
+    user_data = validate_telegram_init_data(x_telegram_init_data)
+    user_id = user_data['id']
+
+    if user_id not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    try:
+        stats = email_farm_db.get_stats()
+        logger.info(f"📊 [ADMIN {user_id}] Requested email stats")
+        return stats
+
+    except Exception as e:
+        logger.error(f"❌ Failed to get email stats: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============ USER EMAIL FARM ENDPOINTS ============
+
+@app.get("/api/emails/my_list")
+async def get_my_emails(x_telegram_init_data: str = Header(None)):
+    """
+    Get list of emails assigned to current user
+
+    Returns list of emails with:
+    - id
+    - email
+    - status
+    - assigned_at
+    """
+    if not email_farm_db:
+        raise HTTPException(status_code=503, detail="Email Farm not initialized")
+
+    # Validate user
+    user_data = validate_telegram_init_data(x_telegram_init_data)
+    user_id = user_data['id']
+
+    try:
+        # Check user access
+        limit_info = email_farm_db.get_user_limit(user_id)
+        if not limit_info.get('can_access_emails'):
+            raise HTTPException(status_code=403, detail="Email access disabled for this user")
+
+        # Get user's emails
+        emails = email_farm_db.get_user_emails(user_id)
+
+        # Hide proxy info from response
+        for email in emails:
+            email.pop('proxy_string', None)
+
+        logger.info(f"📋 User {user_id} has {len(emails)} emails")
+
+        return {
+            "success": True,
+            "emails": emails,
+            "limit": limit_info
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Failed to get user emails: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/emails/allocate")
+async def allocate_email_to_me(x_telegram_init_data: str = Header(None)):
+    """
+    Allocate free email to current user
+
+    Checks user limits before allocation
+    Returns allocated email info (without password)
+    """
+    if not email_farm_db:
+        raise HTTPException(status_code=503, detail="Email Farm not initialized")
+
+    # Validate user
+    user_data = validate_telegram_init_data(x_telegram_init_data)
+    user_id = user_data['id']
+
+    try:
+        # Check user access
+        limit_info = email_farm_db.get_user_limit(user_id)
+        if not limit_info.get('can_access_emails'):
+            raise HTTPException(status_code=403, detail="Email access disabled")
+
+        # Check if user reached limit
+        active_count = email_farm_db.get_user_active_count(user_id)
+        max_allowed = limit_info.get('max_active_emails', 5)
+
+        if active_count >= max_allowed:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Email limit reached ({active_count}/{max_allowed})"
+            )
+
+        # Get free email
+        free_email = email_farm_db.get_free_email()
+        if not free_email:
+            raise HTTPException(status_code=404, detail="No free emails available")
+
+        # Allocate to user
+        success = email_farm_db.allocate_email_to_user(free_email['id'], user_id)
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to allocate email")
+
+        logger.info(f"✅ User {user_id} allocated email: {free_email['email']}")
+
+        # Return without password/proxy
+        return {
+            "success": True,
+            "email_id": free_email['id'],
+            "email": free_email['email'],
+            "status": "active",
+            "active_count": active_count + 1,
+            "max_allowed": max_allowed
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Failed to allocate email: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/emails/{email_id}/check_code")
+async def check_email_for_code(
+    email_id: int,
+    x_telegram_init_data: str = Header(None)
+):
+    """
+    Check latest email and extract verification code
+
+    Connects to Outlook via IMAP (through proxy)
+    Runs smart filter for security
+    Returns extracted code if safe
+    """
+    if not email_farm_db or not email_encryption or not email_filter:
+        raise HTTPException(status_code=503, detail="Email Farm not initialized")
+
+    # Validate user
+    user_data = validate_telegram_init_data(x_telegram_init_data)
+    user_id = user_data['id']
+
+    try:
+        # Get email account
+        email_account = email_farm_db.get_email_by_id(email_id)
+        if not email_account:
+            raise HTTPException(status_code=404, detail="Email not found")
+
+        # Verify ownership
+        if email_account['assigned_user_id'] != user_id:
+            raise HTTPException(status_code=403, detail="Email not assigned to you")
+
+        # Check status
+        if email_account['status'] != 'active':
+            raise HTTPException(status_code=400, detail=f"Email status: {email_account['status']}")
+
+        # Decrypt password
+        plain_password = email_encryption.decrypt(email_account['password_encrypted'])
+
+        # Connect to IMAP
+        imap_client = OutlookIMAPClient(
+            email=email_account['email'],
+            password=plain_password,
+            proxy_string=email_account.get('proxy_string')
+        )
+
+        connected = await imap_client.connect()
+        if not connected:
+            raise HTTPException(status_code=500, detail="Failed to connect to email")
+
+        # Fetch latest emails
+        emails = await imap_client.get_latest_emails(limit=5)
+        await imap_client.disconnect()
+
+        if not emails:
+            return {
+                "success": True,
+                "found_emails": False,
+                "message": "No new emails"
+            }
+
+        # Analyze latest email
+        latest = emails[0]
+        analysis = email_filter.analyze_email(latest['subject'], latest['body'])
+
+        # Log action
+        email_farm_db.log_action(
+            user_id=user_id,
+            email_id=email_id,
+            action='checked_code',
+            details=f"Subject: {latest['subject']}"
+        )
+
+        # If unsafe, send security alert
+        if not analysis['is_safe']:
+            await send_security_alert(
+                user_id=user_id,
+                email=email_account['email'],
+                subject=latest['subject'],
+                reason=analysis['unsafe_reason']
+            )
+
+            logger.warning(f"⚠️ User {user_id} - Unsafe email detected: {analysis['unsafe_reason']}")
+
+            return {
+                "success": False,
+                "is_safe": False,
+                "reason": analysis['unsafe_reason'],
+                "subject": latest['subject']
+            }
+
+        # Return safe result with code
+        logger.info(f"✅ User {user_id} - Code check safe: {email_account['email']}")
+
+        return {
+            "success": True,
+            "is_safe": True,
+            "verification_code": analysis['verification_code'],
+            "all_codes": analysis['all_codes'],
+            "subject": latest['subject'],
+            "from": latest['from'],
+            "date": latest['date']
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Failed to check email code: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/emails/{email_id}/mark_banned")
+async def mark_email_as_banned(
+    email_id: int,
+    x_telegram_init_data: str = Header(None)
+):
+    """
+    Mark email as banned (user reported it as invalid/blocked)
+    """
+    if not email_farm_db:
+        raise HTTPException(status_code=503, detail="Email Farm not initialized")
+
+    # Validate user
+    user_data = validate_telegram_init_data(x_telegram_init_data)
+    user_id = user_data['id']
+
+    try:
+        # Get email account
+        email_account = email_farm_db.get_email_by_id(email_id)
+        if not email_account:
+            raise HTTPException(status_code=404, detail="Email not found")
+
+        # Verify ownership
+        if email_account['assigned_user_id'] != user_id:
+            raise HTTPException(status_code=403, detail="Email not assigned to you")
+
+        # Mark as banned
+        success = email_farm_db.mark_email_banned(
+            email_id=email_id,
+            user_id=user_id,
+            reason="User reported as banned/invalid"
+        )
+
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to mark as banned")
+
+        logger.info(f"✅ User {user_id} marked email {email_id} as banned")
+
+        return {
+            "success": True,
+            "email_id": email_id,
+            "status": "banned"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Failed to mark email as banned: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":

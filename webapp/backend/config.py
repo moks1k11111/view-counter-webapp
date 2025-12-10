@@ -33,3 +33,7 @@ TIKTOK_URL_PATTERN = r'(https?://)?(www\.)?(tiktok\.com|vm\.tiktok\.com)/.+'
 INSTAGRAM_URL_PATTERN = r'(https?://)?(www\.)?(instagram\.com|instagr\.am)/.+'
 FACEBOOK_URL_PATTERN = r'(https?://)?(www\.)?facebook\.com/.+'
 YOUTUBE_URL_PATTERN = r'(https?://)?(www\.)?(youtube\.com|youtu\.be)/.+'
+
+# ============ EMAIL FARM ============
+DB_ENCRYPTION_KEY = os.getenv("DB_ENCRYPTION_KEY", "")
+LOG_CHANNEL_ID = os.getenv("LOG_CHANNEL_ID", "")
