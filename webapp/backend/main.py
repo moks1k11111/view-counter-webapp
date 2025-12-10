@@ -3002,6 +3002,56 @@ async def admin_get_email_stats(x_telegram_init_data: str = Header(None)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.delete("/api/admin/emails/clear_all")
+async def admin_clear_all_emails(x_telegram_init_data: str = Header(None)):
+    """
+    [ADMIN ONLY] Clear all emails from Email Farm database
+
+    Deletes:
+    - All email accounts
+    - All email history records
+
+    Returns:
+    - deleted_emails: number of deleted email accounts
+    - deleted_history: number of deleted history records
+    """
+    if not email_farm_db:
+        raise HTTPException(status_code=503, detail="Email Farm not initialized")
+
+    # Validate admin
+    user_data = validate_telegram_init_data(x_telegram_init_data)
+    user_id = user_data['id']
+
+    if user_id not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    try:
+        cursor = email_farm_db.conn.cursor()
+
+        # Delete all email history
+        cursor.execute("DELETE FROM email_history")
+        deleted_history = cursor.rowcount
+
+        # Delete all email accounts
+        cursor.execute("DELETE FROM email_accounts")
+        deleted_emails = cursor.rowcount
+
+        email_farm_db.conn.commit()
+
+        logger.warning(f"🗑️ [ADMIN {user_id}] CLEARED ALL EMAIL FARM DATA: {deleted_emails} emails, {deleted_history} history records")
+
+        return {
+            "success": True,
+            "deleted_emails": deleted_emails,
+            "deleted_history": deleted_history
+        }
+
+    except Exception as e:
+        logger.error(f"❌ Failed to clear emails: {e}")
+        email_farm_db.conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ============ USER EMAIL FARM ENDPOINTS ============
 
 @app.get("/api/emails/my_list")

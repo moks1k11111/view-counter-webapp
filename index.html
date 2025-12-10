@@ -551,6 +551,30 @@
                         💾 Установить лимит
                     </button>
                 </div>
+
+                <!-- Опасная зона -->
+                <div style="
+                    background: linear-gradient(135deg, rgba(245, 87, 108, 0.1) 0%, rgba(240, 147, 251, 0.1) 100%);
+                    border: 1px solid rgba(245, 87, 108, 0.3);
+                    border-radius: 15px;
+                    padding: 20px;
+                    margin-top: 20px;
+                ">
+                    <h3 style="color: #f5576c; margin-bottom: 10px;">⚠️ Опасная зона</h3>
+                    <p style="color: rgba(255,255,255,0.6); font-size: 13px; margin-bottom: 15px;">
+                        Удалить все почты из Email Farm базы данных (необратимо!)
+                    </p>
+                    <button
+                        class="btn-primary"
+                        onclick="clearAllEmails()"
+                        style="
+                            width: 100%;
+                            background: linear-gradient(135deg, #f5576c 0%, #f093fb 100%);
+                        "
+                    >
+                        🗑️ Очистить все почты
+                    </button>
+                </div>
             </div>
         </div>
 

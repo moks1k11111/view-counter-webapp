@@ -4375,6 +4375,40 @@ async function setUserEmailLimit() {
     }
 }
 
+// Очистить все почты из Email Farm базы
+async function clearAllEmails() {
+    // Подтверждение
+    const confirmed = confirm('⚠️ ВНИМАНИЕ!\n\nЭто удалит ВСЕ почты из Email Farm базы данных!\n\nВы уверены?');
+
+    if (!confirmed) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/admin/emails/clear_all`, {
+            method: 'DELETE',
+            headers: {
+                'x-telegram-init-data': window.Telegram.WebApp.initData
+            }
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.detail || 'Failed to clear emails');
+        }
+
+        showNotification(`🗑️ Удалено почт: ${data.deleted_emails}, записей истории: ${data.deleted_history}`, 'success');
+
+        // Обновляем статистику
+        loadEmailFarmStats();
+
+    } catch (error) {
+        console.error('Error clearing emails:', error);
+        showNotification('Ошибка очистки Email Farm: ' + error.message, 'error');
+    }
+}
+
 // ============ Proxy Management ============
 
 function openProxySettings() {
@@ -4467,6 +4501,7 @@ window.closeEmailFarmManagement = closeEmailFarmManagement;
 window.loadEmailFarmStats = loadEmailFarmStats;
 window.bulkUploadEmails = bulkUploadEmails;
 window.setUserEmailLimit = setUserEmailLimit;
+window.clearAllEmails = clearAllEmails;
 window.openProxySettings = openProxySettings;
 window.closeProxySettings = closeProxySettings;
 window.saveProxyList = saveProxyList;
