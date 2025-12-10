@@ -46,6 +46,7 @@ from email_farm_models import EmailFarmDatabase
 from email_encryption import EmailEncryption, get_encryption
 from email_imap_client import OutlookIMAPClient
 from email_smart_filter import EmailSmartFilter
+from email_sheets_manager import EmailSheetsManager
 
 # Logging (initialize BEFORE using logger)
 logging.basicConfig(
@@ -124,6 +125,14 @@ except Exception as e:
     email_farm_db = None
     email_encryption = None
     email_filter = None
+
+# Инициализация Email Sheets Manager для Email Farm
+try:
+    email_sheets = EmailSheetsManager(GOOGLE_SHEETS_CREDENTIALS, "PostBD", GOOGLE_SHEETS_CREDENTIALS_JSON)
+    logger.info("✅ Email Sheets Manager (PostBD) initialized")
+except Exception as e:
+    logger.error(f"⚠️  Failed to initialize Email Sheets Manager: {e}")
+    email_sheets = None
 
 # ============ TELEGRAM BOT LOGIC ============
 
@@ -3061,6 +3070,24 @@ async def allocate_email_to_me(x_telegram_init_data: str = Header(None)):
 
         logger.info(f"✅ User {user_id} allocated email: {free_email['email']}")
 
+        # Log to Google Sheets (PostBD)
+        if email_sheets:
+            try:
+                # Получаем username пользователя
+                username = user_data.get('username', f"user_{user_id}")
+
+                # Логируем выделение почты (лист = название листа MainBD или Post)
+                # Используем "Post" как название листа
+                email_sheets.log_email_allocation(
+                    sheet_name="Post",
+                    email=free_email['email'],
+                    user_id=user_id,
+                    username=username,
+                    has_proxy=bool(free_email.get('proxy'))
+                )
+            except Exception as sheet_error:
+                logger.warning(f"⚠️ Failed to log email allocation to PostBD: {sheet_error}")
+
         # Return without password/proxy
         return {
             "success": True,
@@ -3130,6 +3157,19 @@ async def check_email_for_code(
         await imap_client.disconnect()
 
         if not emails:
+            # Log to Google Sheets (PostBD) - no emails
+            if email_sheets:
+                try:
+                    email_sheets.log_email_check(
+                        sheet_name="Post",
+                        email=email_account['email'],
+                        found_code=False,
+                        is_safe=True,
+                        subject="📭 No new emails"
+                    )
+                except Exception as sheet_error:
+                    logger.warning(f"⚠️ Failed to log 'no emails' to PostBD: {sheet_error}")
+
             return {
                 "success": True,
                 "found_emails": False,
@@ -3159,6 +3199,19 @@ async def check_email_for_code(
 
             logger.warning(f"⚠️ User {user_id} - Unsafe email detected: {analysis['unsafe_reason']}")
 
+            # Log unsafe email to Google Sheets (PostBD)
+            if email_sheets:
+                try:
+                    email_sheets.log_email_check(
+                        sheet_name="Post",
+                        email=email_account['email'],
+                        found_code=False,
+                        is_safe=False,
+                        subject=f"⚠️ {latest['subject']} - {analysis['unsafe_reason']}"
+                    )
+                except Exception as sheet_error:
+                    logger.warning(f"⚠️ Failed to log unsafe email to PostBD: {sheet_error}")
+
             return {
                 "success": False,
                 "is_safe": False,
@@ -3168,6 +3221,19 @@ async def check_email_for_code(
 
         # Return safe result with code
         logger.info(f"✅ User {user_id} - Code check safe: {email_account['email']}")
+
+        # Log to Google Sheets (PostBD)
+        if email_sheets:
+            try:
+                email_sheets.log_email_check(
+                    sheet_name="Post",
+                    email=email_account['email'],
+                    found_code=bool(analysis['verification_code']),
+                    is_safe=analysis['is_safe'],
+                    subject=latest['subject']
+                )
+            except Exception as sheet_error:
+                logger.warning(f"⚠️ Failed to log email check to PostBD: {sheet_error}")
 
         return {
             "success": True,
@@ -3224,6 +3290,17 @@ async def mark_email_as_banned(
             raise HTTPException(status_code=500, detail="Failed to mark as banned")
 
         logger.info(f"✅ User {user_id} marked email {email_id} as banned")
+
+        # Log to Google Sheets (PostBD)
+        if email_sheets:
+            try:
+                email_sheets.log_email_ban(
+                    sheet_name="Post",
+                    email=email_account['email'],
+                    ban_reason="User reported as banned/invalid"
+                )
+            except Exception as sheet_error:
+                logger.warning(f"⚠️ Failed to log email ban to PostBD: {sheet_error}")
 
         return {
             "success": True,
