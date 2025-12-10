@@ -78,8 +78,12 @@ class EmailSheetsManager:
             if credentials_json:
                 # Декодируем base64, если это base64-закодированная строка
                 try:
-                    decoded_json = base64.b64decode(credentials_json).decode('utf-8')
-                except Exception:
+                    # Очищаем base64 строку от пробелов и переносов строк
+                    cleaned_base64 = credentials_json.replace(' ', '').replace('\n', '').replace('\r', '').replace('\t', '')
+                    decoded_json = base64.b64decode(cleaned_base64).decode('utf-8')
+                    logger.info(f"✅ Successfully decoded base64 credentials (length: {len(decoded_json)})")
+                except Exception as e:
+                    logger.warning(f"⚠️ Failed to decode as base64 ({e}), treating as plain JSON")
                     # Если не base64, используем как есть
                     decoded_json = credentials_json
                     # Заменяем экранированные переносы строк на обычные

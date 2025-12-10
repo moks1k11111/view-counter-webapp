@@ -6,6 +6,7 @@ import logging
 import re
 import base64
 import requests
+import ssl
 from typing import Optional, List, Dict
 from python_socks.sync import Proxy
 
@@ -137,10 +138,20 @@ class OutlookOAuth2IMAPClient:
                     # Создаем SOCKS5 прокси
                     proxy = Proxy.from_url(proxy_url_normalized)
                     sock = proxy.connect(dest_host=self.imap_server, dest_port=self.imap_port)
+                    logger.info(f"✅ SOCKS5 соединение установлено: {self.imap_server}:{self.imap_port}")
 
-                    # Создаем IMAP соединение через прокси
-                    self.imap = imaplib.IMAP4_SSL(host=self.imap_server, port=self.imap_port, ssl_context=None)
-                    self.imap.sock = sock
+                    # Оборачиваем сокет в SSL
+                    context = ssl.create_default_context()
+                    ssl_sock = context.wrap_socket(sock, server_hostname=self.imap_server)
+                    logger.info(f"✅ SSL handshake завершен")
+
+                    # Создаем IMAP соединение через SSL-сокет
+                    # Используем IMAP4 (не IMAP4_SSL!) и передаем готовый SSL-сокет
+                    self.imap = imaplib.IMAP4(self.imap_server)
+                    self.imap.sock = ssl_sock
+                    # Читаем приветствие сервера
+                    self.imap.welcome = self.imap._get_response()
+                    logger.info(f"✅ IMAP приветствие получено: {self.imap.welcome}")
                 else:
                     # Прямое подключение без прокси
                     self.imap = imaplib.IMAP4_SSL(self.imap_server, self.imap_port)
