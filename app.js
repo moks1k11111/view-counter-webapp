@@ -4381,11 +4381,12 @@ function saveProxyList() {
         const proxy = line.trim();
 
         // Проверяем формат socks5:// или socks5h://
-        // Принимаем любой формат, который начинается с socks5
-        if (/^socks5h?:\/\/.+:.+@.+:\d+$/.test(proxy)) {
+        // Разрешаем любые символы в user:pass, включая дефисы, подчеркивания
+        if (/^socks5h?:\/\/.+@.+:\d+$/.test(proxy)) {
             validProxies.push(proxy);
+            console.log(`✅ Прокси валиден: ${proxy.substring(0, 30)}...`);
         } else {
-            console.warn(`Неверный формат прокси (пропущено): ${proxy}`);
+            console.warn(`❌ Неверный формат прокси (пропущено): ${proxy}`);
             // Не показываем ошибку - просто пропускаем
         }
     }
