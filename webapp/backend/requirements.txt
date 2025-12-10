@@ -17,3 +17,5 @@ flower>=2.0.0
 cryptography>=41.0.0
 aioimaplib>=1.0.1
 python-socks[asyncio]>=2.4.3
+requests[socks]>=2.31.0
+PySocks>=1.7.1
