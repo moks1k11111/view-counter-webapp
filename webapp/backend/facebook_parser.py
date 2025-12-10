@@ -4,7 +4,7 @@ import json
 import logging
 import time
 from datetime import datetime
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 from config import FACEBOOK_RAPIDAPI_KEY, FACEBOOK_RAPIDAPI_HOST, FACEBOOK_APP_ID, FACEBOOK_URL_PATTERN
 
 logging.basicConfig(
@@ -122,7 +122,9 @@ class FacebookAPI:
 
                 # Добавляем cursor для пагинации
                 if cursor:
-                    params["cursor"] = cursor
+                    # Декодируем cursor если он уже закодирован
+                    decoded_cursor = unquote(cursor)
+                    params["cursor"] = decoded_cursor
 
                 logger.info(f"📄 Страница {page_number}...")
                 logger.info(f"📤 Запрос: {endpoint}")
