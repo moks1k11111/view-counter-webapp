@@ -264,22 +264,40 @@ class ProjectSheetsManager:
 
     @retry_on_quota_error(max_retries=3, delay=5)
     def update_account_stats(self, project_name: str, username: str,
-                            stats: Dict) -> bool:
+                            stats: Dict, profile_link: str = None) -> bool:
         """
         Обновление статистики аккаунта в листе (с автоматическими повторами при quota errors)
 
         :param project_name: Название проекта
-        :param username: Username аккаунта
+        :param username: Username аккаунта (для обратной совместимости)
         :param stats: Статистика (followers, likes, comments, videos, views)
+        :param profile_link: URL профиля (приоритет над username для поиска)
         :return: True если успешно
         """
         try:
             worksheet = self.spreadsheet.worksheet(project_name)
 
             # Находим строку с аккаунтом
-            cell = worksheet.find(username)
+            # Приоритет: сначала ищем по profile_link (колонка 2), затем по username (колонка 4)
+            cell = None
+
+            if profile_link:
+                # Ищем по URL в колонке Link (колонка 2)
+                try:
+                    cell = worksheet.find(profile_link, in_column=2)
+                    if cell:
+                        logger.info(f"✅ Найден аккаунт по URL: {profile_link}")
+                except:
+                    logger.warning(f"⚠️ Не удалось найти по URL: {profile_link}")
+
+            # Fallback: ищем по username
             if not cell:
-                logger.warning(f"⚠️ Аккаунт {username} не найден в {project_name}")
+                cell = worksheet.find(username)
+                if cell:
+                    logger.info(f"✅ Найден аккаунт по username: {username}")
+
+            if not cell:
+                logger.warning(f"⚠️ Аккаунт {username} (URL: {profile_link}) не найден в {project_name}")
                 return False
 
             row_number = cell.row
@@ -553,14 +571,18 @@ class ProjectSheetsManager:
                     # Убираем пустые части после split
                     parts = [p for p in clean_url.split('/') if p]
 
+                    # Список служебных слов Facebook, которые не являются username
+                    fb_reserved = ['facebook.com', 'www.facebook.com', 'fb.com', 'https:', 'http:',
+                                   'reels', 'videos', 'posts', 'photos', 'watch', 'stories', 'pages']
+
                     if 'share' in parts:
                         idx = parts.index('share')
                         if idx + 1 < len(parts):
                             username = parts[idx + 1]
                     elif len(parts) > 0:
-                        # Берем последнюю непустую часть, кроме доменов
+                        # Берем последнюю непустую часть, кроме доменов и служебных слов
                         for part in reversed(parts):
-                            if part and part not in ['facebook.com', 'www.facebook.com', 'fb.com', 'https:', 'http:']:
+                            if part and part not in fb_reserved:
                                 username = part
                                 break
             elif 'youtube.com' in url_lower or 'youtu.be' in url_lower:

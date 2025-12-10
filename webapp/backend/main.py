@@ -1596,7 +1596,8 @@ def process_accounts_background(
                 project_sheets.update_account_stats(
                     project_name=project['name'],
                     username=username,
-                    stats=stats_dict
+                    stats=stats_dict,
+                    profile_link=profile_link  # Передаем URL для точного поиска в Sheets
                 )
 
                 # Создаем snapshot в SQLite
