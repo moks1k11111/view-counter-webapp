@@ -140,7 +140,7 @@ class FacebookAPI:
                         endpoint,
                         headers=self.headers,
                         params=params,
-                        timeout=15
+                        timeout=30  # Увеличен с 15 до 30 секунд для медленных аккаунтов
                     )
                     logger.info(f"📨 Статус: {response.status_code}")
                     if cursor:
