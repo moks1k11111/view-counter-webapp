@@ -2897,6 +2897,17 @@ async def admin_bulk_upload_emails(
             if email_id:
                 results["success"] += 1
                 logger.info(f"✅ [BULK] Added: {account.email} (auth_type: {account.auth_type})")
+
+                # Log to Google Sheets (PostBD) - новая почта в статусе free
+                if email_sheets:
+                    try:
+                        email_sheets.log_new_email(
+                            sheet_name="Post",
+                            email=account.email,
+                            has_proxy=bool(account.proxy)
+                        )
+                    except Exception as sheet_error:
+                        logger.warning(f"⚠️ Failed to log bulk upload to PostBD: {sheet_error}")
             else:
                 results["failed"] += 1
                 results["errors"].append(f"{account.email}: Already exists")

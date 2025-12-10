@@ -198,6 +198,53 @@ class EmailSheetsManager:
             logger.error(f"❌ Email Farm: Ошибка записи allocation для {email}: {e}")
 
     @retry_on_quota_error(max_retries=3, delay=5)
+    def log_new_email(
+        self,
+        sheet_name: str,
+        email: str,
+        has_proxy: bool = False
+    ):
+        """
+        Записать новую почту в статусе free (при bulk upload)
+
+        :param sheet_name: Название листа
+        :param email: Email адрес
+        :param has_proxy: Есть ли прокси у этой почты
+        """
+        try:
+            sheet = self.get_or_create_sheet(sheet_name)
+
+            now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+            # Проверяем, есть ли уже запись для этого email
+            all_values = sheet.get_all_values()
+            email_exists = any(row[0] == email for row in all_values[1:])
+
+            if email_exists:
+                logger.info(f"⚠️ Email Farm: Почта {email} уже существует на листе {sheet_name}")
+                return
+
+            row_data = [
+                email,
+                "free",
+                "",
+                "[ADMIN_UPLOAD]",
+                now,
+                "",
+                "",
+                "0",
+                "Да" if has_proxy else "Нет",
+                f"📤 Загружена админом ({now})"
+            ]
+
+            # Добавляем новую запись
+            sheet.append_row(row_data)
+            logger.info(f"✅ Email Farm: Добавлена новая free почта {email} на листе {sheet_name}")
+
+        except Exception as e:
+            logger.error(f"❌ Email Farm: Ошибка записи new email для {email}: {e}")
+
+    @retry_on_quota_error(max_retries=3, delay=5)
     def log_email_check(
         self,
         sheet_name: str,
