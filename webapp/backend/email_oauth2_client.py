@@ -130,8 +130,12 @@ class OutlookOAuth2IMAPClient:
 
                     proxy_user, proxy_pass, proxy_host, proxy_port = proxy_match.groups()
 
+                    # Конвертируем socks5h:// в socks5:// (python-socks не поддерживает socks5h)
+                    # socks5h означает что DNS резолвится через прокси, но для python-socks это не важно
+                    proxy_url_normalized = self.proxy_string.replace('socks5h://', 'socks5://')
+
                     # Создаем SOCKS5 прокси
-                    proxy = Proxy.from_url(self.proxy_string)
+                    proxy = Proxy.from_url(proxy_url_normalized)
                     sock = proxy.connect(dest_host=self.imap_server, dest_port=self.imap_port)
 
                     # Создаем IMAP соединение через прокси
