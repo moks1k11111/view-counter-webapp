@@ -8,11 +8,54 @@ import asyncio
 import json
 import os
 import base64
+from functools import wraps
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
 )
 logger = logging.getLogger(__name__)
+
+
+def retry_on_quota_error(max_retries=3, delay=5):
+    """
+    Decorator to retry Google Sheets API calls on quota errors (429).
+
+    :param max_retries: Maximum number of retry attempts (default 3)
+    :param delay: Delay in seconds between retries (default 5)
+    """
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            for attempt in range(max_retries):
+                try:
+                    return func(*args, **kwargs)
+                except gspread.exceptions.APIError as e:
+                    # Check if it's a quota/rate limit error (429)
+                    if hasattr(e, 'response') and e.response.status_code == 429:
+                        if attempt < max_retries - 1:
+                            logger.warning(
+                                f"⚠️ Google Sheets API Rate Limit hit (429). "
+                                f"Retry {attempt + 1}/{max_retries - 1} in {delay}s... "
+                                f"Function: {func.__name__}"
+                            )
+                            time.sleep(delay)
+                            continue
+                        else:
+                            logger.error(
+                                f"❌ Google Sheets API Rate Limit exceeded after {max_retries} attempts. "
+                                f"Function: {func.__name__}"
+                            )
+                            raise
+                    else:
+                        # Not a quota error, raise immediately
+                        raise
+                except Exception as e:
+                    # For non-API errors, raise immediately
+                    raise
+            # Should not reach here, but just in case
+            return func(*args, **kwargs)
+        return wrapper
+    return decorator
 
 class SheetsDatabase:
     """Класс для работы с Google Sheets в качестве базы данных"""
@@ -199,6 +242,7 @@ class SheetsDatabase:
         # Добавляем колонку "Проект" в существующие листы, если её нет
         self._add_project_column_if_missing()
 
+    @retry_on_quota_error(max_retries=3, delay=5)
     def _add_project_column_if_missing(self):
         """Добавляет колонку 'Проект' в существующие листы, если её нет"""
         sheets_to_check = [
@@ -260,6 +304,7 @@ class SheetsDatabase:
         url = url.split('?')[0].rstrip('/').lower()
         return url
     
+    @retry_on_quota_error(max_retries=3, delay=5)
     def _find_profile_row(self, url, platform="tiktok"):
         """Ищет строку с указанным URL в нужном листе"""
         try:
@@ -282,6 +327,7 @@ class SheetsDatabase:
         """Проверяет существует ли уже этот профиль в таблице"""
         return self._find_profile_row(url, platform) is not None
     
+    @retry_on_quota_error(max_retries=3, delay=5)
     def add_profile(self, telegram_user, url, status="NEW", platform="tiktok", topic="", project_name=""):
         """Добавляет новый профиль в таблицу"""
         try:
@@ -320,6 +366,7 @@ class SheetsDatabase:
             logger.error(traceback.format_exc())
             return None
     
+    @retry_on_quota_error(max_retries=3, delay=5)
     def update_profile_stats(self, url, stats, platform="tiktok"):
         """Обновляет статистику профиля (только для статуса NEW)"""
         try:
@@ -372,6 +419,7 @@ class SheetsDatabase:
             logger.error(traceback.format_exc())
             return None
     
+    @retry_on_quota_error(max_retries=3, delay=5)
     def get_all_profiles(self, platform=None, project_name=None):
         """Получает все профили из таблицы с оптимизацией
 

@@ -316,6 +316,7 @@ class ProjectSheetsManager:
             logger.error(f"❌ Ошибка обновления статистики: {e}")
             return False
 
+    @retry_on_quota_error(max_retries=3, delay=5)
     def get_project_accounts(self, project_name: str) -> List[Dict]:
         """
         Получение всех аккаунтов из листа проекта
