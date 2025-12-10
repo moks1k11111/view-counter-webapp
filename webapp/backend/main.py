@@ -3149,6 +3149,8 @@ async def allocate_email_to_me(x_telegram_init_data: str = Header(None)):
                 # Получаем username пользователя
                 username = user_data.get('username', f"user_{user_id}")
 
+                logger.info(f"📊 Logging allocation to PostBD: {free_email['email']} for user {username}")
+
                 # Логируем выделение почты (лист = название листа MainBD или Post)
                 # Используем "Post" как название листа
                 email_sheets.log_email_allocation(
@@ -3156,10 +3158,15 @@ async def allocate_email_to_me(x_telegram_init_data: str = Header(None)):
                     email=free_email['email'],
                     user_id=user_id,
                     username=username,
-                    has_proxy=bool(free_email.get('proxy'))
+                    has_proxy=bool(free_email.get('proxy_string'))
                 )
+                logger.info(f"✅ PostBD logging successful for {free_email['email']}")
             except Exception as sheet_error:
-                logger.warning(f"⚠️ Failed to log email allocation to PostBD: {sheet_error}")
+                logger.error(f"❌ Failed to log email allocation to PostBD: {sheet_error}")
+                import traceback
+                logger.error(traceback.format_exc())
+        else:
+            logger.warning("⚠️ Email Sheets Manager not initialized - skipping PostBD logging")
 
         # Return without password/proxy
         return {
