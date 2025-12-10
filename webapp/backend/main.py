@@ -129,10 +129,13 @@ except Exception as e:
 
 # Инициализация Email Sheets Manager для Email Farm
 try:
+    logger.info(f"📊 Initializing Email Sheets Manager: credentials_file={GOOGLE_SHEETS_CREDENTIALS}, has_json_creds={bool(GOOGLE_SHEETS_CREDENTIALS_JSON)}")
     email_sheets = EmailSheetsManager(GOOGLE_SHEETS_CREDENTIALS, "PostBD", GOOGLE_SHEETS_CREDENTIALS_JSON)
     logger.info("✅ Email Sheets Manager (PostBD) initialized")
 except Exception as e:
-    logger.error(f"⚠️  Failed to initialize Email Sheets Manager: {e}")
+    logger.error(f"❌ Failed to initialize Email Sheets Manager: {e}")
+    import traceback
+    logger.error(traceback.format_exc())
     email_sheets = None
 
 # ============ TELEGRAM BOT LOGIC ============

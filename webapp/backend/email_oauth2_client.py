@@ -123,8 +123,8 @@ class OutlookOAuth2IMAPClient:
                     logger.info(f"🔌 Подключение к IMAP через прокси: {self.proxy_string}")
 
                     # Парсим прокси строку
-                    # Формат: socks5://user:pass@host:port
-                    proxy_match = re.match(r'socks5://([^:]+):([^@]+)@([^:]+):(\d+)', self.proxy_string)
+                    # Формат: socks5://user:pass@host:port или socks5h://user:pass@host:port
+                    proxy_match = re.match(r'socks5h?://([^:]+):([^@]+)@([^:]+):(\d+)', self.proxy_string)
                     if not proxy_match:
                         raise ValueError(f"Неверный формат прокси: {self.proxy_string}")
 
