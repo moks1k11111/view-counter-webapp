@@ -282,7 +282,7 @@ class ProjectSheetsManager:
             cell = None
 
             if profile_link:
-                # Нормализуем URL для поиска (убираем http/https, www, trailing slash)
+                # Нормализуем URL для поиска (убираем http/https, www, trailing slash, и пути типа /reels/)
                 def normalize_url(url):
                     """Нормализует URL для сравнения"""
                     if not url:
@@ -291,6 +291,21 @@ class ProjectSheetsManager:
                     url = url.replace('https://', '').replace('http://', '')
                     url = url.replace('www.', '')
                     url = url.rstrip('/')
+
+                    # Для Facebook также убираем пути типа /reels, /videos, /posts и т.д.
+                    if 'facebook.com' in url or 'fb.com' in url:
+                        # Оставляем только домен и имя страницы (или profile.php?id=...)
+                        # Например: facebook.com/big.shturman.boss/reels -> facebook.com/big.shturman.boss
+                        parts = url.split('/')
+                        if len(parts) >= 2:
+                            # facebook.com/big.shturman.boss или facebook.com/profile.php?id=...
+                            if 'profile.php' in parts[1]:
+                                # Оставляем profile.php с параметрами
+                                url = '/'.join(parts[:2])
+                            else:
+                                # Обычная страница - оставляем только домен и имя
+                                url = '/'.join(parts[:2])
+
                     return url
 
                 # Ищем по URL в колонке Link (колонка 2)
