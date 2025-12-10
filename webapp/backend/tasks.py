@@ -11,6 +11,10 @@ import os
 import logging
 from datetime import datetime
 
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 # Try to import Celery, graceful fallback if not available
 try:
     from celery import Celery
@@ -19,10 +23,6 @@ except ImportError:
     CELERY_AVAILABLE = False
     Celery = None
     logger.warning("⚠️ Celery not installed, background tasks disabled")
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 # Initialize Celery (only if available)
 if CELERY_AVAILABLE:
