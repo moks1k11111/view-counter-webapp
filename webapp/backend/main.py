@@ -727,22 +727,9 @@ async def get_project_analytics(
 
             logger.info(f"📊 Added today's dynamic point: {today} with {total_views} views (growth: +{growth_24h})")
 
-    # Вычисляем ежедневный прирост для графика (вместо нарастающего итога)
-    daily_growth = []
-    for i, day in enumerate(history):
-        if i == 0:
-            # Первый день - прирост = значение первого дня
-            growth = day['views']
-        else:
-            # Остальные дни - разница с предыдущим днем
-            growth = day['views'] - history[i-1]['views']
-
-        daily_growth.append({
-            "date": day['date'],
-            "growth": max(0, growth)  # Не показываем отрицательный прирост
-        })
-
-    logger.info(f"📊 Daily growth calculated: {len(daily_growth)} days")
+    # График показывает кумулятивные (накопительные) значения для страницы проекта
+    # chart_data = history (формат: [{date, views}, ...] где views - это накопительная сумма)
+    logger.info(f"📊 Chart data prepared: {len(history)} days (cumulative values)")
 
     # DEBUG: Log all_profiles before returning
     logger.info(f"🔍 DEBUG FINAL all_profiles count: {len(all_profiles)}")
@@ -761,8 +748,8 @@ async def get_project_analytics(
         "profiles": all_profiles,  # Список всех профилей для диаграммы аккаунтов
         "target_views": project['target_views'],
         "progress_percent": min(100, round((total_views / project['target_views'] * 100), 2)) if project['target_views'] > 0 else 0,
-        "history": history,  # Оставляем для обратной совместимости
-        "chart_data": daily_growth,  # Новые данные для графика (ежедневный прирост)
+        "history": history,  # Кумулятивные значения (накопительная сумма)
+        "chart_data": history,  # Кумулятивные значения для графика (накопительная сумма)
         "growth_24h": growth_24h,
         "backend_version": "v2.1_redis_cache"  # Для отладки версии бэкенда
     }
@@ -959,22 +946,9 @@ async def get_my_analytics(
 
                 logger.info(f"📊 [My Analytics] Added today's dynamic point: {today} with {total_views} views")
 
-        # Вычисляем ежедневный прирост для графика на карточках (столбики)
-        daily_growth = []
-        for i, day in enumerate(history):
-            if i == 0:
-                # Первый день - прирост = значение первого дня
-                growth = day['views']
-            else:
-                # Остальные дни - разница с предыдущим днем
-                growth = day['views'] - history[i-1]['views']
-
-            daily_growth.append({
-                "date": day['date'],
-                "growth": max(0, growth)  # Не показываем отрицательный прирост
-            })
-
-        logger.info(f"📊 [My Analytics] Daily growth calculated: {len(daily_growth)} days for chart")
+        # График показывает кумулятивные (накопительные) значения для мои проекты
+        # chart_data = history (формат: [{date, views}, ...] где views - это накопительная сумма ЭТОГО пользователя)
+        logger.info(f"📊 [My Analytics] Chart data prepared: {len(history)} days (cumulative values for user {user_id})")
 
         response_data = {
             "project": project,
@@ -987,8 +961,8 @@ async def get_my_analytics(
             "profiles": profiles,  # Список всех профилей для диаграммы аккаунтов
             "target_views": project['target_views'],
             "progress_percent": min(100, round((total_views / project['target_views'] * 100), 2)) if project['target_views'] > 0 else 0,
-            "history": history,  # Нарастающий итог (для обратной совместимости)
-            "chart_data": daily_growth,  # Ежедневный прирост для графика на карточках! ✅
+            "history": history,  # Кумулятивные значения (накопительная сумма этого пользователя)
+            "chart_data": history,  # Кумулятивные значения для графика (накопительная сумма этого пользователя)
             "growth_24h": growth_24h,
             "backend_version": "v2.1_redis_cache"  # Для отладки версии бэкенда
         }
