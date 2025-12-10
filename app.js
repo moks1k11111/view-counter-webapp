@@ -3947,7 +3947,7 @@ window.deleteSocialAccount = deleteSocialAccount;
 // Загрузка списка моих почт
 async function loadMyEmails() {
     try {
-        const response = await fetch(`${API_URL}/api/emails/my_list`, {
+        const response = await fetch(`${API_BASE_URL}/api/emails/my_list`, {
             headers: {
                 'x-telegram-init-data': window.Telegram.WebApp.initData
             }
@@ -4004,7 +4004,7 @@ async function allocateEmail() {
     button.textContent = 'Загрузка...';
 
     try {
-        const response = await fetch(`${API_URL}/api/emails/allocate`, {
+        const response = await fetch(`${API_BASE_URL}/api/emails/allocate`, {
             method: 'POST',
             headers: {
                 'x-telegram-init-data': window.Telegram.WebApp.initData
@@ -4034,7 +4034,7 @@ async function checkEmailCode(emailId) {
     try {
         showNotification('🔍 Проверяем почту...', 'info');
 
-        const response = await fetch(`${API_URL}/api/emails/${emailId}/check_code`, {
+        const response = await fetch(`${API_BASE_URL}/api/emails/${emailId}/check_code`, {
             method: 'POST',
             headers: {
                 'x-telegram-init-data': window.Telegram.WebApp.initData
@@ -4084,7 +4084,7 @@ async function markEmailBanned(emailId) {
     }
 
     try {
-        const response = await fetch(`${API_URL}/api/emails/${emailId}/mark_banned`, {
+        const response = await fetch(`${API_BASE_URL}/api/emails/${emailId}/mark_banned`, {
             method: 'POST',
             headers: {
                 'x-telegram-init-data': window.Telegram.WebApp.initData
@@ -4128,7 +4128,7 @@ function closeEmailFarmManagement() {
 // Загрузить статистику Email Farm
 async function loadEmailFarmStats() {
     try {
-        const response = await fetch(`${API_URL}/api/admin/emails/stats`, {
+        const response = await fetch(`${API_BASE_URL}/api/admin/emails/stats`, {
             headers: {
                 'x-telegram-init-data': window.Telegram.WebApp.initData
             }
@@ -4256,7 +4256,7 @@ async function bulkUploadEmails() {
         console.log('Первый аккаунт:', accounts[0]);
 
         // Отправляем на сервер
-        const response = await fetch(`${API_URL}/api/admin/emails/bulk_upload`, {
+        const response = await fetch(`${API_BASE_URL}/api/admin/emails/bulk_upload`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -4314,7 +4314,7 @@ async function setUserEmailLimit() {
     }
 
     try {
-        const response = await fetch(`${API_URL}/api/admin/emails/set_limit`, {
+        const response = await fetch(`${API_BASE_URL}/api/admin/emails/set_limit`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
