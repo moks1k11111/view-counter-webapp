@@ -822,9 +822,9 @@ async def get_project_analytics(
         plat = profile['platform']
         topic = profile.get('topic', 'Не указано')
 
+        # Считаем ВСЕ просмотры/видео
         total_views += views
         total_videos += videos
-        logger.info(f"🔍 DEBUG: Profile videos={videos}, total_videos now={total_videos}")
 
         # Статистика по пользователям
         if telegram_user not in users_stats:
