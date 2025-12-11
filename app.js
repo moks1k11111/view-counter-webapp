@@ -4082,11 +4082,6 @@ async function checkEmailCode(emailId) {
             throw new Error(data.detail || 'Failed to check email');
         }
 
-        if (!data.found_emails) {
-            showNotification('📭 Нет новых писем', 'info');
-            return;
-        }
-
         if (!data.is_safe) {
             showNotification(`⚠️ ВНИМАНИЕ! Подозрительное письмо!\n\nПричина: ${data.reason}\n\nТема: ${data.subject}\n\nАлерт отправлен администраторам.`, 'error');
             return;
