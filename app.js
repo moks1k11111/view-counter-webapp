@@ -4120,12 +4120,13 @@ async function checkEmailCode(emailId) {
                 }
             }
 
-            // Меняем кнопку на "Аккаунт создан" (заблокирована)
+            // Меняем кнопку на "Аккаунт создан" (но оставляем кликабельной для показа уведомления)
             if (checkButton) {
                 checkButton.textContent = '✅ Аккаунт создан';
-                checkButton.disabled = true;
+                checkButton.disabled = false;
                 checkButton.style.background = 'linear-gradient(135deg, #4ade80 0%, #22c55e 100%)';
-                checkButton.style.cursor = 'not-allowed';
+                checkButton.style.cursor = 'pointer';
+                checkButton.style.opacity = '1';
             }
 
             // Копируем код в буфер обмена
