@@ -2996,6 +2996,8 @@ async def admin_bulk_upload_emails(
                             email=account.email,
                             has_proxy=bool(account.proxy)
                         )
+                        # Небольшая задержка между API вызовами для избежания rate limit
+                        await asyncio.sleep(0.3)
                     except Exception as sheet_error:
                         logger.warning(f"⚠️ Failed to log bulk upload to PostBD: {sheet_error}")
             else:
