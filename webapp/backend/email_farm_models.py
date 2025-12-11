@@ -106,6 +106,7 @@ class EmailFarmDatabase:
 
         # Миграция: добавляем новые колонки если их нет
         self._migrate_add_oauth2_columns()
+        self._migrate_add_is_completed_column()
 
         logger.info("✅ Email Farm tables initialized")
 
@@ -134,6 +135,24 @@ class EmailFarmDatabase:
 
         except Exception as e:
             logger.error(f"⚠️ Ошибка миграции OAuth2 колонок: {e}")
+            self.conn.rollback()
+
+    def _migrate_add_is_completed_column(self):
+        """Добавить колонку is_completed для разделения регистрации и завершенных почт"""
+        cursor = self.conn.cursor()
+
+        try:
+            cursor.execute("PRAGMA table_info(email_accounts)")
+            columns = [col[1] for col in cursor.fetchall()]
+
+            if 'is_completed' not in columns:
+                cursor.execute("ALTER TABLE email_accounts ADD COLUMN is_completed INTEGER DEFAULT 0")
+                logger.info("✅ Добавлена колонка is_completed")
+
+            self.conn.commit()
+
+        except Exception as e:
+            logger.error(f"⚠️ Ошибка миграции is_completed: {e}")
             self.conn.rollback()
 
     # ============ Email Accounts CRUD ============
@@ -233,10 +252,10 @@ class EmailFarmDatabase:
         """Get all emails assigned to user"""
         cursor = self.conn.cursor()
         cursor.execute("""
-            SELECT id, email, status, assigned_at, proxy_string
+            SELECT id, email, status, assigned_at, proxy_string, is_completed
             FROM email_accounts
             WHERE assigned_user_id = ?
-            ORDER BY assigned_at DESC
+            ORDER BY is_completed ASC, assigned_at DESC
         """, (user_id,))
 
         return [dict(row) for row in cursor.fetchall()]
@@ -280,6 +299,46 @@ class EmailFarmDatabase:
 
         row = cursor.fetchone()
         return dict(row) if row else None
+
+    def mark_email_completed(self, email_id: int) -> bool:
+        """Mark email registration as completed (move to 'My Emails')"""
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute("""
+                UPDATE email_accounts
+                SET is_completed = 1,
+                    updated_at = ?
+                WHERE id = ?
+            """, (datetime.now(), email_id))
+
+            self.conn.commit()
+            logger.info(f"✅ Email {email_id} marked as completed")
+            return True
+
+        except Exception as e:
+            logger.error(f"❌ Error marking email as completed: {e}")
+            self.conn.rollback()
+            return False
+
+    def reopen_email_registration(self, email_id: int) -> bool:
+        """Reopen email registration (move back to 'Registration')"""
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute("""
+                UPDATE email_accounts
+                SET is_completed = 0,
+                    updated_at = ?
+                WHERE id = ?
+            """, (datetime.now(), email_id))
+
+            self.conn.commit()
+            logger.info(f"✅ Email {email_id} reopened for registration")
+            return True
+
+        except Exception as e:
+            logger.error(f"❌ Error reopening email: {e}")
+            self.conn.rollback()
+            return False
 
     # ============ User Limits ============
 

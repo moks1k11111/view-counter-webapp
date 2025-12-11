@@ -4003,28 +4003,67 @@ async function loadMyEmails() {
             return;
         }
 
-        listContainer.innerHTML = data.emails.map(email => `
-            <div class="email-item" id="email-item-${email.id}">
-                <div class="email-info">
-                    <span class="email-address">📧 ${email.email}</span>
-                    <div class="email-code-display" id="email-code-${email.id}" style="display: none; margin: 8px 0; padding: 10px; background: linear-gradient(135deg, rgba(74, 222, 128, 0.15) 0%, rgba(34, 197, 94, 0.15) 100%); border: 1px solid rgba(74, 222, 128, 0.3); border-radius: 8px;">
-                        <div style="font-size: 12px; color: rgba(255,255,255,0.6); margin-bottom: 4px;">Код верификации:</div>
-                        <div style="font-size: 20px; font-weight: 700; color: #4ade80; letter-spacing: 2px; font-family: 'Courier New', monospace;"></div>
+        // Разделяем почты на "в регистрации" и "завершенные"
+        const registrationEmails = data.emails.filter(email => !email.is_completed);
+        const completedEmails = data.emails.filter(email => email.is_completed);
+
+        // Блок регистрации
+        const registrationContainer = document.getElementById('registration-emails-list');
+        const registrationBlock = document.getElementById('registration-block');
+
+        if (registrationEmails.length > 0) {
+            registrationBlock.style.display = 'block';
+            registrationContainer.innerHTML = registrationEmails.map(email => `
+                <div class="email-item" id="email-item-${email.id}">
+                    <div class="email-info">
+                        <span class="email-address">📧 ${email.email}</span>
+                        <div class="email-code-display" id="email-code-${email.id}" style="display: none; margin: 8px 0; padding: 10px; background: linear-gradient(135deg, rgba(74, 222, 128, 0.15) 0%, rgba(34, 197, 94, 0.15) 100%); border: 1px solid rgba(74, 222, 128, 0.3); border-radius: 8px;">
+                            <div style="font-size: 12px; color: rgba(255,255,255,0.6); margin-bottom: 4px;">Код верификации:</div>
+                            <div style="font-size: 20px; font-weight: 700; color: #4ade80; letter-spacing: 2px; font-family: 'Courier New', monospace;"></div>
+                        </div>
+                        <span class="email-status status-${email.status.toLowerCase()}">${email.status}</span>
                     </div>
-                    <span class="email-status status-${email.status.toLowerCase()}">${email.status}</span>
+                    <div class="email-actions">
+                        ${email.status === 'active' ? `
+                            <button class="btn-secondary" onclick="checkEmailCode(${email.id})">
+                                🔍 Проверить код
+                            </button>
+                            <button class="btn-danger" onclick="markEmailBanned(${email.id})">
+                                🚫 Забанена
+                            </button>
+                        ` : ''}
+                    </div>
                 </div>
-                <div class="email-actions">
-                    ${email.status === 'active' ? `
-                        <button class="btn-secondary" onclick="checkEmailCode(${email.id})">
-                            🔍 Проверить код
-                        </button>
-                        <button class="btn-danger" onclick="markEmailBanned(${email.id})">
-                            🚫 Забанена
-                        </button>
-                    ` : ''}
+            `).join('');
+        } else {
+            registrationBlock.style.display = 'none';
+        }
+
+        // Блок завершенных почт
+        if (completedEmails.length === 0) {
+            listContainer.innerHTML = '<p style="text-align: center; color: #888;">У вас пока нет завершенных почт</p>';
+        } else {
+            listContainer.innerHTML = completedEmails.map(email => `
+                <div class="email-item" id="email-item-${email.id}">
+                    <div class="email-info">
+                        <span class="email-address">📧 ${email.email}</span>
+                        <span class="email-status status-${email.status.toLowerCase()}">${email.status}</span>
+                    </div>
+                    <div class="email-actions">
+                        ${email.status === 'active' ? `
+                            <button class="btn-secondary" onclick="requestAdditionalCode(${email.id})">
+                                🔄 Запросить доп код
+                            </button>
+                            <button class="btn-danger" onclick="markEmailBanned(${email.id})">
+                                🚫 Забанена
+                            </button>
+                        ` : email.status === 'banned' ? `
+                            <span style="color: #ef4444;">🚫 Забанена</span>
+                        ` : ''}
+                    </div>
                 </div>
-            </div>
-        `).join('');
+            `).join('');
+        }
 
     } catch (error) {
         console.error('Error loading emails:', error);
@@ -4120,13 +4159,14 @@ async function checkEmailCode(emailId) {
                 }
             }
 
-            // Меняем кнопку на "Аккаунт создан" (но оставляем кликабельной для показа уведомления)
+            // Меняем кнопку на "Аккаунт создан" с новым действием
             if (checkButton) {
                 checkButton.textContent = '✅ Аккаунт создан';
                 checkButton.disabled = false;
                 checkButton.style.background = 'linear-gradient(135deg, #4ade80 0%, #22c55e 100%)';
                 checkButton.style.cursor = 'pointer';
                 checkButton.style.opacity = '1';
+                checkButton.onclick = () => completeEmailRegistration(emailId);
             }
 
             // Копируем код в буфер обмена
@@ -4185,11 +4225,63 @@ async function markEmailBanned(emailId) {
     }
 }
 
+// Завершить регистрацию аккаунта (переместить в "Мои почты")
+async function completeEmailRegistration(emailId) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/emails/${emailId}/complete`, {
+            method: 'POST',
+            headers: {
+                'x-telegram-init-data': window.Telegram.WebApp.initData
+            }
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.detail || 'Failed to complete registration');
+        }
+
+        showNotification('✅ Регистрация завершена! Почта перемещена в "Мои почты"', 'success');
+        loadMyEmails(); // Перезагружаем оба блока
+
+    } catch (error) {
+        console.error('Error completing registration:', error);
+        showNotification('Ошибка: ' + error.message, 'error');
+    }
+}
+
+// Запросить дополнительный код (вернуть почту в регистрацию)
+async function requestAdditionalCode(emailId) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/emails/${emailId}/reopen`, {
+            method: 'POST',
+            headers: {
+                'x-telegram-init-data': window.Telegram.WebApp.initData
+            }
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.detail || 'Failed to reopen email');
+        }
+
+        showNotification('✅ Почта возвращена в "Регистрация аккаунта"', 'success');
+        loadMyEmails(); // Перезагружаем оба блока
+
+    } catch (error) {
+        console.error('Error reopening email:', error);
+        showNotification('Ошибка: ' + error.message, 'error');
+    }
+}
+
 // Экспортируем функции в window
 window.loadMyEmails = loadMyEmails;
 window.allocateEmail = allocateEmail;
 window.checkEmailCode = checkEmailCode;
 window.markEmailBanned = markEmailBanned;
+window.completeEmailRegistration = completeEmailRegistration;
+window.requestAdditionalCode = requestAdditionalCode;
 
 // ============ EMAIL FARM ADMIN FUNCTIONS ============
 

@@ -3424,6 +3424,98 @@ async def mark_email_as_banned(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/api/emails/{email_id}/complete")
+async def complete_email_registration(
+    email_id: int,
+    x_telegram_init_data: str = Header(None)
+):
+    """
+    Mark email registration as completed (move from Registration to My Emails)
+    """
+    if not email_farm_db:
+        raise HTTPException(status_code=503, detail="Email Farm not initialized")
+
+    # Validate user
+    user_data = validate_telegram_init_data(x_telegram_init_data)
+    user_id = user_data['id']
+
+    try:
+        # Get email account
+        email_account = email_farm_db.get_email_by_id(email_id)
+        if not email_account:
+            raise HTTPException(status_code=404, detail="Email not found")
+
+        # Verify ownership
+        if email_account['assigned_user_id'] != user_id:
+            raise HTTPException(status_code=403, detail="Email not assigned to you")
+
+        # Mark as completed
+        success = email_farm_db.mark_email_completed(email_id)
+
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to complete registration")
+
+        logger.info(f"✅ User {user_id} completed registration for email {email_id}")
+
+        return {
+            "success": True,
+            "email_id": email_id,
+            "is_completed": True
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Failed to complete email registration: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/emails/{email_id}/reopen")
+async def reopen_email_registration(
+    email_id: int,
+    x_telegram_init_data: str = Header(None)
+):
+    """
+    Reopen email registration (move from My Emails back to Registration)
+    """
+    if not email_farm_db:
+        raise HTTPException(status_code=503, detail="Email Farm not initialized")
+
+    # Validate user
+    user_data = validate_telegram_init_data(x_telegram_init_data)
+    user_id = user_data['id']
+
+    try:
+        # Get email account
+        email_account = email_farm_db.get_email_by_id(email_id)
+        if not email_account:
+            raise HTTPException(status_code=404, detail="Email not found")
+
+        # Verify ownership
+        if email_account['assigned_user_id'] != user_id:
+            raise HTTPException(status_code=403, detail="Email not assigned to you")
+
+        # Reopen registration
+        success = email_farm_db.reopen_email_registration(email_id)
+
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to reopen registration")
+
+        logger.info(f"✅ User {user_id} reopened email {email_id} for additional code")
+
+        return {
+            "success": True,
+            "email_id": email_id,
+            "is_completed": False
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Failed to reopen email registration: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
