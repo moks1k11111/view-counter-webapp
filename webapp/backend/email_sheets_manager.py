@@ -132,12 +132,13 @@ class EmailSheetsManager:
             headers = [
                 "Email", "Status", "User ID", "Username",
                 "Allocated At", "Last Checked", "Ban Reason",
-                "Total Checks", "Has Proxy", "Notes"
+                "Total Checks", "Has Proxy", "Codes History",
+                "Is Completed", "Notes"
             ]
-            sheet.update('A1:J1', [headers])
+            sheet.update('A1:L1', [headers])
 
             # Форматируем заголовки
-            sheet.format('A1:J1', {
+            sheet.format('A1:L1', {
                 'textFormat': {'bold': True},
                 'backgroundColor': {'red': 0.2, 'green': 0.2, 'blue': 0.2}
             })
@@ -186,12 +187,14 @@ class EmailSheetsManager:
                 "",
                 "0",
                 "Да" if has_proxy else "Нет",
-                ""
+                "",  # Codes History
+                "0",  # Is Completed
+                ""  # Notes
             ]
 
             if email_row:
                 # Обновляем существующую запись
-                sheet.update(f'A{email_row}:J{email_row}', [row_data])
+                sheet.update(f'A{email_row}:L{email_row}', [row_data])
                 logger.info(f"✅ Email Farm: Обновлена запись для {email} на листе {sheet_name}")
             else:
                 # Добавляем новую запись
@@ -238,7 +241,9 @@ class EmailSheetsManager:
                 "",
                 "0",
                 "Да" if has_proxy else "Нет",
-                f"📤 Загружена админом ({now})"
+                "",  # Codes History
+                "0",  # Is Completed
+                f"📤 Загружена админом ({now})"  # Notes
             ]
 
             # Добавляем новую запись
@@ -255,7 +260,8 @@ class EmailSheetsManager:
         email: str,
         found_code: bool = False,
         is_safe: bool = True,
-        subject: str = ""
+        subject: str = "",
+        code: str = ""
     ):
         """
         Записать проверку почты на код
@@ -265,6 +271,7 @@ class EmailSheetsManager:
         :param found_code: Найден ли код верификации
         :param is_safe: Безопасно ли письмо
         :param subject: Тема письма
+        :param code: Код верификации (если найден)
         """
         try:
             sheet = self.get_or_create_sheet(sheet_name)
@@ -285,9 +292,17 @@ class EmailSheetsManager:
                 current_checks = int(row[7]) if row[7].isdigit() else 0
                 new_checks = current_checks + 1
 
+                # Обновляем историю кодов (колонка J)
+                codes_history = row[9] if len(row) > 9 else ""
+                if found_code and code:
+                    if codes_history:
+                        codes_history += f", {code} ({now})"
+                    else:
+                        codes_history = f"{code} ({now})"
+
                 notes = ""
                 if found_code:
-                    notes = f"✅ Код найден: {subject}"
+                    notes = f"✅ Код найден: {code} - {subject}"
                 elif not is_safe:
                     notes = f"⚠️ ПОДОЗРИТЕЛЬНО: {subject}"
                 else:
@@ -295,7 +310,8 @@ class EmailSheetsManager:
 
                 sheet.update(f'F{email_row}', now)  # Last Checked
                 sheet.update(f'H{email_row}', str(new_checks))  # Total Checks
-                sheet.update(f'J{email_row}', notes)  # Notes
+                sheet.update(f'J{email_row}', codes_history)  # Codes History
+                sheet.update(f'L{email_row}', notes)  # Notes
 
                 logger.info(f"✅ Email Farm: Обновлена проверка для {email} на листе {sheet_name}")
             else:
@@ -335,7 +351,7 @@ class EmailSheetsManager:
             if email_row:
                 sheet.update(f'B{email_row}', "banned")  # Status
                 sheet.update(f'G{email_row}', f"{ban_reason} ({now})")  # Ban Reason
-                sheet.update(f'J{email_row}', f"🚫 Забанена: {ban_reason}")  # Notes
+                sheet.update(f'L{email_row}', f"🚫 Забанена: {ban_reason}")  # Notes
 
                 logger.info(f"✅ Email Farm: Помечена как banned {email} на листе {sheet_name}")
             else:
@@ -374,7 +390,8 @@ class EmailSheetsManager:
                 sheet.update(f'B{email_row}', "free")  # Status
                 sheet.update(f'C{email_row}', "")  # User ID
                 sheet.update(f'D{email_row}', "")  # Username
-                sheet.update(f'J{email_row}', f"🔄 Освобождена ({now})")  # Notes
+                sheet.update(f'K{email_row}', "0")  # Is Completed
+                sheet.update(f'L{email_row}', f"🔄 Освобождена ({now})")  # Notes
 
                 logger.info(f"✅ Email Farm: Освобождена почта {email} на листе {sheet_name}")
             else:
@@ -444,7 +461,9 @@ class EmailSheetsManager:
                         "ban_reason": row[6],
                         "total_checks": row[7],
                         "has_proxy": row[8],
-                        "notes": row[9]
+                        "codes_history": row[9] if len(row) > 9 else "",
+                        "is_completed": row[10] if len(row) > 10 else "0",
+                        "notes": row[11] if len(row) > 11 else ""
                     })
 
             return emails
@@ -452,3 +471,43 @@ class EmailSheetsManager:
         except Exception as e:
             logger.error(f"❌ Email Farm: Ошибка получения всех emails для листа {sheet_name}: {e}")
             return []
+
+    @retry_on_quota_error(max_retries=3, delay=5)
+    def update_email_completed_status(
+        self,
+        sheet_name: str,
+        email: str,
+        is_completed: bool
+    ):
+        """
+        Обновить статус завершения регистрации
+
+        :param sheet_name: Название листа
+        :param email: Email адрес
+        :param is_completed: True = завершена, False = в процессе
+        """
+        try:
+            sheet = self.get_or_create_sheet(sheet_name)
+
+            now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+            # Ищем строку с этим email
+            all_values = sheet.get_all_values()
+            email_row = None
+
+            for idx, row in enumerate(all_values[1:], start=2):
+                if row[0] == email:
+                    email_row = idx
+                    break
+
+            if email_row:
+                sheet.update(f'K{email_row}', "1" if is_completed else "0")  # Is Completed
+                notes = "✅ Регистрация завершена" if is_completed else "🔄 Регистрация повторно открыта"
+                sheet.update(f'L{email_row}', f"{notes} ({now})")  # Notes
+
+                logger.info(f"✅ Email Farm: Обновлен статус is_completed для {email} = {is_completed}")
+            else:
+                logger.warning(f"⚠️ Email Farm: Не найдена запись для {email} на листе {sheet_name}")
+
+        except Exception as e:
+            logger.error(f"❌ Email Farm: Ошибка обновления is_completed для {email}: {e}")

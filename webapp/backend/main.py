@@ -3339,7 +3339,8 @@ async def check_email_for_code(
                     email=email_account['email'],
                     found_code=bool(analysis['verification_code']),
                     is_safe=analysis['is_safe'],
-                    subject=latest['subject']
+                    subject=latest['subject'],
+                    code=analysis['verification_code'] or ""
                 )
             except Exception as sheet_error:
                 logger.warning(f"⚠️ Failed to log email check to PostBD: {sheet_error}")
@@ -3455,6 +3456,17 @@ async def complete_email_registration(
         if not success:
             raise HTTPException(status_code=500, detail="Failed to complete registration")
 
+        # Update Google Sheets
+        if email_sheets:
+            try:
+                email_sheets.update_email_completed_status(
+                    sheet_name="Post",
+                    email=email_account['email'],
+                    is_completed=True
+                )
+            except Exception as sheet_error:
+                logger.warning(f"⚠️ Failed to update completed status in PostBD: {sheet_error}")
+
         logger.info(f"✅ User {user_id} completed registration for email {email_id}")
 
         return {
@@ -3500,6 +3512,17 @@ async def reopen_email_registration(
 
         if not success:
             raise HTTPException(status_code=500, detail="Failed to reopen registration")
+
+        # Update Google Sheets
+        if email_sheets:
+            try:
+                email_sheets.update_email_completed_status(
+                    sheet_name="Post",
+                    email=email_account['email'],
+                    is_completed=False
+                )
+            except Exception as sheet_error:
+                logger.warning(f"⚠️ Failed to update completed status in PostBD: {sheet_error}")
 
         logger.info(f"✅ User {user_id} reopened email {email_id} for additional code")
 
