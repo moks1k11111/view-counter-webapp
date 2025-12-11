@@ -43,12 +43,22 @@ class EmailSmartFilter:
         "відв'язати", 'видалити акаунт'
     ]
 
+    BLACKLIST_KO = [
+        '이메일 변경', '이메일 업데이트',  # change email, update email
+        '비밀번호 재설정', '비밀번호 변경',  # reset password, change password
+        '전화번호 변경', '전화 업데이트',  # change phone, update phone
+        '계정 연결 해제', '계정 삭제',  # unlink account, delete account
+        '새 이메일', '대체 이메일',  # new email, alternate email
+        '이메일 주소 변경됨', '기본 이메일 변경됨'  # email changed, primary email changed
+    ]
+
     # Code trigger words (где обычно находятся коды)
     CODE_TRIGGER_WORDS = [
         'code', 'verification code', 'confirmation code', 'security code',
         'код', 'код подтверждения', 'код верификации', 'код безопасности',
         'ваш код', 'your code', 'one-time code', 'otp',
-        'verification', 'authenticate', 'verify'
+        'verification', 'authenticate', 'verify',
+        '인증 코드', '확인 코드', '보안 코드'  # Korean: verification code, confirmation code, security code
     ]
 
     def __init__(self):
@@ -57,7 +67,8 @@ class EmailSmartFilter:
         self.blacklist = (
             self.BLACKLIST_EN +
             self.BLACKLIST_RU +
-            self.BLACKLIST_UA
+            self.BLACKLIST_UA +
+            self.BLACKLIST_KO
         )
 
         # Compile regex для поиска кодов
