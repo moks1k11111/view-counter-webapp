@@ -3208,6 +3208,20 @@ async def allocate_email_to_me(x_telegram_init_data: str = Header(None)):
     user_id = user_data['id']
 
     try:
+        # Check if user is participant in at least one ACTIVE (not finished) project
+        user_projects = project_manager.get_user_projects(str(user_id))
+        has_active_project = any(
+            project.get('is_active') and not project.get('is_finished')
+            for project in user_projects
+        )
+
+        if not has_active_project:
+            logger.warning(f"⚠️ User {user_id} tried to allocate email but has no active projects")
+            raise HTTPException(
+                status_code=403,
+                detail="Вы можете запросить почту только если являетесь участником активного проекта"
+            )
+
         # Check user access
         limit_info = email_farm_db.get_user_limit(user_id)
         if not limit_info.get('can_access_emails'):
