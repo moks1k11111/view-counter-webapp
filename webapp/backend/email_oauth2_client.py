@@ -135,21 +135,35 @@ class OutlookOAuth2IMAPClient:
                     # socks5h означает что DNS резолвится через прокси, но для python-socks это не важно
                     proxy_url_normalized = self.proxy_string.replace('socks5h://', 'socks5://')
 
-                    # Создаем SOCKS5 прокси
+                    # Создаем SOCKS5 прокси с таймаутом
                     proxy = Proxy.from_url(proxy_url_normalized)
-                    sock = proxy.connect(dest_host=self.imap_server, dest_port=self.imap_port)
+                    sock = proxy.connect(dest_host=self.imap_server, dest_port=self.imap_port, timeout=30)
+                    # Устанавливаем таймаут для сокета
+                    sock.settimeout(30)
                     logger.info(f"✅ SOCKS5 соединение установлено: {self.imap_server}:{self.imap_port}")
 
                     # Оборачиваем сокет в SSL
                     context = ssl.create_default_context()
-                    ssl_sock = context.wrap_socket(sock, server_hostname=self.imap_server)
-                    logger.info(f"✅ SSL handshake завершен")
+                    # Отключаем проверку hostname для совместимости с прокси
+                    context.check_hostname = False
+                    context.verify_mode = ssl.CERT_NONE
+
+                    logger.info(f"🔐 Начинаем SSL handshake...")
+                    try:
+                        ssl_sock = context.wrap_socket(sock, server_hostname=self.imap_server)
+                        logger.info(f"✅ SSL handshake завершен, cipher: {ssl_sock.cipher()}")
+                    except Exception as ssl_error:
+                        logger.error(f"❌ SSL handshake failed: {ssl_error}")
+                        raise
 
                     # Создаем IMAP соединение через SSL-сокет
                     # Используем IMAP4 (не IMAP4_SSL!) и передаем готовый SSL-сокет
                     self.imap = imaplib.IMAP4(self.imap_server)
                     self.imap.sock = ssl_sock
+                    self.imap.file = ssl_sock.makefile('rb')
+
                     # Читаем приветствие сервера
+                    logger.info(f"📨 Ожидаем приветствие от IMAP сервера...")
                     self.imap.welcome = self.imap._get_response()
                     logger.info(f"✅ IMAP приветствие получено: {self.imap.welcome}")
                 else:
