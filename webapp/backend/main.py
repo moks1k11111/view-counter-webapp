@@ -105,11 +105,19 @@ except Exception as e:
 
 # Инициализация Bonuses Manager
 try:
+    import sys
+    import os
+    backend_dir = os.path.dirname(os.path.abspath(__file__))
+    if backend_dir not in sys.path:
+        sys.path.insert(0, backend_dir)
+
     from bonuses_manager import BonusesManager
     bonuses_manager = BonusesManager(GOOGLE_SHEETS_CREDENTIALS, "MainBD", GOOGLE_SHEETS_CREDENTIALS_JSON)
     logger.info("✅ Bonuses Manager initialized successfully")
 except Exception as e:
     logger.error(f"⚠️ Bonuses Manager не подключен: {e}")
+    import traceback
+    logger.error(traceback.format_exc())
     bonuses_manager = None
 
 # Инициализация API клиентов для обновления статистики
