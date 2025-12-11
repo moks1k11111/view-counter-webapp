@@ -3250,10 +3250,10 @@ async def check_email_for_code(
             )
 
         # Fetch latest emails
-        # Для OAuth2: используем Graph API (работает лучше с прокси)
+        # Для OAuth2: используем Outlook REST API (работает лучше с прокси)
         # Для password: используем IMAP
         if email_account['auth_type'] == 'oauth2':
-            logger.info(f"📨 Используем Microsoft Graph API для получения писем (OAuth2)")
+            logger.info(f"📨 Используем Outlook REST API v2.0 для получения писем (OAuth2)")
             emails = await imap_client.get_latest_emails_graph_api(limit=5)
         else:
             # Подключаемся к IMAP для password auth

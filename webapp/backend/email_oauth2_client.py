@@ -52,8 +52,9 @@ class OutlookOAuth2IMAPClient:
         self.imap_server = "outlook.office365.com"
         self.imap_port = 993
 
-        # Microsoft Graph API
-        self.graph_api_base = "https://graph.microsoft.com/v1.0"
+        # Outlook REST API (для личных аккаунтов @outlook.com)
+        # НЕ Graph API! Личные аккаунты используют другой endpoint
+        self.outlook_api_base = "https://outlook.office.com/api/v2.0"
 
     def get_access_token(self) -> Optional[str]:
         """
@@ -276,7 +277,10 @@ class OutlookOAuth2IMAPClient:
 
     async def get_latest_emails_graph_api(self, limit: int = 5) -> List[Dict]:
         """
-        Получить последние N писем через Microsoft Graph API (без IMAP)
+        Получить последние N писем через Outlook REST API v2.0 (без IMAP)
+
+        Для личных аккаунтов @outlook.com используется Outlook REST API,
+        а НЕ Microsoft Graph API (который для корпоративных аккаунтов)
 
         :param limit: Количество писем
         :return: Список словарей с информацией о письмах
@@ -285,7 +289,7 @@ class OutlookOAuth2IMAPClient:
             # Получаем access token если еще не получили
             if not self.access_token:
                 if not self.get_access_token():
-                    logger.error("❌ Не удалось получить access token для Graph API")
+                    logger.error("❌ Не удалось получить access token для Outlook REST API")
                     return []
 
             # Настраиваем прокси для requests
@@ -295,21 +299,22 @@ class OutlookOAuth2IMAPClient:
                     'http': self.proxy_string,
                     'https': self.proxy_string
                 }
-                logger.info(f"🔌 Используем прокси для Graph API: {self.proxy_string}")
+                logger.info(f"🔌 Используем прокси для Outlook REST API: {self.proxy_string}")
 
-            # Запрос к Graph API для получения писем
-            url = f"{self.graph_api_base}/me/messages"
+            # Запрос к Outlook REST API для получения писем
+            url = f"{self.outlook_api_base}/me/messages"
             headers = {
                 'Authorization': f'Bearer {self.access_token}',
+                'Accept': 'application/json',
                 'Content-Type': 'application/json'
             }
             params = {
                 '$top': limit,
-                '$orderby': 'receivedDateTime DESC',
-                '$select': 'subject,from,receivedDateTime,body,bodyPreview'
+                '$orderby': 'ReceivedDateTime DESC',
+                '$select': 'Subject,From,ReceivedDateTime,Body,BodyPreview'
             }
 
-            logger.info(f"📨 Запрашиваем {limit} писем через Graph API...")
+            logger.info(f"📨 Запрашиваем {limit} писем через Outlook REST API v2.0...")
             response = requests.get(
                 url,
                 headers=headers,
@@ -319,7 +324,7 @@ class OutlookOAuth2IMAPClient:
             )
 
             if response.status_code != 200:
-                logger.error(f"❌ Graph API error: {response.status_code} - {response.text}")
+                logger.error(f"❌ Outlook REST API error: {response.status_code} - {response.text}")
                 return []
 
             data = response.json()
@@ -327,16 +332,23 @@ class OutlookOAuth2IMAPClient:
 
             emails = []
             for msg in messages:
-                # Извлекаем данные
-                subject = msg.get('subject', 'No Subject')
-                from_data = msg.get('from', {}).get('emailAddress', {})
-                from_email = from_data.get('address', 'Unknown')
-                from_name = from_data.get('name', '')
+                # Извлекаем данные (Outlook REST API использует PascalCase)
+                subject = msg.get('Subject', 'No Subject')
+
+                # From может быть объектом EmailAddress
+                from_data = msg.get('From', {}).get('EmailAddress', {})
+                from_email = from_data.get('Address', 'Unknown')
+                from_name = from_data.get('Name', '')
                 from_header = f"{from_name} <{from_email}>" if from_name else from_email
 
-                date = msg.get('receivedDateTime', '')
-                body_content = msg.get('body', {})
-                body = body_content.get('content', '') if body_content.get('contentType') == 'text' else msg.get('bodyPreview', '')
+                date = msg.get('ReceivedDateTime', '')
+
+                # Body может быть объектом ItemBody
+                body_obj = msg.get('Body', {})
+                if isinstance(body_obj, dict):
+                    body = body_obj.get('Content', '') if body_obj.get('ContentType') == 'Text' else msg.get('BodyPreview', '')
+                else:
+                    body = msg.get('BodyPreview', '')
 
                 emails.append({
                     "subject": subject,
@@ -345,11 +357,11 @@ class OutlookOAuth2IMAPClient:
                     "body": body
                 })
 
-            logger.info(f"✅ Получено {len(emails)} писем через Graph API для {self.email}")
+            logger.info(f"✅ Получено {len(emails)} писем через Outlook REST API для {self.email}")
             return emails
 
         except Exception as e:
-            logger.error(f"❌ Ошибка получения писем через Graph API для {self.email}: {e}")
+            logger.error(f"❌ Ошибка получения писем через Outlook REST API для {self.email}: {e}")
             import traceback
             logger.error(traceback.format_exc())
             return []
