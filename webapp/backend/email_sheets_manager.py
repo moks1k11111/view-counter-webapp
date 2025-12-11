@@ -344,10 +344,10 @@ class EmailSheetsManager:
                 else:
                     notes = f"📭 Нет писем или нет кода: {subject}"
 
-                sheet.update(f'F{email_row}', now)  # Last Checked
-                sheet.update(f'H{email_row}', str(new_checks))  # Total Checks
-                sheet.update(f'J{email_row}', codes_history)  # Codes History
-                sheet.update(f'L{email_row}', notes)  # Notes
+                sheet.update(f'F{email_row}', [[now]])  # Last Checked
+                sheet.update(f'H{email_row}', [[str(new_checks)]])  # Total Checks
+                sheet.update(f'J{email_row}', [[codes_history]])  # Codes History
+                sheet.update(f'L{email_row}', [[notes]])  # Notes
 
                 logger.info(f"✅ Email Farm: Обновлена проверка для {email} на листе {sheet_name}")
             else:
@@ -385,9 +385,9 @@ class EmailSheetsManager:
                     break
 
             if email_row:
-                sheet.update(f'B{email_row}', "banned")  # Status
-                sheet.update(f'G{email_row}', f"{ban_reason} ({now})")  # Ban Reason
-                sheet.update(f'L{email_row}', f"🚫 Забанена: {ban_reason}")  # Notes
+                sheet.update(f'B{email_row}', [["banned"]])  # Status
+                sheet.update(f'G{email_row}', [[f"{ban_reason} ({now})"]])  # Ban Reason
+                sheet.update(f'L{email_row}', [[f"🚫 Забанена: {ban_reason}"]])  # Notes
 
                 logger.info(f"✅ Email Farm: Помечена как banned {email} на листе {sheet_name}")
             else:
@@ -423,11 +423,11 @@ class EmailSheetsManager:
                     break
 
             if email_row:
-                sheet.update(f'B{email_row}', "free")  # Status
-                sheet.update(f'C{email_row}', "")  # User ID
-                sheet.update(f'D{email_row}', "")  # Username
-                sheet.update(f'K{email_row}', "0")  # Is Completed
-                sheet.update(f'L{email_row}', f"🔄 Освобождена ({now})")  # Notes
+                sheet.update(f'B{email_row}', [["free"]])  # Status
+                sheet.update(f'C{email_row}', [[""]])  # User ID
+                sheet.update(f'D{email_row}', [[""]])  # Username
+                sheet.update(f'K{email_row}', [["0"]])  # Is Completed
+                sheet.update(f'L{email_row}', [[f"🔄 Освобождена ({now})"]])  # Notes
 
                 logger.info(f"✅ Email Farm: Освобождена почта {email} на листе {sheet_name}")
             else:
@@ -537,9 +537,9 @@ class EmailSheetsManager:
                     break
 
             if email_row:
-                sheet.update(f'K{email_row}', "1" if is_completed else "0")  # Is Completed
+                sheet.update(f'K{email_row}', [["1" if is_completed else "0"]])  # Is Completed
                 notes = "✅ Регистрация завершена" if is_completed else "🔄 Регистрация повторно открыта"
-                sheet.update(f'L{email_row}', f"{notes} ({now})")  # Notes
+                sheet.update(f'L{email_row}', [[f"{notes} ({now})"]])  # Notes
 
                 logger.info(f"✅ Email Farm: Обновлен статус is_completed для {email} = {is_completed}")
             else:
