@@ -2096,9 +2096,77 @@ function showPage(pageName) {
     } else if (pageName === 'emails') {
         // Загружаем список почт
         loadMyEmails();
+    } else if (pageName === 'profile') {
+        // Загружаем профиль пользователя
+        loadProfileData();
     }
 
     closeSidebar();
+}
+
+async function loadProfileData() {
+    try {
+        // Load user profile data
+        const data = await apiCall('/api/me');
+
+        // Update profile info
+        document.getElementById('profile-name').textContent = data.user.first_name || 'User';
+        document.getElementById('profile-username').textContent = `@${data.user.username || 'user'}`;
+
+        // Update avatar
+        const avatar = document.getElementById('profile-avatar');
+        if (avatar) {
+            avatar.textContent = (data.user.first_name || 'U').charAt(0).toUpperCase();
+        }
+
+        // Update stats
+        document.getElementById('profile-total-views').textContent = formatNumber(data.total_views || 0);
+        document.getElementById('profile-total-projects').textContent = data.projects?.length || 0;
+
+        // Update bonuses
+        const bonuses = data.bonuses || {total: 0, total_paid: 0, total_unpaid: 0, bonuses: []};
+
+        document.getElementById('bonus-total-amount').textContent = `$${bonuses.total.toFixed(2)}`;
+        document.getElementById('bonus-paid-amount').textContent = `$${bonuses.total_paid.toFixed(2)}`;
+        document.getElementById('bonus-unpaid-amount').textContent = `$${bonuses.total_unpaid.toFixed(2)}`;
+
+        // Render bonuses list
+        const bonusList = document.getElementById('bonus-list');
+        if (bonuses.bonuses.length === 0) {
+            bonusList.innerHTML = `
+                <div style="text-align: center; padding: 20px; color: rgba(255,255,255,0.5);">
+                    Бонусов пока нет
+                </div>
+            `;
+        } else {
+            bonusList.innerHTML = bonuses.bonuses.map(bonus => `
+                <div style="background: rgba(255,255,255,0.05); border-radius: 8px; padding: 15px; margin-bottom: 10px; border-left: 4px solid ${bonus.paid ? '#4CAF50' : '#FFA726'};">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="flex: 1;">
+                            <div style="font-size: 20px; font-weight: 700; color: #ffffff; margin-bottom: 5px;">
+                                $${bonus.amount.toFixed(2)}
+                            </div>
+                            <div style="font-size: 12px; color: rgba(255,255,255,0.6); margin-bottom: 3px;">
+                                ${bonus.assigned_by} назначил вам бонус
+                            </div>
+                            <div style="font-size: 11px; color: rgba(255,255,255,0.4);">
+                                ${bonus.date}
+                            </div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-size: 12px; font-weight: 600; color: ${bonus.paid ? '#4CAF50' : '#FFA726'}; background: ${bonus.paid ? 'rgba(76, 175, 80, 0.1)' : 'rgba(255, 167, 38, 0.1)'}; padding: 5px 10px; border-radius: 12px;">
+                                ${bonus.paid ? '✓ Оплачено' : '⏳ Ожидает'}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+    } catch (error) {
+        console.error('Error loading profile:', error);
+        showError('Ошибка загрузки профиля');
+    }
 }
 
 // ==================== INITIALIZATION ====================
@@ -2674,6 +2742,101 @@ function openUserManagement() {
 function closeUserManagement() {
     document.getElementById('user-management-page').classList.add('hidden');
     document.getElementById('admin-page').classList.remove('hidden');
+}
+
+function openBonusManagement() {
+    document.getElementById('admin-page').classList.add('hidden');
+    document.getElementById('bonus-management-page').classList.remove('hidden');
+    loadBonusesHistory();
+}
+
+function closeBonusManagement() {
+    document.getElementById('bonus-management-page').classList.add('hidden');
+    document.getElementById('admin-page').classList.remove('hidden');
+}
+
+async function loadBonusesHistory() {
+    try {
+        const response = await apiCall('/api/admin/bonuses/all');
+        const bonuses = response.bonuses || [];
+
+        const listElement = document.getElementById('bonuses-history-list');
+
+        if (bonuses.length === 0) {
+            listElement.innerHTML = `
+                <div style="text-align: center; padding: 20px; color: rgba(255,255,255,0.5);">
+                    Бонусов пока нет
+                </div>
+            `;
+            return;
+        }
+
+        listElement.innerHTML = bonuses.map(bonus => `
+            <div style="background: rgba(255,255,255,0.05); border-radius: 8px; padding: 12px; margin-bottom: 8px; border-left: 4px solid ${bonus.paid ? '#4CAF50' : '#FFA726'};">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div style="flex: 1;">
+                        <div style="font-size: 16px; font-weight: 600; color: #ffffff;">
+                            ${bonus.username} — $${bonus.amount.toFixed(2)}
+                        </div>
+                        <div style="font-size: 12px; color: rgba(255,255,255,0.6); margin-top: 3px;">
+                            Назначил: ${bonus.assigned_by} • ${bonus.date}
+                        </div>
+                    </div>
+                    <div style="font-size: 11px; font-weight: 600; color: ${bonus.paid ? '#4CAF50' : '#FFA726'}; background: ${bonus.paid ? 'rgba(76, 175, 80, 0.1)' : 'rgba(255, 167, 38, 0.1)'}; padding: 4px 8px; border-radius: 8px;">
+                        ${bonus.paid ? '✓ Оплачено' : '⏳ Ожидает'}
+                    </div>
+                </div>
+            </div>
+        `).join('');
+
+    } catch (error) {
+        console.error('Error loading bonuses history:', error);
+        showError('Ошибка загрузки истории бонусов');
+    }
+}
+
+async function assignBonus(event) {
+    event.preventDefault();
+
+    const userId = document.getElementById('bonus-user-id').value.trim();
+    const username = document.getElementById('bonus-username').value.trim();
+    const amount = parseFloat(document.getElementById('bonus-amount').value);
+    const reason = document.getElementById('bonus-reason').value.trim();
+
+    if (!userId || !username || !amount || amount <= 0) {
+        showError('Пожалуйста, заполните все обязательные поля');
+        return;
+    }
+
+    try {
+        const response = await apiCall('/api/admin/bonuses/assign', {
+            method: 'POST',
+            body: JSON.stringify({
+                user_id: userId,
+                username: username,
+                amount: amount,
+                reason: reason
+            })
+        });
+
+        if (response.success) {
+            showSuccess(response.message || `Бонус $${amount} назначен пользователю @${username}`);
+
+            // Очищаем форму
+            document.getElementById('bonus-user-id').value = '';
+            document.getElementById('bonus-username').value = '';
+            document.getElementById('bonus-amount').value = '';
+            document.getElementById('bonus-reason').value = '';
+
+            // Перезагружаем историю
+            loadBonusesHistory();
+        } else {
+            showError('Не удалось назначить бонус');
+        }
+    } catch (error) {
+        console.error('Error assigning bonus:', error);
+        showError(error.message || 'Ошибка при назначении бонуса');
+    }
 }
 
 async function loadUserManagementList() {

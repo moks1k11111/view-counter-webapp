@@ -125,12 +125,42 @@
 
                 <div class="stats-grid">
                     <div class="stat-card">
-                        <div class="stat-value" id="total-views">0</div>
+                        <div class="stat-value" id="profile-total-views">0</div>
                         <div class="stat-label">Всего просмотров</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-value" id="total-projects">0</div>
+                        <div class="stat-value" id="profile-total-projects">0</div>
                         <div class="stat-label">Проектов</div>
+                    </div>
+                </div>
+
+                <!-- Бонусы -->
+                <div class="bonuses-section" style="margin-top: 20px;">
+                    <div class="section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h3 style="margin: 0; color: #ffffff; font-size: 18px;">💰 Бонусы</h3>
+                    </div>
+
+                    <!-- Карточка с общей суммой -->
+                    <div class="bonus-summary-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 20px; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <div style="font-size: 14px; color: rgba(255,255,255,0.8); margin-bottom: 5px;">Общая сумма</div>
+                                <div style="font-size: 32px; font-weight: 700; color: #ffffff;" id="bonus-total-amount">$0</div>
+                            </div>
+                            <div style="text-align: right;">
+                                <div style="font-size: 12px; color: rgba(255,255,255,0.7); margin-bottom: 3px;">Оплачено</div>
+                                <div style="font-size: 18px; font-weight: 600; color: #4CAF50;" id="bonus-paid-amount">$0</div>
+                                <div style="font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 5px; margin-bottom: 3px;">Ожидает</div>
+                                <div style="font-size: 18px; font-weight: 600; color: #FFA726;" id="bonus-unpaid-amount">$0</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Список бонусов -->
+                    <div class="bonus-list" id="bonus-list">
+                        <div style="text-align: center; padding: 20px; color: rgba(255,255,255,0.5);">
+                            Бонусов пока нет
+                        </div>
                     </div>
                 </div>
             </div>
@@ -357,6 +387,18 @@
                     </div>
                 </div>
 
+                <div class="admin-card admin-card-clickable" onclick="openBonusManagement()">
+                    <div class="admin-card-header">
+                        <h3>💰 Управление бонусами</h3>
+                        <div class="admin-users-count">
+                            Назначить бонусы
+                        </div>
+                    </div>
+                    <div class="admin-card-arrow">
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </div>
+                </div>
+
                 <div class="admin-card" style="border: 2px solid #ef4444;">
                     <div class="admin-card-header">
                         <h3 style="color: #ef4444;">⚠️ Очистка базы данных</h3>
@@ -431,6 +473,69 @@
 
                 <div id="admin-users-list" class="user-management-list">
                     <!-- Список пользователей будет добавлен динамически -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Страница управления бонусами -->
+        <div id="bonus-management-page" class="page hidden">
+            <header class="header">
+                <button class="back-btn" onclick="closeBonusManagement()">
+                    <i class="fa-solid fa-arrow-left"></i>
+                </button>
+                <div class="header-title">
+                    <div class="greeting">Управление бонусами</div>
+                </div>
+            </header>
+
+            <div class="bonus-management-container" style="padding: 20px;">
+                <div class="admin-card" style="margin-bottom: 20px;">
+                    <h3>Назначить бонус</h3>
+                    <form onsubmit="assignBonus(event)" style="margin-top: 15px;">
+                        <input
+                            type="text"
+                            id="bonus-user-id"
+                            class="input"
+                            placeholder="User ID (например: 873564841)"
+                            required
+                            style="margin-bottom: 10px;"
+                        >
+                        <input
+                            type="text"
+                            id="bonus-username"
+                            class="input"
+                            placeholder="Username (например: moks1k)"
+                            required
+                            style="margin-bottom: 10px;"
+                        >
+                        <input
+                            type="number"
+                            id="bonus-amount"
+                            class="input"
+                            placeholder="Сумма $ (например: 50)"
+                            min="0.01"
+                            step="0.01"
+                            required
+                            style="margin-bottom: 10px;"
+                        >
+                        <textarea
+                            id="bonus-reason"
+                            class="input"
+                            placeholder="Причина (опционально)"
+                            rows="3"
+                            style="margin-bottom: 15px; resize: vertical;"
+                        ></textarea>
+                        <button type="submit" class="btn-primary" style="width: 100%;">
+                            Назначить бонус
+                        </button>
+                    </form>
+                </div>
+
+                <div class="admin-card">
+                    <h3 style="margin-bottom: 15px;">История бонусов</h3>
+                    <div id="bonuses-history-list" style="max-height: 500px; overflow-y: auto;">
+                        <!-- Список будет добавлен динамически -->
+                    </div>
                 </div>
             </div>
         </div>

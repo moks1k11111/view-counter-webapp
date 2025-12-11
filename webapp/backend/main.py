@@ -103,6 +103,15 @@ except Exception as e:
     print(f"⚠️  Project Sheets Manager не подключен: {e}")
     project_sheets = None
 
+# Инициализация Bonuses Manager
+try:
+    from bonuses_manager import BonusesManager
+    bonuses_manager = BonusesManager(GOOGLE_SHEETS_CREDENTIALS, "MainBD", GOOGLE_SHEETS_CREDENTIALS_JSON)
+    logger.info("✅ Bonuses Manager initialized successfully")
+except Exception as e:
+    logger.error(f"⚠️ Bonuses Manager не подключен: {e}")
+    bonuses_manager = None
+
 # Инициализация API клиентов для обновления статистики
 try:
     tiktok_api = TikTokAPI(api_key=RAPIDAPI_KEY, api_host=RAPIDAPI_HOST, base_url=RAPIDAPI_BASE_URL)
@@ -479,11 +488,130 @@ async def get_me(user: dict = Depends(get_current_user)):
     # Получаем текущий проект
     current_project_id = project_manager.get_user_current_project(user_id)
 
+    # Получаем общее количество просмотров пользователя по всем проектам
+    total_views = 0
+    try:
+        for project in projects:
+            # Получаем аналитику пользователя для каждого проекта
+            try:
+                from datetime import datetime, timedelta
+                username = user.get('username', '')
+                telegram_user = f"@{username}" if username else user.get('first_name', 'Неизвестно')
+
+                # Получаем аккаунты пользователя в этом проекте
+                sqlite_accounts = project_manager.get_project_social_accounts(project['id'], platform=None)
+                normalized_telegram_user = telegram_user.lstrip('@')
+
+                for account in sqlite_accounts:
+                    account_telegram_user = account.get('telegram_user', '').lstrip('@')
+                    if account_telegram_user == normalized_telegram_user:
+                        snapshots = project_manager.get_account_snapshots(account['id'], limit=1)
+                        if snapshots:
+                            total_views += int(snapshots[0].get('views', 0) or 0)
+            except Exception as e:
+                logger.warning(f"⚠️ Error calculating views for project {project['id']}: {e}")
+                continue
+    except Exception as e:
+        logger.error(f"❌ Error calculating total views: {e}")
+
+    # Получаем бонусы пользователя
+    bonuses_data = {"total": 0, "total_paid": 0, "total_unpaid": 0, "bonuses": []}
+    if bonuses_manager:
+        try:
+            bonuses_data = bonuses_manager.get_user_bonuses(user_id)
+        except Exception as e:
+            logger.error(f"❌ Error getting bonuses: {e}")
+
     return {
         "user": user,
         "projects": projects,
-        "current_project_id": current_project_id
+        "current_project_id": current_project_id,
+        "total_views": total_views,
+        "bonuses": bonuses_data
     }
+
+@app.get("/api/bonuses/my")
+async def get_my_bonuses(user: dict = Depends(get_current_user)):
+    """Получить бонусы текущего пользователя"""
+    if not bonuses_manager:
+        raise HTTPException(status_code=503, detail="Bonuses Manager not initialized")
+
+    user_id = str(user.get('id'))
+
+    try:
+        bonuses_data = bonuses_manager.get_user_bonuses(user_id)
+        return bonuses_data
+    except Exception as e:
+        logger.error(f"❌ Error getting bonuses: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/admin/bonuses/assign")
+async def assign_bonus(
+    data: dict,
+    user: dict = Depends(get_current_user)
+):
+    """Назначить бонус пользователю (только для админов)"""
+    if not bonuses_manager:
+        raise HTTPException(status_code=503, detail="Bonuses Manager not initialized")
+
+    # Проверка что текущий пользователь - админ
+    admin_id = user.get('id')
+    if admin_id not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    try:
+        target_user_id = data.get('user_id')
+        target_username = data.get('username')
+        amount = float(data.get('amount', 0))
+        reason = data.get('reason', '')
+
+        if not target_user_id or not target_username:
+            raise HTTPException(status_code=400, detail="user_id and username required")
+
+        if amount <= 0:
+            raise HTTPException(status_code=400, detail="amount must be positive")
+
+        admin_username = user.get('username', f"admin_{admin_id}")
+
+        success = bonuses_manager.add_bonus(
+            user_id=str(target_user_id),
+            username=target_username,
+            amount=amount,
+            assigned_by_username=admin_username,
+            reason=reason
+        )
+
+        if success:
+            return {
+                "success": True,
+                "message": f"Bonus ${amount} assigned to @{target_username}"
+            }
+        else:
+            raise HTTPException(status_code=500, detail="Failed to assign bonus")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Error assigning bonus: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/admin/bonuses/all")
+async def get_all_bonuses(user: dict = Depends(get_current_user)):
+    """Получить все бонусы (только для админов)"""
+    if not bonuses_manager:
+        raise HTTPException(status_code=503, detail="Bonuses Manager not initialized")
+
+    # Проверка что текущий пользователь - админ
+    admin_id = user.get('id')
+    if admin_id not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    try:
+        bonuses = bonuses_manager.get_all_bonuses()
+        return {"bonuses": bonuses}
+    except Exception as e:
+        logger.error(f"❌ Error getting all bonuses: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/projects")
 async def get_projects(user: dict = Depends(get_current_user)):
