@@ -4066,7 +4066,22 @@ async function allocateEmail() {
 
 // Проверить код в почте
 async function checkEmailCode(emailId) {
+    // Находим кнопку проверки
+    const checkButton = document.querySelector(`#email-item-${emailId} .btn-secondary`);
+
+    // Проверяем, не была ли уже получена почта (кнопка изменена)
+    if (checkButton && checkButton.textContent.includes('Аккаунт создан')) {
+        showNotification('Код уже был получен для этой почты', 'info');
+        return;
+    }
+
     try {
+        // Меняем текст кнопки на индикатор загрузки
+        if (checkButton) {
+            checkButton.disabled = true;
+            checkButton.textContent = '🔍 Ищу код...';
+        }
+
         showNotification('🔍 Проверяем почту...', 'info');
 
         const response = await fetch(`${API_BASE_URL}/api/emails/${emailId}/check_code`, {
@@ -4083,6 +4098,11 @@ async function checkEmailCode(emailId) {
         }
 
         if (!data.is_safe) {
+            // Возвращаем кнопку в исходное состояние при ошибке
+            if (checkButton) {
+                checkButton.disabled = false;
+                checkButton.textContent = '🔍 Проверить код';
+            }
             showNotification(`⚠️ ВНИМАНИЕ! Подозрительное письмо!\n\nПричина: ${data.reason}\n\nТема: ${data.subject}\n\nАлерт отправлен администраторам.`, 'error');
             return;
         }
@@ -4100,6 +4120,14 @@ async function checkEmailCode(emailId) {
                 }
             }
 
+            // Меняем кнопку на "Аккаунт создан" (заблокирована)
+            if (checkButton) {
+                checkButton.textContent = '✅ Аккаунт создан';
+                checkButton.disabled = true;
+                checkButton.style.background = 'linear-gradient(135deg, #4ade80 0%, #22c55e 100%)';
+                checkButton.style.cursor = 'not-allowed';
+            }
+
             // Копируем код в буфер обмена
             if (navigator.clipboard) {
                 navigator.clipboard.writeText(data.verification_code);
@@ -4108,11 +4136,21 @@ async function checkEmailCode(emailId) {
                 }, 1500);
             }
         } else {
+            // Возвращаем кнопку в исходное состояние если код не найден
+            if (checkButton) {
+                checkButton.disabled = false;
+                checkButton.textContent = '🔍 Проверить код';
+            }
             showNotification(`📨 Письмо безопасно\n\nТема: ${data.subject}\nОт: ${data.from}\n\nНо код не найден.`, 'info');
         }
 
     } catch (error) {
         console.error('Error checking email code:', error);
+        // Возвращаем кнопку в исходное состояние при ошибке
+        if (checkButton) {
+            checkButton.disabled = false;
+            checkButton.textContent = '🔍 Проверить код';
+        }
         showNotification('Ошибка проверки почты: ' + error.message, 'error');
     }
 }
