@@ -116,32 +116,68 @@ class EmailSheetsManager:
     def get_or_create_sheet(self, sheet_name: str):
         """
         Получить лист или создать новый, если не существует
+        Автоматически проверяет и создаёт заголовки если их нет
 
         :param sheet_name: Название листа
         :return: Объект листа
         """
+        # Правильные заголовки для Email Farm
+        correct_headers = [
+            "Email", "Status", "User ID", "Username",
+            "Allocated At", "Last Checked", "Ban Reason",
+            "Total Checks", "Has Proxy", "Codes History",
+            "Is Completed", "Notes"
+        ]
+
         try:
             sheet = self.spreadsheet.worksheet(sheet_name)
             logger.info(f"📄 Email Farm: Найден лист {sheet_name}")
+
+            # Проверяем заголовки в первой строке
+            try:
+                first_row = sheet.row_values(1)
+
+                # Если первая строка пустая или не совпадает с заголовками
+                if not first_row or first_row[0] != "Email":
+                    logger.warning(f"⚠️ Email Farm: Заголовки отсутствуют или неправильные на листе {sheet_name}")
+                    logger.info(f"📝 Email Farm: Создаём правильные заголовки...")
+
+                    # Вставляем новую строку в начало если есть данные
+                    if first_row and any(first_row):
+                        sheet.insert_row(correct_headers, 1)
+                        logger.info(f"✅ Email Farm: Заголовки вставлены в начало листа")
+                    else:
+                        # Просто обновляем первую строку если она пустая
+                        sheet.update('A1:L1', [correct_headers])
+                        logger.info(f"✅ Email Farm: Заголовки добавлены в первую строку")
+
+                    # Форматируем заголовки
+                    sheet.format('A1:L1', {
+                        'textFormat': {'bold': True},
+                        'backgroundColor': {'red': 0.2, 'green': 0.2, 'blue': 0.2}
+                    })
+                else:
+                    logger.info(f"✅ Email Farm: Заголовки уже существуют на листе {sheet_name}")
+
+            except Exception as e:
+                logger.warning(f"⚠️ Email Farm: Ошибка проверки заголовков: {e}")
+
             return sheet
+
         except gspread.exceptions.WorksheetNotFound:
             sheet = self.spreadsheet.add_worksheet(title=sheet_name, rows=1000, cols=20)
             logger.info(f"📄 Email Farm: Создан новый лист {sheet_name}")
 
             # Создаем заголовки для Email Farm
-            headers = [
-                "Email", "Status", "User ID", "Username",
-                "Allocated At", "Last Checked", "Ban Reason",
-                "Total Checks", "Has Proxy", "Codes History",
-                "Is Completed", "Notes"
-            ]
-            sheet.update('A1:L1', [headers])
+            sheet.update('A1:L1', [correct_headers])
 
             # Форматируем заголовки
             sheet.format('A1:L1', {
                 'textFormat': {'bold': True},
                 'backgroundColor': {'red': 0.2, 'green': 0.2, 'blue': 0.2}
             })
+
+            logger.info(f"✅ Email Farm: Заголовки созданы на новом листе {sheet_name}")
 
             return sheet
 
