@@ -2369,7 +2369,6 @@ async function loadAdminData() {
 
 // Переменные для управления пользователями
 let currentUserData = null;
-let currentBonusUser = null;
 let allUsers = [];
 let displayedUsersCount = 0;
 const USERS_PER_PAGE = 20;
@@ -2624,9 +2623,6 @@ async function openUserDetailsModal(username) {
                     <button class="btn-danger" onclick="removeUserFromProject('${username}', '${project.id}', '${project.name}')">
                         Удалить
                     </button>
-                    <button class="btn-success" onclick="openBonusModal('${username}', '${project.id}', '${project.name}')">
-                        Бонус
-                    </button>
                 </div>
             </div>
         `).join('');
@@ -2639,57 +2635,6 @@ async function openUserDetailsModal(username) {
 function closeUserDetailsModal() {
     document.getElementById('user-details-modal').classList.add('hidden');
     currentUserData = null;
-}
-
-function openBonusModal(username, projectId, projectName) {
-    currentBonusUser = { username, projectId, projectName };
-
-    document.getElementById('bonus-username').textContent = `${username} (${projectName})`;
-    document.getElementById('bonus-amount-input').value = '';
-    document.getElementById('bonus-modal').classList.remove('hidden');
-}
-
-function closeBonusModal() {
-    document.getElementById('bonus-modal').classList.add('hidden');
-    currentBonusUser = null;
-}
-
-async function submitBonus() {
-    const amount = parseFloat(document.getElementById('bonus-amount-input').value);
-
-    if (!amount || amount <= 0) {
-        showError('Пожалуйста, введите корректную сумму');
-        return;
-    }
-
-    if (!currentBonusUser) {
-        showError('Ошибка: пользователь не выбран');
-        return;
-    }
-
-    try {
-        console.log('Выдаем бонус:', {
-            user: currentBonusUser.username,
-            project: currentBonusUser.projectName,
-            amount: amount
-        });
-
-        // TODO: Отправить запрос на бэкенд
-        // await apiCall(`/api/admin/projects/${currentBonusUser.projectId}/bonus`, {
-        //     method: 'POST',
-        //     body: JSON.stringify({
-        //         username: currentBonusUser.username,
-        //         amount: amount
-        //     })
-        // });
-
-        closeBonusModal();
-        showSuccess(`Бонус $${amount} выдан пользователю ${currentBonusUser.username}!`);
-
-    } catch (error) {
-        console.error('Failed to submit bonus:', error);
-        showError('Не удалось выдать бонус');
-    }
 }
 
 async function removeUserFromProject(username, projectId, projectName) {
@@ -3507,9 +3452,6 @@ window.openProject = openProject;
 window.downloadVideo = downloadVideo;
 window.openUserDetailsModal = openUserDetailsModal;
 window.closeUserDetailsModal = closeUserDetailsModal;
-window.openBonusModal = openBonusModal;
-window.closeBonusModal = closeBonusModal;
-window.submitBonus = submitBonus;
 window.removeUserFromProject = removeUserFromProject;
 window.renderUsers = renderUsers;
 window.loadMoreUsers = loadMoreUsers;

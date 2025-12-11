@@ -867,26 +867,6 @@
         </div>
 
         <!-- Модальное окно для бонуса -->
-        <div id="bonus-modal" class="modal hidden">
-            <div class="modal-overlay" onclick="closeBonusModal()"></div>
-            <div class="modal-content">
-                <button class="modal-close-btn" onclick="closeBonusModal()">
-                    <i class="fa-solid fa-times"></i>
-                </button>
-                <h2 class="modal-title">Выдать бонус</h2>
-                <p class="modal-description">Укажите сумму бонуса для пользователя <span id="bonus-username"></span></p>
-                <input
-                    type="number"
-                    id="bonus-amount-input"
-                    class="input"
-                    placeholder="Введите сумму в $"
-                    min="0"
-                    step="0.01"
-                >
-                <button class="btn-primary" onclick="submitBonus()">Выдать</button>
-            </div>
-        </div>
-
         <!-- Модальное окно добавления социального аккаунта -->
         <div id="add-social-account-modal" class="modal hidden">
             <div class="modal-overlay" onclick="closeAddSocialAccountModal()"></div>
