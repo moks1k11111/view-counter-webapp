@@ -4004,9 +4004,13 @@ async function loadMyEmails() {
         }
 
         listContainer.innerHTML = data.emails.map(email => `
-            <div class="email-item">
+            <div class="email-item" id="email-item-${email.id}">
                 <div class="email-info">
                     <span class="email-address">📧 ${email.email}</span>
+                    <div class="email-code-display" id="email-code-${email.id}" style="display: none; margin: 8px 0; padding: 10px; background: linear-gradient(135deg, rgba(74, 222, 128, 0.15) 0%, rgba(34, 197, 94, 0.15) 100%); border: 1px solid rgba(74, 222, 128, 0.3); border-radius: 8px;">
+                        <div style="font-size: 12px; color: rgba(255,255,255,0.6); margin-bottom: 4px;">Код верификации:</div>
+                        <div style="font-size: 20px; font-weight: 700; color: #4ade80; letter-spacing: 2px; font-family: 'Courier New', monospace;"></div>
+                    </div>
                     <span class="email-status status-${email.status.toLowerCase()}">${email.status}</span>
                 </div>
                 <div class="email-actions">
@@ -4090,6 +4094,16 @@ async function checkEmailCode(emailId) {
 
         if (data.verification_code) {
             showNotification(`✅ Код получен: ${data.verification_code}\n\nТема: ${data.subject}\nОт: ${data.from}`, 'success');
+
+            // Отображаем код в UI
+            const codeDisplay = document.getElementById(`email-code-${emailId}`);
+            if (codeDisplay) {
+                codeDisplay.style.display = 'block';
+                const codeValueElement = codeDisplay.querySelector('div:last-child');
+                if (codeValueElement) {
+                    codeValueElement.textContent = data.verification_code;
+                }
+            }
 
             // Копируем код в буфер обмена
             if (navigator.clipboard) {
