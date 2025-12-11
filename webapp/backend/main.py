@@ -3249,14 +3249,21 @@ async def check_email_for_code(
                 proxy_string=email_account.get('proxy_string')
             )
 
-        # Подключаемся к IMAP
-        connected = await imap_client.connect()
-        if not connected:
-            raise HTTPException(status_code=500, detail="Failed to connect to email")
-
         # Fetch latest emails
-        emails = await imap_client.get_latest_emails(limit=5)
-        await imap_client.disconnect()
+        # Для OAuth2: используем Graph API (работает лучше с прокси)
+        # Для password: используем IMAP
+        if email_account['auth_type'] == 'oauth2':
+            logger.info(f"📨 Используем Microsoft Graph API для получения писем (OAuth2)")
+            emails = await imap_client.get_latest_emails_graph_api(limit=5)
+        else:
+            # Подключаемся к IMAP для password auth
+            logger.info(f"📨 Используем IMAP для получения писем (password)")
+            connected = await imap_client.connect()
+            if not connected:
+                raise HTTPException(status_code=500, detail="Failed to connect to email")
+
+            emails = await imap_client.get_latest_emails(limit=5)
+            await imap_client.disconnect()
 
         if not emails:
             # Log to Google Sheets (PostBD) - no emails

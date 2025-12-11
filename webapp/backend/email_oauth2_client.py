@@ -52,6 +52,9 @@ class OutlookOAuth2IMAPClient:
         self.imap_server = "outlook.office365.com"
         self.imap_port = 993
 
+        # Microsoft Graph API
+        self.graph_api_base = "https://graph.microsoft.com/v1.0"
+
     def get_access_token(self) -> Optional[str]:
         """
         Получить access_token используя refresh_token
@@ -269,6 +272,86 @@ class OutlookOAuth2IMAPClient:
 
         except Exception as e:
             logger.error(f"❌ Ошибка получения писем для {self.email}: {e}")
+            return []
+
+    async def get_latest_emails_graph_api(self, limit: int = 5) -> List[Dict]:
+        """
+        Получить последние N писем через Microsoft Graph API (без IMAP)
+
+        :param limit: Количество писем
+        :return: Список словарей с информацией о письмах
+        """
+        try:
+            # Получаем access token если еще не получили
+            if not self.access_token:
+                if not self.get_access_token():
+                    logger.error("❌ Не удалось получить access token для Graph API")
+                    return []
+
+            # Настраиваем прокси для requests
+            proxies = None
+            if self.proxy_string:
+                proxies = {
+                    'http': self.proxy_string,
+                    'https': self.proxy_string
+                }
+                logger.info(f"🔌 Используем прокси для Graph API: {self.proxy_string}")
+
+            # Запрос к Graph API для получения писем
+            url = f"{self.graph_api_base}/me/messages"
+            headers = {
+                'Authorization': f'Bearer {self.access_token}',
+                'Content-Type': 'application/json'
+            }
+            params = {
+                '$top': limit,
+                '$orderby': 'receivedDateTime DESC',
+                '$select': 'subject,from,receivedDateTime,body,bodyPreview'
+            }
+
+            logger.info(f"📨 Запрашиваем {limit} писем через Graph API...")
+            response = requests.get(
+                url,
+                headers=headers,
+                params=params,
+                proxies=proxies,
+                timeout=30
+            )
+
+            if response.status_code != 200:
+                logger.error(f"❌ Graph API error: {response.status_code} - {response.text}")
+                return []
+
+            data = response.json()
+            messages = data.get('value', [])
+
+            emails = []
+            for msg in messages:
+                # Извлекаем данные
+                subject = msg.get('subject', 'No Subject')
+                from_data = msg.get('from', {}).get('emailAddress', {})
+                from_email = from_data.get('address', 'Unknown')
+                from_name = from_data.get('name', '')
+                from_header = f"{from_name} <{from_email}>" if from_name else from_email
+
+                date = msg.get('receivedDateTime', '')
+                body_content = msg.get('body', {})
+                body = body_content.get('content', '') if body_content.get('contentType') == 'text' else msg.get('bodyPreview', '')
+
+                emails.append({
+                    "subject": subject,
+                    "from": from_header,
+                    "date": date,
+                    "body": body
+                })
+
+            logger.info(f"✅ Получено {len(emails)} писем через Graph API для {self.email}")
+            return emails
+
+        except Exception as e:
+            logger.error(f"❌ Ошибка получения писем через Graph API для {self.email}: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
             return []
 
     async def disconnect(self):
