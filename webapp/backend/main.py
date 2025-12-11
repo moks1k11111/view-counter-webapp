@@ -568,16 +568,24 @@ async def assign_bonus(
         raise HTTPException(status_code=403, detail="Admin access required")
 
     try:
-        target_user_id = data.get('user_id')
         target_username = data.get('username')
         amount = float(data.get('amount', 0))
         reason = data.get('reason', '')
 
-        if not target_user_id or not target_username:
-            raise HTTPException(status_code=400, detail="user_id and username required")
+        if not target_username:
+            raise HTTPException(status_code=400, detail="username required")
 
         if amount <= 0:
             raise HTTPException(status_code=400, detail="amount must be positive")
+
+        # Найти User ID по username
+        target_user_id = project_manager.get_user_id_by_username(target_username)
+
+        if not target_user_id:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Пользователь @{target_username} не найден в системе"
+            )
 
         admin_username = user.get('username', f"admin_{admin_id}")
 

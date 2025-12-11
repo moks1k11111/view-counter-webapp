@@ -2743,12 +2743,11 @@ async function loadBonusesHistory() {
 async function assignBonus(event) {
     event.preventDefault();
 
-    const userId = document.getElementById('bonus-user-id').value.trim();
     const username = document.getElementById('bonus-username').value.trim();
     const amount = parseFloat(document.getElementById('bonus-amount').value);
     const reason = document.getElementById('bonus-reason').value.trim();
 
-    if (!userId || !username || !amount || amount <= 0) {
+    if (!username || !amount || amount <= 0) {
         showError('Пожалуйста, заполните все обязательные поля');
         return;
     }
@@ -2757,7 +2756,6 @@ async function assignBonus(event) {
         const response = await apiCall('/api/admin/bonuses/assign', {
             method: 'POST',
             body: JSON.stringify({
-                user_id: userId,
                 username: username,
                 amount: amount,
                 reason: reason
@@ -2768,7 +2766,6 @@ async function assignBonus(event) {
             showSuccess(response.message || `Бонус $${amount} назначен пользователю @${username}`);
 
             // Очищаем форму
-            document.getElementById('bonus-user-id').value = '';
             document.getElementById('bonus-username').value = '';
             document.getElementById('bonus-amount').value = '';
             document.getElementById('bonus-reason').value = '';

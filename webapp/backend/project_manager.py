@@ -1379,3 +1379,54 @@ class ProjectManager:
             logger.error(f"Ошибка удаления проекта: {e}")
             self.db.conn.rollback()
             return False
+
+    def get_user_id_by_username(self, username: str) -> Optional[str]:
+        """
+        Найти User ID по username в project_social_accounts
+
+        :param username: Telegram username (с @ или без)
+        :return: User ID или None если не найден
+        """
+        try:
+            # Нормализуем username
+            normalized_username = username.lstrip('@')
+
+            # Ищем в таблице project_social_accounts
+            self.db.cursor.execute('''
+                SELECT DISTINCT telegram_user
+                FROM project_social_accounts
+                WHERE telegram_user = ? OR telegram_user = ?
+                LIMIT 1
+            ''', (normalized_username, f'@{normalized_username}'))
+
+            row = self.db.cursor.fetchone()
+
+            if row:
+                found_username = row[0]
+                logger.info(f"✅ Найден username {found_username} для поиска User ID")
+
+                # Теперь ищем User ID в project_users по этому username
+                self.db.cursor.execute('''
+                    SELECT DISTINCT pu.user_id
+                    FROM project_users pu
+                    INNER JOIN project_social_accounts psa ON pu.project_id = psa.project_id
+                    WHERE (psa.telegram_user = ? OR psa.telegram_user = ?)
+                    LIMIT 1
+                ''', (normalized_username, f'@{normalized_username}'))
+
+                user_row = self.db.cursor.fetchone()
+
+                if user_row:
+                    user_id = user_row[0]
+                    logger.info(f"✅ Найден User ID {user_id} для username {username}")
+                    return user_id
+                else:
+                    logger.warning(f"⚠️ User ID не найден для username {username}")
+                    return None
+            else:
+                logger.warning(f"⚠️ Username {username} не найден в базе")
+                return None
+
+        except Exception as e:
+            logger.error(f"Ошибка поиска User ID по username: {e}")
+            return None
