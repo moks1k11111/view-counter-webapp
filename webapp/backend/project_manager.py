@@ -1175,6 +1175,127 @@ class ProjectManager:
             logger.error(f"Ошибка получения истории проекта: {e}")
             return {"history": [], "growth_24h": 0}
 
+    def get_user_daily_history(self, project_id: str, telegram_user: str,
+                                start_date: Optional[str] = None,
+                                end_date: Optional[str] = None) -> Dict:
+        """
+        Получение ежедневной истории просмотров конкретного пользователя в проекте
+
+        :param project_id: ID проекта
+        :param telegram_user: Telegram username пользователя (с @ или без)
+        :param start_date: Начальная дата (опционально)
+        :param end_date: Конечная дата (опционально)
+        :return: Dict с history (список {date, views}) и growth_24h (прирост за последние 24ч)
+        """
+        try:
+            # Нормализуем telegram_user (убираем @ если есть)
+            normalized_user = telegram_user.lstrip('@')
+
+            # Получаем только аккаунты конкретного пользователя в проекте
+            self.db.cursor.execute('''
+                SELECT id FROM project_social_accounts
+                WHERE project_id = ? AND is_active = 1
+                AND (telegram_user = ? OR telegram_user = ?)
+            ''', (project_id, normalized_user, f'@{normalized_user}'))
+
+            account_ids = [row[0] for row in self.db.cursor.fetchall()]
+            logger.info(f"📊 [User History] Found {len(account_ids)} accounts for user '{normalized_user}' in project {project_id}")
+
+            if not account_ids:
+                return {"history": [], "growth_24h": 0}
+
+            # Строим запрос для получения МАКСИМУМА views_end по датам
+            placeholders = ','.join('?' * len(account_ids))
+            query = f'''
+                SELECT date, SUM(max_views) as total_views
+                FROM (
+                    SELECT account_id, date, MAX(views_end) as max_views
+                    FROM account_daily_stats
+                    WHERE account_id IN ({placeholders})
+                    GROUP BY account_id, date
+                )
+                WHERE 1=1
+            '''
+            params = account_ids.copy()
+
+            if start_date:
+                query += ' AND date >= ?'
+                params.append(start_date)
+
+            if end_date:
+                query += ' AND date <= ?'
+                params.append(end_date)
+
+            query += ' GROUP BY date ORDER BY date ASC'
+
+            self.db.cursor.execute(query, params)
+            rows = self.db.cursor.fetchall()
+
+            history = []
+            for row in rows:
+                history.append({
+                    "date": row[0],
+                    "views": row[1]
+                })
+
+            # Если нет данных в account_daily_stats, берем из account_snapshots
+            if not history:
+                logger.info(f"📊 [User History] No data in account_daily_stats, trying account_snapshots...")
+
+                query = f'''
+                    SELECT date, SUM(max_views) as total_views
+                    FROM (
+                        SELECT account_id, DATE(snapshot_time) as date, MAX(views) as max_views
+                        FROM account_snapshots
+                        WHERE account_id IN ({placeholders})
+                '''
+                params = account_ids.copy()
+
+                if start_date:
+                    query += ' AND DATE(snapshot_time) >= ?'
+                    params.append(start_date)
+
+                if end_date:
+                    query += ' AND DATE(snapshot_time) <= ?'
+                    params.append(end_date)
+
+                query += '''
+                        GROUP BY account_id, DATE(snapshot_time)
+                    )
+                    GROUP BY date ORDER BY date ASC
+                '''
+
+                self.db.cursor.execute(query, params)
+                rows = self.db.cursor.fetchall()
+
+                for row in rows:
+                    history.append({
+                        "date": row[0],
+                        "views": int(row[1] or 0)
+                    })
+
+                logger.info(f"📊 [User History] Loaded {len(history)} days from account_snapshots")
+
+            # Вычисляем growth_24h как разницу между сегодня и вчера
+            growth_24h = 0
+            if len(history) >= 2:
+                today_views = history[-1]['views']
+                yesterday_views = history[-2]['views']
+                growth_24h = today_views - yesterday_views
+                logger.info(f"📊 [User History] Growth 24h: {today_views} - {yesterday_views} = {growth_24h}")
+            elif len(history) == 1:
+                growth_24h = 0
+                logger.info(f"📊 [User History] Only 1 day in history, growth = 0")
+
+            logger.info(f"📊 [User History] User '{normalized_user}' in project {project_id}: {len(history)} дней, прирост 24ч: {growth_24h}")
+            return {"history": history, "growth_24h": growth_24h}
+
+        except Exception as e:
+            logger.error(f"Ошибка получения истории пользователя: {e}")
+            import traceback
+            traceback.print_exc()
+            return {"history": [], "growth_24h": 0}
+
     def finish_project(self, project_id: str) -> bool:
         """
         Завершение проекта (установка is_active = 0 и is_finished = 1)

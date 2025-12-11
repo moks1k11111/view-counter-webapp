@@ -1093,8 +1093,8 @@ async def get_my_analytics(
             }
         }
 
-        # Получаем историю просмотров проекта
-        daily_history = project_manager.get_project_daily_history(project_id)
+        # Получаем историю просмотров КОНКРЕТНОГО ПОЛЬЗОВАТЕЛЯ (не всего проекта!)
+        daily_history = project_manager.get_user_daily_history(project_id, telegram_user)
 
         # Если нет истории в SQLite, показываем только текущую точку
         history = daily_history.get("history", [])
