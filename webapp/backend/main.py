@@ -129,13 +129,21 @@ except Exception as e:
 
 # Инициализация Email Sheets Manager для Email Farm
 try:
-    logger.info(f"📊 Initializing Email Sheets Manager: credentials_file={GOOGLE_SHEETS_CREDENTIALS}, has_json_creds={bool(GOOGLE_SHEETS_CREDENTIALS_JSON)}")
+    json_creds_preview = GOOGLE_SHEETS_CREDENTIALS_JSON[:50] + "..." if GOOGLE_SHEETS_CREDENTIALS_JSON else "None"
+    logger.info(f"📊 Initializing Email Sheets Manager:")
+    logger.info(f"   credentials_file={GOOGLE_SHEETS_CREDENTIALS}")
+    logger.info(f"   has_json_creds={bool(GOOGLE_SHEETS_CREDENTIALS_JSON)}")
+    logger.info(f"   json_creds_length={len(GOOGLE_SHEETS_CREDENTIALS_JSON) if GOOGLE_SHEETS_CREDENTIALS_JSON else 0}")
+    logger.info(f"   json_creds_preview={json_creds_preview}")
+
     email_sheets = EmailSheetsManager(GOOGLE_SHEETS_CREDENTIALS, "PostBD", GOOGLE_SHEETS_CREDENTIALS_JSON)
-    logger.info("✅ Email Sheets Manager (PostBD) initialized")
+    logger.info("✅ Email Sheets Manager (PostBD) initialized successfully")
+    logger.info(f"   Spreadsheet: {email_sheets.spreadsheet.title}")
 except Exception as e:
     logger.error(f"❌ Failed to initialize Email Sheets Manager: {e}")
     import traceback
     logger.error(traceback.format_exc())
+    logger.error("⚠️ Email Farm will work WITHOUT Google Sheets persistence - emails will be lost on restart!")
     email_sheets = None
 
 # ============ TELEGRAM BOT LOGIC ============
@@ -204,12 +212,91 @@ async def run_telegram_bot():
     except Exception as e:
         logger.error(f"❌ Bot failed to start: {e}")
 
+async def sync_emails_from_sheets():
+    """
+    Load all emails from Google Sheets and sync them to SQLite on startup.
+    This ensures emails persist across Render restarts.
+    """
+    if not email_sheets or not email_farm_db or not email_encryption:
+        logger.warning("⚠️ Email Sheets or Email Farm DB not initialized - skipping sync")
+        return
+
+    try:
+        logger.info("📥 Syncing emails from Google Sheets to SQLite...")
+
+        # Get all emails from PostBD sheet
+        all_emails = email_sheets.get_all_emails_for_sheet("Post")
+        logger.info(f"   Found {len(all_emails)} emails in Google Sheets")
+
+        synced_count = 0
+        skipped_count = 0
+
+        for sheet_email in all_emails:
+            email_address = sheet_email['email']
+
+            # Check if email already exists in SQLite
+            existing = email_farm_db.get_email_by_address(email_address)
+
+            if existing:
+                # Email already exists, just update status if needed
+                skipped_count += 1
+                continue
+
+            # Email doesn't exist, add it
+            try:
+                # Use empty password as placeholder since passwords are not stored in sheets
+                # The real encrypted password is in SQLite, but we lost it on restart
+                # Admin will need to re-upload with passwords if needed
+                placeholder_password = email_encryption.encrypt("")
+
+                email_id = email_farm_db.add_email_account(
+                    email=email_address,
+                    password_encrypted=placeholder_password,
+                    proxy_string=None,  # Proxy info not stored in sheets
+                    project_id=None
+                )
+
+                if email_id:
+                    synced_count += 1
+
+                    # Restore status and assignment from sheets if email was allocated
+                    if sheet_email['status'] == 'active' and sheet_email['user_id']:
+                        try:
+                            user_id = int(sheet_email['user_id'])
+                            email_farm_db.allocate_email_to_user(email_id, user_id)
+
+                            # Restore is_completed status
+                            if sheet_email.get('is_completed') == '1':
+                                email_farm_db.mark_email_completed(email_id)
+
+                            logger.info(f"   ✅ Synced: {email_address} (user: {user_id}, completed: {sheet_email.get('is_completed') == '1'})")
+                        except Exception as e:
+                            logger.warning(f"   ⚠️ Could not restore status for {email_address}: {e}")
+                    else:
+                        logger.info(f"   ✅ Synced: {email_address} (free)")
+
+            except Exception as e:
+                logger.warning(f"   ⚠️ Could not sync {email_address}: {e}")
+                skipped_count += 1
+
+        logger.info(f"✅ Email sync complete: {synced_count} synced, {skipped_count} skipped")
+
+    except Exception as e:
+        logger.error(f"❌ Error syncing emails from sheets: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+
+
 @app.on_event("startup")
 async def startup_event():
     """Start bot when FastAPI starts"""
-    print("🚀 SERVER VERSION: 4.1 (ADDED telegram_user TO PYDANTIC MODEL)")
-    logger.info("🚀 SERVER VERSION: 4.1 (ADDED telegram_user TO PYDANTIC MODEL)")
+    print("🚀 SERVER VERSION: 4.2 (ADDED GOOGLE SHEETS SYNC ON STARTUP)")
+    logger.info("🚀 SERVER VERSION: 4.2 (ADDED GOOGLE SHEETS SYNC ON STARTUP)")
     logger.info("🚀 FastAPI starting up...")
+
+    # Sync emails from Google Sheets to SQLite
+    await sync_emails_from_sheets()
+
     # Start bot in background (won't crash API if bot fails)
     try:
         asyncio.create_task(run_telegram_bot())

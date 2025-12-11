@@ -300,6 +300,20 @@ class EmailFarmDatabase:
         row = cursor.fetchone()
         return dict(row) if row else None
 
+    def get_email_by_address(self, email: str) -> Optional[Dict]:
+        """Get email account by email address"""
+        cursor = self.conn.cursor()
+        cursor.execute("""
+            SELECT id, email, password_encrypted, proxy_string,
+                   status, assigned_user_id, assigned_at,
+                   refresh_token_encrypted, client_id, auth_type, is_completed
+            FROM email_accounts
+            WHERE email = ?
+        """, (email,))
+
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
     def mark_email_completed(self, email_id: int) -> bool:
         """Mark email registration as completed (move to 'My Emails')"""
         try:
