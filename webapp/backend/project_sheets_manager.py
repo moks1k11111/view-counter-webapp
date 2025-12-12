@@ -101,6 +101,11 @@ class ProjectSheetsManager:
             try:
                 self.spreadsheet = self.client.open(spreadsheet_name)
                 logger.info(f"✅ Подключено к таблице {spreadsheet_name}")
+
+                # Логируем все доступные листы
+                worksheets = self.spreadsheet.worksheets()
+                sheet_names = [ws.title for ws in worksheets]
+                logger.info(f"📋 Доступные листы в таблице '{spreadsheet_name}': {sheet_names}")
             except gspread.exceptions.SpreadsheetNotFound:
                 self.spreadsheet = self.client.create(spreadsheet_name)
                 logger.info(f"✅ Создана новая таблица {spreadsheet_name}")
@@ -223,6 +228,13 @@ class ProjectSheetsManager:
         :return: True если успешно
         """
         try:
+            logger.info(f"🔍 Пытаюсь найти лист '{project_name}' в таблице '{self.spreadsheet.title}'")
+
+            # Показываем все доступные листы для отладки
+            worksheets = self.spreadsheet.worksheets()
+            sheet_names = [ws.title for ws in worksheets]
+            logger.info(f"📋 Доступные листы: {sheet_names}")
+
             worksheet = self.spreadsheet.worksheet(project_name)
 
             # DEBUG: Log what we received from api.py
