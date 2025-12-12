@@ -346,6 +346,42 @@ class SQLiteDatabase:
                 self.conn.commit()
                 logger.info("✅ UNIQUE constraint успешно изменен на (project_id, profile_link)")
 
+            # Проверяем наличие таблицы jobs (для фоновых задач)
+            self.cursor.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='jobs'"
+            )
+
+            if not self.cursor.fetchone():
+                logger.info("Создаю таблицу jobs...")
+                self.cursor.execute('''
+                CREATE TABLE IF NOT EXISTS jobs (
+                    id TEXT PRIMARY KEY,
+                    type TEXT NOT NULL,
+                    project_id TEXT,
+                    status TEXT DEFAULT 'pending',
+                    progress INTEGER DEFAULT 0,
+                    total INTEGER DEFAULT 0,
+                    processed INTEGER DEFAULT 0,
+                    result TEXT,
+                    error TEXT,
+                    meta TEXT,
+                    created_at TEXT NOT NULL,
+                    started_at TEXT,
+                    finished_at TEXT,
+                    FOREIGN KEY (project_id) REFERENCES projects(id)
+                )
+                ''')
+
+                self.cursor.execute(
+                    'CREATE INDEX IF NOT EXISTS idx_jobs_project_status ON jobs(project_id, status)'
+                )
+                self.cursor.execute(
+                    'CREATE INDEX IF NOT EXISTS idx_jobs_created ON jobs(created_at DESC)'
+                )
+
+                self.conn.commit()
+                logger.info("✅ Таблица jobs создана")
+
         except Exception as e:
             logger.error(f"Ошибка при миграции базы данных: {e}")
             raise
@@ -1208,9 +1244,213 @@ class SQLiteDatabase:
                 "SELECT * FROM users WHERE is_active = 1 ORDER BY created_at DESC"
             )
             users = self.cursor.fetchall()
-            
+
             return [dict(user) for user in users]
-            
+
         except Exception as e:
             logger.error(f"Ошибка при получении пользователей: {e}")
+            raise
+
+    # ==================== JOBS (фоновые задачи) ====================
+
+    def create_job(self, job_type: str, project_id: str = None, meta: dict = None) -> str:
+        """
+        Создать новую фоновую задачу
+
+        :param job_type: Тип задачи ('refresh_stats', 'sync_sheets', etc)
+        :param project_id: ID проекта (опционально)
+        :param meta: Дополнительные метаданные в формате dict
+        :return: ID созданной задачи
+        """
+        try:
+            job_id = str(uuid.uuid4())
+            created_at = datetime.now().isoformat()
+            meta_json = json.dumps(meta) if meta else None
+
+            self.cursor.execute('''
+                INSERT INTO jobs (id, type, project_id, status, created_at, meta)
+                VALUES (?, ?, ?, 'pending', ?, ?)
+            ''', (job_id, job_type, project_id, created_at, meta_json))
+
+            self.conn.commit()
+            logger.info(f"✅ Job created: {job_id} ({job_type})")
+            return job_id
+
+        except Exception as e:
+            logger.error(f"❌ Error creating job: {e}")
+            raise
+
+    def update_job(self, job_id: str, status: str = None, progress: int = None,
+                   processed: int = None, total: int = None, result: dict = None,
+                   error: str = None):
+        """
+        Обновить статус задачи
+
+        :param job_id: ID задачи
+        :param status: Новый статус ('pending', 'running', 'completed', 'failed')
+        :param progress: Прогресс в процентах (0-100)
+        :param processed: Количество обработанных элементов
+        :param total: Общее количество элементов
+        :param result: Результат выполнения (dict)
+        :param error: Текст ошибки (если есть)
+        """
+        try:
+            updates = []
+            params = []
+
+            if status is not None:
+                updates.append("status = ?")
+                params.append(status)
+
+                # Автоматически устанавливаем timestamps
+                if status == 'running' and not self._job_has_started_at(job_id):
+                    updates.append("started_at = ?")
+                    params.append(datetime.now().isoformat())
+                elif status in ('completed', 'failed'):
+                    updates.append("finished_at = ?")
+                    params.append(datetime.now().isoformat())
+
+            if progress is not None:
+                updates.append("progress = ?")
+                params.append(progress)
+
+            if processed is not None:
+                updates.append("processed = ?")
+                params.append(processed)
+
+            if total is not None:
+                updates.append("total = ?")
+                params.append(total)
+
+            if result is not None:
+                updates.append("result = ?")
+                params.append(json.dumps(result))
+
+            if error is not None:
+                updates.append("error = ?")
+                params.append(error)
+
+            if not updates:
+                return
+
+            params.append(job_id)
+            query = f"UPDATE jobs SET {', '.join(updates)} WHERE id = ?"
+
+            self.cursor.execute(query, params)
+            self.conn.commit()
+
+        except Exception as e:
+            logger.error(f"❌ Error updating job {job_id}: {e}")
+            raise
+
+    def _job_has_started_at(self, job_id: str) -> bool:
+        """Проверить, установлено ли started_at для job"""
+        try:
+            self.cursor.execute("SELECT started_at FROM jobs WHERE id = ?", (job_id,))
+            row = self.cursor.fetchone()
+            return row and row[0] is not None
+        except:
+            return False
+
+    def get_job(self, job_id: str) -> dict:
+        """
+        Получить информацию о задаче
+
+        :param job_id: ID задачи
+        :return: Данные задачи
+        """
+        try:
+            self.cursor.execute("SELECT * FROM jobs WHERE id = ?", (job_id,))
+            row = self.cursor.fetchone()
+
+            if not row:
+                return None
+
+            job = dict(row)
+
+            # Парсим JSON поля
+            if job.get('result'):
+                try:
+                    job['result'] = json.loads(job['result'])
+                except:
+                    pass
+
+            if job.get('meta'):
+                try:
+                    job['meta'] = json.loads(job['meta'])
+                except:
+                    pass
+
+            return job
+
+        except Exception as e:
+            logger.error(f"❌ Error getting job {job_id}: {e}")
+            raise
+
+    def get_project_jobs(self, project_id: str, limit: int = 10) -> list:
+        """
+        Получить задачи проекта
+
+        :param project_id: ID проекта
+        :param limit: Максимальное количество задач
+        :return: Список задач
+        """
+        try:
+            self.cursor.execute('''
+                SELECT * FROM jobs
+                WHERE project_id = ?
+                ORDER BY created_at DESC
+                LIMIT ?
+            ''', (project_id, limit))
+
+            rows = self.cursor.fetchall()
+            jobs = []
+
+            for row in rows:
+                job = dict(row)
+
+                # Парсим JSON поля
+                if job.get('result'):
+                    try:
+                        job['result'] = json.loads(job['result'])
+                    except:
+                        pass
+
+                if job.get('meta'):
+                    try:
+                        job['meta'] = json.loads(job['meta'])
+                    except:
+                        pass
+
+                jobs.append(job)
+
+            return jobs
+
+        except Exception as e:
+            logger.error(f"❌ Error getting jobs for project {project_id}: {e}")
+            raise
+
+    def delete_old_jobs(self, days: int = 7):
+        """
+        Удалить старые завершенные задачи
+
+        :param days: Удалить задачи старше N дней
+        """
+        try:
+            cutoff_date = (datetime.now() - timedelta(days=days)).isoformat()
+
+            self.cursor.execute('''
+                DELETE FROM jobs
+                WHERE status IN ('completed', 'failed')
+                AND finished_at < ?
+            ''', (cutoff_date,))
+
+            deleted_count = self.cursor.rowcount
+            self.conn.commit()
+
+            logger.info(f"🗑️ Deleted {deleted_count} old jobs (older than {days} days)")
+            return deleted_count
+
+        except Exception as e:
+            logger.error(f"❌ Error deleting old jobs: {e}")
             raise
