@@ -544,8 +544,12 @@ class PostgreSQLDatabase:
             rows = self.cursor.fetchall()
             jobs = []
 
+            # Имена колонок из таблицы jobs
+            columns = ['id', 'type', 'project_id', 'status', 'progress', 'total', 'processed',
+                      'result', 'error', 'meta', 'created_at', 'started_at', 'finished_at']
+
             for row in rows:
-                job = dict(row)
+                job = dict(zip(columns, row))
 
                 # Парсим JSON поля
                 if job.get('result'):
