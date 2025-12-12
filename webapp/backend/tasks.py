@@ -412,7 +412,12 @@ def refresh_project_stats(job_id: str, project_id: str, platforms: dict,
     from database_adapter import get_database
     from project_manager import ProjectManager
     from project_sheets_manager import ProjectSheetsManager
-    from config import DEFAULT_GOOGLE_SHEETS_NAME, GOOGLE_SHEETS_CREDENTIALS_JSON
+    from config import (
+        DEFAULT_GOOGLE_SHEETS_NAME, GOOGLE_SHEETS_CREDENTIALS_JSON,
+        RAPIDAPI_KEY, RAPIDAPI_HOST, RAPIDAPI_BASE_URL,
+        INSTAGRAM_RAPIDAPI_KEY, INSTAGRAM_RAPIDAPI_HOST, INSTAGRAM_BASE_URL,
+        FACEBOOK_RAPIDAPI_KEY, FACEBOOK_RAPIDAPI_HOST, FACEBOOK_APP_ID
+    )
 
     # Константы для батчинга и параллелизма
     BATCH_SIZE = 50  # Обрабатываем по 50 аккаунтов за раз
@@ -467,13 +472,25 @@ def refresh_project_stats(job_id: str, project_id: str, platforms: dict,
                 try:
                     if platform == 'tiktok':
                         from tiktok_api import TikTokAPI
-                        api_clients['tiktok'] = TikTokAPI()
+                        api_clients['tiktok'] = TikTokAPI(
+                            api_key=RAPIDAPI_KEY,
+                            api_host=RAPIDAPI_HOST,
+                            base_url=RAPIDAPI_BASE_URL
+                        )
                     elif platform == 'instagram':
                         from instagram_api import InstagramAPI
-                        api_clients['instagram'] = InstagramAPI()
+                        api_clients['instagram'] = InstagramAPI(
+                            api_key=INSTAGRAM_RAPIDAPI_KEY,
+                            api_host=INSTAGRAM_RAPIDAPI_HOST,
+                            base_url=INSTAGRAM_BASE_URL
+                        )
                     elif platform == 'facebook':
-                        from facebook_api import FacebookAPI
-                        api_clients['facebook'] = FacebookAPI()
+                        from facebook_parser import FacebookAPI
+                        api_clients['facebook'] = FacebookAPI(
+                            api_key=FACEBOOK_RAPIDAPI_KEY,
+                            api_host=FACEBOOK_RAPIDAPI_HOST,
+                            app_id=FACEBOOK_APP_ID
+                        )
                 except Exception as e:
                     logger.error(f"❌ Failed to initialize {platform} API: {e}")
                     api_clients[platform] = None
