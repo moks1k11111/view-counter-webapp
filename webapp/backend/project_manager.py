@@ -50,7 +50,7 @@ class ProjectManager:
             self.db.cursor.execute('''
                 INSERT INTO projects (id, name, google_sheet_name, start_date, end_date,
                                      target_views, geo, kpi_views, created_at, is_active, allowed_platforms)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE, ?)
             ''', (project_id, name, google_sheet_name, start_date, end_date, target_views, geo, kpi_views, created_at, allowed_platforms_json))
 
             self.db.conn.commit()
@@ -169,7 +169,7 @@ class ProjectManager:
             '''
 
             if active_only:
-                query += ' WHERE is_active = 1'
+                query += ' WHERE is_active = TRUE'
 
             query += ' ORDER BY is_active DESC, created_at DESC'
 
@@ -501,7 +501,7 @@ class ProjectManager:
         """
         try:
             self.db.cursor.execute('''
-                UPDATE projects SET is_active = 0 WHERE id = ?
+                UPDATE projects SET is_active = FALSE WHERE id = ?
             ''', (project_id,))
 
             self.db.conn.commit()
@@ -550,7 +550,7 @@ class ProjectManager:
 
                 self.db.cursor.execute('''
                     UPDATE project_social_accounts
-                    SET is_active = 1,
+                    SET is_active = TRUE,
                         profile_link = ?,
                         status = ?,
                         topic = ?,
@@ -616,7 +616,7 @@ class ProjectManager:
             query = '''
                 SELECT id, project_id, platform, username, profile_link, status, topic, telegram_user, added_at, is_active
                 FROM project_social_accounts
-                WHERE project_id = ? AND is_active = 1
+                WHERE project_id = ? AND is_active = TRUE
             '''
             params = [project_id]
 
@@ -731,7 +731,7 @@ class ProjectManager:
         """
         try:
             self.db.cursor.execute('''
-                UPDATE project_social_accounts SET is_active = 0 WHERE id = ?
+                UPDATE project_social_accounts SET is_active = FALSE WHERE id = ?
             ''', (account_id,))
 
             self.db.conn.commit()
@@ -1066,7 +1066,7 @@ class ProjectManager:
             # Получаем все аккаунты проекта
             self.db.cursor.execute('''
                 SELECT id FROM project_social_accounts
-                WHERE project_id = ? AND is_active = 1
+                WHERE project_id = ? AND is_active = TRUE
             ''', (project_id,))
 
             account_ids = [row[0] for row in self.db.cursor.fetchall()]
@@ -1194,7 +1194,7 @@ class ProjectManager:
             # Получаем только аккаунты конкретного пользователя в проекте
             self.db.cursor.execute('''
                 SELECT id FROM project_social_accounts
-                WHERE project_id = ? AND is_active = 1
+                WHERE project_id = ? AND is_active = TRUE
                 AND (telegram_user = ? OR telegram_user = ?)
             ''', (project_id, normalized_user, f'@{normalized_user}'))
 
@@ -1305,7 +1305,7 @@ class ProjectManager:
         """
         try:
             self.db.cursor.execute('''
-                UPDATE projects SET is_active = 0, is_finished = 1 WHERE id = ?
+                UPDATE projects SET is_active = FALSE, is_finished = TRUE WHERE id = ?
             ''', (project_id,))
 
             self.db.conn.commit()
