@@ -1759,6 +1759,18 @@ async def refresh_project_stats(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
+    # ✅ ИДЕМПОТЕНТНОСТЬ: Проверяем есть ли уже running job
+    existing_jobs = db.get_project_jobs(project_id, limit=5)
+    for job in existing_jobs:
+        if job['status'] in ('pending', 'running'):
+            logger.info(f"⚠️ Job {job['id']} already {job['status']}, returning existing job_id")
+            return {
+                "success": True,
+                "message": f"Refresh already {job['status']}",
+                "job_id": job['id'],
+                "status": job['status']
+            }
+
     # 🧹 REDIS CACHE: Invalidate cache for this project (stats will be updated)
     cache.invalidate_project(project_id)
     logger.info(f"🧹 Invalidated cache for project {project_id} before refresh")
