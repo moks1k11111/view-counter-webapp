@@ -435,7 +435,7 @@ class PostgreSQLDatabase:
 
     def update_job(self, job_id: str, status: str = None, progress: int = None,
                    processed: int = None, total: int = None, result: dict = None,
-                   error: str = None):
+                   error: str = None, meta: dict = None):
         """Обновить статус задачи"""
         try:
             updates = []
@@ -472,6 +472,10 @@ class PostgreSQLDatabase:
             if error is not None:
                 updates.append("error = %s")
                 params.append(error)
+
+            if meta is not None:
+                updates.append("meta = %s")
+                params.append(json.dumps(meta))
 
             if not updates:
                 return
