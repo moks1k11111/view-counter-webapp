@@ -31,13 +31,19 @@ if CELERY_AVAILABLE:
 
     if redis_url:
         # Render использует REDIS_URL
+        # Очищаем от возможных кавычек
+        redis_url = redis_url.strip().strip('"').strip("'")
+
         broker_url = redis_url
         # Используем разные DB для broker и result backend
         if '/0' in broker_url:
             result_backend = broker_url.replace('/0', '/1')
         else:
-            result_backend = broker_url + '/1'
+            # Для rediss:// URL не добавляем /1, используем как есть
+            result_backend = broker_url
+
         logger.info(f"📡 Using REDIS_URL from environment")
+        logger.info(f"📡 Broker URL: {broker_url[:50]}...")  # Показываем первые 50 символов
     else:
         # Локальная разработка: REDIS_HOST/PORT/PASSWORD
         redis_host = os.getenv('REDIS_HOST', 'localhost')
