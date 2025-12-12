@@ -600,7 +600,7 @@ class ProjectManager:
                 self.db.cursor.execute('''
                     INSERT INTO project_social_accounts
                     (id, project_id, platform, username, profile_link, status, topic, telegram_user, added_at, is_active)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE)
                 ''', (account_id, project_id, platform, username, profile_link, status, topic, telegram_user, added_at))
 
                 self.db.conn.commit()
