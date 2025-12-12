@@ -36,6 +36,10 @@ services:
     rootDir: webapp/backend
     buildCommand: pip install -r requirements.txt
     startCommand: celery -A tasks worker --loglevel=info --concurrency=2
+    disk:
+      name: view-counter-data
+      mountPath: /opt/render/project/src/webapp/backend
+      sizeGB: 1
     envVars:
       - key: TELEGRAM_TOKEN
         sync: false
