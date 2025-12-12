@@ -1751,6 +1751,8 @@ async def get_refresh_progress(
     if active_job:
         # Получаем meta с разбивкой по платформам
         platform_stats = active_job.get('meta', {})
+        logger.info(f"🔍 Active job found: id={active_job['id']}, status={active_job['status']}")
+        logger.info(f"🔍 Job meta type: {type(platform_stats)}, content: {platform_stats}")
 
         # Если meta пустой (старый формат или в начале), используем общие счетчики
         if not platform_stats:
@@ -1759,6 +1761,7 @@ async def get_refresh_progress(
         progress = platform_stats
     else:
         progress = {}
+        logger.info(f"⚠️ No active job found for project {project_id}")
 
     logger.info(f"📊 Get progress for project {project_id}: {progress}")
     return {
