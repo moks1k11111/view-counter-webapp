@@ -993,7 +993,8 @@ async def get_project_analytics(
             }
 
         users_stats[telegram_user]["total_views"] += views
-        users_stats[telegram_user]["platforms"][plat] += views
+        if plat in users_stats[telegram_user]["platforms"]:
+            users_stats[telegram_user]["platforms"][plat] += views
         users_stats[telegram_user]["profiles_count"] += 1
 
         if topic:
@@ -1001,7 +1002,8 @@ async def get_project_analytics(
                 users_stats[telegram_user]["topics"].get(topic, 0) + views
 
         # Общая статистика по платформам
-        platform_stats[plat] += views
+        if plat in platform_stats:
+            platform_stats[plat] += views
 
         # Общая статистика по тематикам
         if topic:
