@@ -10,6 +10,7 @@ import logging
 import uuid
 import os
 from urllib.parse import urlparse
+from db_cursor_wrapper import CursorWrapper
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
@@ -40,7 +41,10 @@ class PostgreSQLDatabase:
         self.conn.autocommit = False
 
         # Используем DictCursor для совместимости с SQLite Row
-        self.cursor = self.conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        real_cursor = self.conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+        # Оборачиваем курсор для автоконвертации ? в %s
+        self.cursor = CursorWrapper(real_cursor, is_postgres=True)
 
         logger.info("✅ Connected to PostgreSQL")
 
