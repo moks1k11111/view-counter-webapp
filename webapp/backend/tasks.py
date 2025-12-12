@@ -64,6 +64,19 @@ if CELERY_AVAILABLE:
         backend=result_backend
     )
 
+    # SSL Configuration для rediss://
+    import ssl
+    ssl_config = {}
+    if broker_url.startswith('rediss://'):
+        ssl_config = {
+            'broker_use_ssl': {
+                'ssl_cert_reqs': ssl.CERT_NONE
+            },
+            'redis_backend_use_ssl': {
+                'ssl_cert_reqs': ssl.CERT_NONE
+            }
+        }
+
     # Celery Configuration
     celery_app.conf.update(
         task_serializer='json',
@@ -75,6 +88,7 @@ if CELERY_AVAILABLE:
         task_time_limit=600,  # 10 minutes max per task
         worker_prefetch_multiplier=1,  # Take one task at a time
         worker_max_tasks_per_child=50,  # Restart worker after 50 tasks (prevent memory leaks)
+        **ssl_config  # Добавляем SSL конфигурацию если нужно
     )
 else:
     # Dummy celery_app for imports
