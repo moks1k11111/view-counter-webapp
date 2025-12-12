@@ -34,16 +34,19 @@ if CELERY_AVAILABLE:
         # Очищаем от возможных кавычек
         redis_url = redis_url.strip().strip('"').strip("'")
 
-        broker_url = redis_url
-        # Используем разные DB для broker и result backend
-        if '/0' in broker_url:
-            result_backend = broker_url.replace('/0', '/1')
+        # Добавляем /0 если URL не имеет номера DB
+        if not redis_url.rstrip('/').split('/')[-1].isdigit():
+            # URL заканчивается на :6379 или :6379/ — добавляем /0
+            broker_url = redis_url.rstrip('/') + '/0'
         else:
-            # Для rediss:// URL не добавляем /1, используем как есть
-            result_backend = broker_url
+            broker_url = redis_url
+
+        # Используем разные DB для broker и result backend
+        result_backend = broker_url.replace('/0', '/1')
 
         logger.info(f"📡 Using REDIS_URL from environment")
         logger.info(f"📡 Broker URL: {broker_url[:50]}...")  # Показываем первые 50 символов
+        logger.info(f"📡 Result Backend: {result_backend[:50]}...")  # Показываем result backend тоже
     else:
         # Локальная разработка: REDIS_HOST/PORT/PASSWORD
         redis_host = os.getenv('REDIS_HOST', 'localhost')
