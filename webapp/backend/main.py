@@ -1750,15 +1750,25 @@ async def get_refresh_progress(
 
     if active_job:
         # Получаем meta с разбивкой по платформам
-        platform_stats = active_job.get('meta', {})
+        meta = active_job.get('meta', {})
         logger.info(f"🔍 Active job found: id={active_job['id']}, status={active_job['status']}")
-        logger.info(f"🔍 Job meta type: {type(platform_stats)}, content: {platform_stats}")
+        logger.info(f"🔍 Job meta type: {type(meta)}, content: {meta}")
 
-        # Если meta пустой (старый формат или в начале), используем общие счетчики
-        if not platform_stats:
-            platform_stats = {}
-
-        progress = platform_stats
+        # Проверяем, это начальный meta (с параметрами запроса) или обновленный (со статистикой платформ)
+        # Начальный meta содержит ключи: platforms, date_from, date_to, started_by
+        # Обновленный meta содержит ключи: tiktok, instagram, facebook, youtube, threads (с total, processed, etc)
+        if meta and 'platforms' in meta:
+            # Это начальный meta, статистика еще не обновлена
+            logger.info(f"⚠️ Job meta contains initial request params, worker hasn't updated stats yet")
+            progress = {}
+        elif meta and any(platform in meta for platform in ['tiktok', 'instagram', 'facebook', 'youtube', 'threads']):
+            # Это обновленный meta со статистикой по платформам
+            logger.info(f"✅ Job meta contains platform stats")
+            progress = meta
+        else:
+            # meta пустой или неизвестного формата
+            logger.info(f"⚠️ Job meta is empty or unknown format")
+            progress = {}
     else:
         progress = {}
         logger.info(f"⚠️ No active job found for project {project_id}")
