@@ -483,6 +483,7 @@ def refresh_project_stats(job_id: str, project_id: str, platforms: dict,
         # Инициализируем Google Sheets (именованные аргументы для безопасности)
         try:
             sheets_manager = ProjectSheetsManager(
+                credentials_file="",
                 spreadsheet_name=DEFAULT_GOOGLE_SHEETS_NAME,
                 credentials_json=GOOGLE_SHEETS_CREDENTIALS_JSON
             )
