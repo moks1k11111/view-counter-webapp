@@ -1738,78 +1738,142 @@ async def get_refresh_progress(
 async def refresh_project_stats(
     project_id: str,
     request: RefreshStatsRequest,
-    background_tasks: BackgroundTasks,
     user: dict = Depends(get_current_user)
 ):
-    """Обновить статистику для выбранных платформ через API"""
+    """
+    Запустить обновление статистики проекта через Celery (асинхронно)
+
+    Новая реализация с Jobs системой:
+    - Создаёт job в базе
+    - Запускает Celery task
+    - Возвращает job_id для отслеживания прогресса
+    """
     logger.info(f"🔄 Starting stats refresh for project {project_id}, platforms: {request.platforms}")
 
     # Проверка что пользователь - админ
     if user['id'] not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Only admins can refresh stats")
 
-    # 🧹 REDIS CACHE: Invalidate cache for this project (stats will be updated)
-    cache.invalidate_project(project_id)
-    logger.info(f"🧹 Invalidated cache for project {project_id} before refresh")
-
-    # НЕМЕДЛЕННАЯ инициализация прогресса (до любых медленных операций!)
-    try:
-        # Получаем все аккаунты проекта
-        accounts = project_manager.get_project_social_accounts(project_id)
-        logger.info(f"📊 Found {len(accounts)} accounts in project")
-
-        # Подсчитываем количество аккаунтов по платформам для прогресс-бара
-        platform_stats = {}
-        for platform in request.platforms:
-            if request.platforms[platform]:
-                count = sum(1 for acc in accounts if acc.get('platform', 'tiktok').lower() == platform)
-                platform_stats[platform] = {'total': count, 'processed': 0, 'updated': 0, 'failed': 0}
-
-        # Инициализируем прогресс в глобальном хранилище СРАЗУ
-        refresh_progress[project_id] = platform_stats.copy()
-        logger.info(f"🔧 IMMEDIATELY initialized refresh_progress[{project_id}] = {refresh_progress[project_id]}")
-
-    except Exception as e:
-        logger.error(f"❌ Failed to initialize progress: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to initialize progress: {str(e)}")
-
-    # Теперь делаем остальные проверки
+    # Проверяем что проект существует
     project = project_manager.get_project(project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    if not project_sheets:
-        raise HTTPException(status_code=503, detail="Google Sheets not available")
+    # 🧹 REDIS CACHE: Invalidate cache for this project (stats will be updated)
+    cache.invalidate_project(project_id)
+    logger.info(f"🧹 Invalidated cache for project {project_id} before refresh")
 
-    if not tiktok_api and not instagram_api and not facebook_api:
-        raise HTTPException(status_code=503, detail="Stats API clients not available")
+    try:
+        # Создаем job в базе
+        meta = {
+            "platforms": request.platforms,
+            "date_from": request.date_from,
+            "date_to": request.date_to,
+            "started_by": user.get('username', f"user_{user['id']}")
+        }
 
-    # Получаем KPI проекта
-    kpi_views = project.get('kpi_views', 1000)
-    logger.info(f"📊 Project KPI: >= {kpi_views:,} просмотров на видео")
+        job_id = db.create_job(
+            job_type='refresh_stats',
+            project_id=project_id,
+            meta=meta
+        )
 
-    # Запускаем обработку в фоне
-    background_tasks.add_task(
-        process_accounts_background,
-        project_id=project_id,
-        project=project,
-        accounts=accounts,
-        platforms=request.platforms,
-        platform_stats=platform_stats,
-        kpi_views=kpi_views,
-        date_from=request.date_from,
-        date_to=request.date_to
-    )
+        logger.info(f"✅ Created job {job_id} for project {project_id}")
 
-    logger.info(f"✅ Background task started for project {project_id}")
+        # Запускаем Celery task
+        try:
+            from tasks import refresh_project_stats as celery_refresh_task
+            celery_refresh_task.delay(
+                job_id=job_id,
+                project_id=project_id,
+                platforms=request.platforms,
+                date_from=request.date_from,
+                date_to=request.date_to
+            )
+            logger.info(f"✅ Celery task queued for job {job_id}")
+        except Exception as e:
+            logger.error(f"❌ Failed to queue Celery task: {e}")
+            # Обновляем job как failed
+            db.update_job(job_id, status='failed', error=f'Failed to queue task: {str(e)}')
+            raise HTTPException(status_code=500, detail=f"Failed to start background task: {str(e)}")
 
-    # Возвращаем успех СРАЗУ, чтобы polling мог начать получать прогресс
-    return {
-        "success": True,
-        "message": "Stats refresh started in background",
-        "total_accounts": len(accounts)
-    }
+        return {
+            "success": True,
+            "message": "Stats refresh started in background",
+            "job_id": job_id
+        }
 
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Error starting refresh: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/jobs/{job_id}")
+async def get_job_status(
+    job_id: str,
+    user: dict = Depends(get_current_user)
+):
+    """
+    Получить статус задачи
+
+    Returns:
+        job: {
+            id, type, project_id, status, progress, processed, total,
+            result, error, meta, created_at, started_at, finished_at
+        }
+    """
+    try:
+        job = db.get_job(job_id)
+
+        if not job:
+            raise HTTPException(status_code=404, detail="Job not found")
+
+        return job
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Error getting job {job_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/projects/{project_id}/jobs")
+async def get_project_jobs(
+    project_id: str,
+    limit: int = 10,
+    user: dict = Depends(get_current_user)
+):
+    """
+    Получить историю задач проекта
+
+    Args:
+        project_id: ID проекта
+        limit: Максимальное количество задач (по умолчанию 10)
+
+    Returns:
+        jobs: List of jobs
+    """
+    try:
+        # Проверяем что проект существует
+        project = project_manager.get_project(project_id)
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+
+        jobs = db.get_project_jobs(project_id, limit=limit)
+        return {"jobs": jobs}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Error getting jobs for project {project_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ==================== OLD BACKGROUND PROCESSING (DEPRECATED) ====================
+# Оставлено для обратной совместимости, но не используется
+# Новая реализация: Celery task в tasks.py
 
 def process_accounts_background(
     project_id: str,
@@ -1822,7 +1886,9 @@ def process_accounts_background(
     date_to: Optional[str] = None
 ):
     """
-    Фоновая обработка аккаунтов с обновлением прогресса
+    DEPRECATED: Старая фоновая обработка аккаунтов
+
+    Используйте вместо этого: Celery task refresh_project_stats в tasks.py
 
     :param date_from: Дата начала периода (YYYY-MM-DD) - учитываются только видео после этой даты
     :param date_to: Дата окончания периода (YYYY-MM-DD) - учитываются только видео до этой даты

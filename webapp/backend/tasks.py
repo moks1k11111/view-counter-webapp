@@ -339,6 +339,259 @@ def smart_sync_single_project(project_id: str):
         }
 
 
+@task(name='refresh_project_stats')
+def refresh_project_stats(job_id: str, project_id: str, platforms: dict,
+                          date_from: str = None, date_to: str = None):
+    """
+    Обновление статистики проекта через Celery с батчингом и параллелизмом
+
+    Оптимизировано для 500-1000 аккаунтов:
+    - Батчинг по 50 аккаунтов
+    - Параллельный fetch через ThreadPoolExecutor (15 потоков)
+    - Обновление прогресса в jobs таблице
+    - Задержки между батчами для избежания rate limits
+
+    Args:
+        job_id: ID задачи в таблице jobs
+        project_id: ID проекта
+        platforms: Dict платформ для обновления {'tiktok': True, 'instagram': False, ...}
+        date_from: Дата начала периода (YYYY-MM-DD)
+        date_to: Дата окончания периода (YYYY-MM-DD)
+
+    Returns:
+        dict: Результаты выполнения
+    """
+    import time
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    from database_sqlite import SQLiteDatabase
+    from project_manager import ProjectManager
+    from project_sheets_manager import ProjectSheetsManager
+    from config import DEFAULT_GOOGLE_SHEETS_NAME, GOOGLE_SHEETS_CREDENTIALS_JSON
+
+    # Константы для батчинга и параллелизма
+    BATCH_SIZE = 50  # Обрабатываем по 50 аккаунтов за раз
+    MAX_WORKERS = 15  # Максимум 15 параллельных потоков (безопасно для RapidAPI)
+    BATCH_DELAY = 2  # Пауза между батчами в секундах
+
+    logger.info(f"🚀 [Celery] Starting refresh_project_stats for job {job_id}")
+
+    db = None
+    try:
+        # Инициализация
+        db = SQLiteDatabase()
+        project_manager = ProjectManager(db)
+        project = project_manager.get_project(project_id)
+
+        if not project:
+            db.update_job(job_id, status='failed', error='Project not found')
+            return {'success': False, 'error': 'Project not found'}
+
+        # Обновляем статус job на 'running'
+        db.update_job(job_id, status='running')
+
+        # Получаем аккаунты проекта
+        accounts = project_manager.get_project_social_accounts(project_id)
+        total_accounts = len(accounts)
+
+        # Фильтруем аккаунты по выбранным платформам и статусу
+        filtered_accounts = []
+        for account in accounts:
+            platform = account.get('platform', 'tiktok').lower()
+            status = account.get('status', '').upper()
+
+            # Пропускаем если платформа не выбрана или статус OLD
+            if not platforms.get(platform, False):
+                continue
+            if status == 'OLD':
+                continue
+
+            filtered_accounts.append(account)
+
+        total_to_process = len(filtered_accounts)
+        logger.info(f"📊 Total accounts: {total_accounts}, to process: {total_to_process}")
+
+        db.update_job(job_id, total=total_to_process, processed=0)
+
+        # Инициализируем API клиенты (ленивая загрузка)
+        api_clients = {}
+
+        def get_api_client(platform):
+            """Ленивая инициализация API клиентов"""
+            if platform not in api_clients:
+                try:
+                    if platform == 'tiktok':
+                        from tiktok_api import TikTokAPI
+                        api_clients['tiktok'] = TikTokAPI()
+                    elif platform == 'instagram':
+                        from instagram_api import InstagramAPI
+                        api_clients['instagram'] = InstagramAPI()
+                    elif platform == 'facebook':
+                        from facebook_api import FacebookAPI
+                        api_clients['facebook'] = FacebookAPI()
+                except Exception as e:
+                    logger.error(f"❌ Failed to initialize {platform} API: {e}")
+                    api_clients[platform] = None
+
+            return api_clients.get(platform)
+
+        # Инициализируем Google Sheets
+        try:
+            sheets_manager = ProjectSheetsManager(
+                DEFAULT_GOOGLE_SHEETS_NAME,
+                GOOGLE_SHEETS_CREDENTIALS_JSON
+            )
+        except Exception as e:
+            logger.error(f"❌ Failed to initialize Google Sheets: {e}")
+            db.update_job(job_id, status='failed', error=f'Google Sheets init failed: {str(e)}')
+            return {'success': False, 'error': str(e)}
+
+        kpi_views = project.get('kpi_views', 1000)
+        project_name = project['name']
+
+        # Функция для обработки одного аккаунта
+        def process_account(account):
+            """Обработка одного аккаунта (вызывается в параллельных потоках)"""
+            platform = account.get('platform', 'tiktok').lower()
+            profile_link = account.get('profile_link', '')
+            username = account.get('username', '')
+
+            try:
+                api_client = get_api_client(platform)
+                if not api_client:
+                    return {'success': False, 'username': username, 'error': f'{platform} API not available'}
+
+                # Получаем статистику
+                stats = None
+                if platform == 'tiktok':
+                    stats = api_client.get_tiktok_data(profile_link, kpi_views=kpi_views,
+                                                       date_from=date_from, date_to=date_to)
+                elif platform == 'instagram':
+                    stats = api_client.get_instagram_data(profile_link, kpi_views=kpi_views,
+                                                          date_from=date_from, date_to=date_to)
+                elif platform == 'facebook':
+                    result = api_client.get_page_reels(profile_link, kpi_views=kpi_views,
+                                                       date_from=date_from, date_to=date_to)
+                    if result.get('success'):
+                        stats = {
+                            'total_views': result.get('total_views', 0),
+                            'total_likes': result.get('total_likes', 0),
+                            'videos': result.get('total_videos', 0),
+                            'followers': 0,
+                            'likes': result.get('total_likes', 0)
+                        }
+
+                if not stats:
+                    return {'success': False, 'username': username, 'error': 'No stats returned'}
+
+                # Обновляем Google Sheets
+                stats_dict = {
+                    'followers': stats.get('followers', 0),
+                    'likes': stats.get('likes', stats.get('total_likes', 0)),
+                    'videos': stats.get('videos', stats.get('reels', 0)),
+                    'views': stats.get('total_views', 0),
+                    'comments': 0
+                }
+                sheets_manager.update_account_stats(
+                    project_name=project_name,
+                    username=username,
+                    stats=stats_dict,
+                    profile_link=profile_link
+                )
+
+                # Создаем snapshot в SQLite
+                project_manager.add_account_snapshot(
+                    account_id=account['id'],
+                    followers=stats.get('followers', 0),
+                    likes=stats.get('likes', stats.get('total_likes', 0)),
+                    comments=0,
+                    videos=stats.get('videos', stats.get('reels', 0)),
+                    views=stats.get('total_views', 0),
+                    total_videos_fetched=stats.get('total_videos_fetched',
+                                                   stats.get('total_reels_fetched', 0))
+                )
+
+                logger.info(f"✅ [Celery] Updated {username}: {stats.get('total_views', 0)} views")
+                return {'success': True, 'username': username, 'views': stats.get('total_views', 0)}
+
+            except Exception as e:
+                logger.error(f"❌ [Celery] Error processing {username}: {e}")
+                return {'success': False, 'username': username, 'error': str(e)}
+
+        # Обработка аккаунтов батчами с параллелизмом
+        processed = 0
+        updated = 0
+        failed = 0
+        results = []
+
+        for batch_start in range(0, total_to_process, BATCH_SIZE):
+            batch_end = min(batch_start + BATCH_SIZE, total_to_process)
+            batch = filtered_accounts[batch_start:batch_end]
+
+            logger.info(f"🔄 [Celery] Processing batch {batch_start//BATCH_SIZE + 1}: accounts {batch_start+1}-{batch_end}")
+
+            # Параллельная обработка батча
+            with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+                future_to_account = {executor.submit(process_account, acc): acc for acc in batch}
+
+                for future in as_completed(future_to_account):
+                    result = future.result()
+                    results.append(result)
+                    processed += 1
+
+                    if result['success']:
+                        updated += 1
+                    else:
+                        failed += 1
+
+                    # Обновляем прогресс в jobs
+                    progress_percent = int((processed / total_to_process) * 100)
+                    db.update_job(job_id, progress=progress_percent, processed=processed)
+
+            # Пауза между батчами (избегаем rate limits)
+            if batch_end < total_to_process:
+                logger.info(f"⏸️ [Celery] Waiting {BATCH_DELAY}s before next batch...")
+                time.sleep(BATCH_DELAY)
+
+        # Финальное обновление job
+        final_result = {
+            'total': total_to_process,
+            'updated': updated,
+            'failed': failed,
+            'results': results[:10]  # Сохраняем только первые 10 для экономии места
+        }
+
+        db.update_job(
+            job_id,
+            status='completed',
+            progress=100,
+            processed=total_to_process,
+            result=final_result
+        )
+
+        logger.info(f"✅ [Celery] Refresh completed: {updated} updated, {failed} failed")
+
+        return {
+            'success': True,
+            'updated': updated,
+            'failed': failed,
+            'total': total_to_process
+        }
+
+    except Exception as e:
+        logger.error(f"❌ [Celery] Refresh task failed: {e}")
+        if db:
+            db.update_job(job_id, status='failed', error=str(e))
+        return {'success': False, 'error': str(e)}
+
+    finally:
+        # Закрываем соединение с БД
+        if db:
+            try:
+                db.conn.close()
+            except:
+                pass
+
+
 # Periodic Tasks Schedule (Celery Beat)
 if CELERY_AVAILABLE and celery_app:
     celery_app.conf.beat_schedule = {
