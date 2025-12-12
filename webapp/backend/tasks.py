@@ -26,18 +26,31 @@ except ImportError:
 
 # Initialize Celery (only if available)
 if CELERY_AVAILABLE:
-    redis_host = os.getenv('REDIS_HOST', 'localhost')
-    redis_port = os.getenv('REDIS_PORT', '6379')
-    redis_password = os.getenv('REDIS_PASSWORD', '')
+    # Поддержка REDIS_URL (Render) или REDIS_HOST/PORT/PASSWORD (локально)
+    redis_url = os.getenv('REDIS_URL')
 
-    # Broker URL
-    if redis_password:
-        broker_url = f'redis://:{redis_password}@{redis_host}:{redis_port}/1'
+    if redis_url:
+        # Render использует REDIS_URL
+        broker_url = redis_url
+        # Используем разные DB для broker и result backend
+        if '/0' in broker_url:
+            result_backend = broker_url.replace('/0', '/1')
+        else:
+            result_backend = broker_url + '/1'
+        logger.info(f"📡 Using REDIS_URL from environment")
     else:
-        broker_url = f'redis://{redis_host}:{redis_port}/1'
+        # Локальная разработка: REDIS_HOST/PORT/PASSWORD
+        redis_host = os.getenv('REDIS_HOST', 'localhost')
+        redis_port = os.getenv('REDIS_PORT', '6379')
+        redis_password = os.getenv('REDIS_PASSWORD', '')
 
-    # Result backend URL
-    result_backend = broker_url.replace('/1', '/2')  # Use different DB for results
+        if redis_password:
+            broker_url = f'redis://:{redis_password}@{redis_host}:{redis_port}/1'
+        else:
+            broker_url = f'redis://{redis_host}:{redis_port}/1'
+
+        result_backend = broker_url.replace('/1', '/2')
+        logger.info(f"📡 Using REDIS_HOST={redis_host}:{redis_port}")
 
     celery_app = Celery(
         'view_counter_tasks',

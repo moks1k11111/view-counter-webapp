@@ -24,3 +24,28 @@ services:
         sync: false
       - key: LOG_CHANNEL_ID
         sync: false
+      - key: REDIS_URL
+        sync: false
+
+  # Celery Worker для обработки фоновых задач
+  - type: worker
+    name: view-counter-celery-worker
+    env: python
+    region: frankfurt
+    plan: free
+    rootDir: webapp/backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: celery -A tasks worker --loglevel=info --concurrency=2
+    envVars:
+      - key: TELEGRAM_TOKEN
+        sync: false
+      - key: GOOGLE_SHEETS_CREDENTIALS_JSON
+        sync: false
+      - key: ADMIN_IDS
+        value: "[873564841]"
+      - key: DEFAULT_GOOGLE_SHEETS_NAME
+        value: "View Counter"
+      - key: DB_ENCRYPTION_KEY
+        sync: false
+      - key: REDIS_URL
+        sync: false
