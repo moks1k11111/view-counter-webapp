@@ -243,6 +243,7 @@ class ProjectManager:
 
         except Exception as e:
             logger.error(f"Ошибка добавления пользователя в проект: {e}")
+            self.db.conn.rollback()
             return False
 
     def remove_user_from_project(self, project_id: str, user_id: str) -> bool:
@@ -417,6 +418,7 @@ class ProjectManager:
 
         except Exception as e:
             logger.error(f"Ошибка получения всех проектов с проверкой доступа: {e}")
+            self.db.conn.rollback()
             return []
 
     def get_project_users(self, project_id: str) -> List[Dict]:

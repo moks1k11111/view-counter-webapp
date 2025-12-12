@@ -741,6 +741,16 @@ async def create_project(
     if user_id not in [str(admin_id) for admin_id in ADMIN_IDS]:
         raise HTTPException(status_code=403, detail="Access denied")
 
+    # Убеждаемся, что пользователь существует в таблице users
+    try:
+        username = user.get('username', 'admin')
+        first_name = user.get('first_name', 'Admin')
+        last_name = user.get('last_name', '')
+        db.add_user(user_id, username, first_name, last_name)
+        logger.info(f"✅ User {user_id} (@{username}) ensured in database")
+    except Exception as e:
+        logger.warning(f"⚠️ Error ensuring user exists: {e}")
+
     # Создаем проект
     new_project = project_manager.create_project(
         name=project.name,
