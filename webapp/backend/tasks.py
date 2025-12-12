@@ -698,6 +698,7 @@ def refresh_project_stats(job_id: str, project_id: str, platforms: dict,
 
             # ШАГ 3: Обновляем прогресс ОДИН РАЗ после батча (вместо 1000 раз!)
             progress_percent = int((processed / total_to_process) * 100)
+            logger.info(f"🔍 [Celery] Updating job with platform_stats: {platform_stats}")
             db.update_job(
                 job_id,
                 progress=progress_percent,
@@ -720,6 +721,7 @@ def refresh_project_stats(job_id: str, project_id: str, platforms: dict,
             'results': results[:10]  # Сохраняем только первые 10 для экономии места
         }
 
+        logger.info(f"🔍 [Celery] Final update with platform_stats: {platform_stats}")
         db.update_job(
             job_id,
             status='completed',

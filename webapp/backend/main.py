@@ -1739,19 +1739,29 @@ async def get_refresh_progress(
     user: dict = Depends(get_current_user)
 ):
     """Получить текущий прогресс обновления статистики"""
-    # Ищем активный job для этого проекта
+    # Ищем активный или недавно завершенный job для этого проекта
     existing_jobs = db.get_project_jobs(project_id, limit=5)
-    active_job = None
+    target_job = None
 
+    # Сначала ищем активные задачи (pending/running)
     for job in existing_jobs:
         if job['status'] in ('pending', 'running'):
-            active_job = job
+            target_job = job
+            logger.info(f"🔍 Found active job: id={job['id']}, status={job['status']}")
             break
 
-    if active_job:
+    # Если активных нет, берем последнюю завершенную (completed)
+    # Это нужно для случаев когда задача выполняется очень быстро
+    if not target_job:
+        for job in existing_jobs:
+            if job['status'] == 'completed':
+                target_job = job
+                logger.info(f"🔍 Found completed job: id={job['id']}, status={job['status']}")
+                break
+
+    if target_job:
         # Получаем meta с разбивкой по платформам
-        meta = active_job.get('meta', {})
-        logger.info(f"🔍 Active job found: id={active_job['id']}, status={active_job['status']}")
+        meta = target_job.get('meta', {})
         logger.info(f"🔍 Job meta type: {type(meta)}, content: {meta}")
 
         # Проверяем, это начальный meta (с параметрами запроса) или обновленный (со статистикой платформ)
@@ -1771,7 +1781,7 @@ async def get_refresh_progress(
             progress = {}
     else:
         progress = {}
-        logger.info(f"⚠️ No active job found for project {project_id}")
+        logger.info(f"⚠️ No jobs found for project {project_id}")
 
     logger.info(f"📊 Get progress for project {project_id}: {progress}")
     return {
