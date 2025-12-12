@@ -568,7 +568,7 @@ async def assign_bonus(
         raise HTTPException(status_code=403, detail="Admin access required")
 
     try:
-        target_username = data.get('username')
+        target_username = data.get('username', '').strip()
         amount = float(data.get('amount', 0))
         reason = data.get('reason', '')
 
@@ -578,20 +578,23 @@ async def assign_bonus(
         if amount <= 0:
             raise HTTPException(status_code=400, detail="amount must be positive")
 
+        # Нормализуем username (убираем @ если есть)
+        normalized_username = target_username.lstrip('@')
+
         # Найти User ID по username
-        target_user_id = project_manager.get_user_id_by_username(target_username)
+        target_user_id = project_manager.get_user_id_by_username(normalized_username)
 
         if not target_user_id:
             raise HTTPException(
                 status_code=404,
-                detail=f"Пользователь @{target_username} не найден в системе"
+                detail=f"Пользователь @{normalized_username} не найден в системе"
             )
 
         admin_username = user.get('username', f"admin_{admin_id}")
 
         success = bonuses_manager.add_bonus(
             user_id=str(target_user_id),
-            username=target_username,
+            username=normalized_username,
             amount=amount,
             assigned_by_username=admin_username,
             reason=reason
@@ -600,7 +603,7 @@ async def assign_bonus(
         if success:
             return {
                 "success": True,
-                "message": f"Bonus ${amount} assigned to @{target_username}"
+                "message": f"Bonus ${amount} assigned to @{normalized_username}"
             }
         else:
             raise HTTPException(status_code=500, detail="Failed to assign bonus")
