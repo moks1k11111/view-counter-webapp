@@ -587,6 +587,19 @@ def refresh_project_stats(job_id: str, project_id: str, platforms: dict,
         failed = 0
         results = []
 
+        # Статистика по платформам для прогресс-бара
+        platform_stats = {}
+        for account in filtered_accounts:
+            platform = account.get('platform', 'tiktok').lower()
+            if platform not in platform_stats:
+                platform_stats[platform] = {
+                    'total': 0,
+                    'processed': 0,
+                    'updated': 0,
+                    'failed': 0
+                }
+            platform_stats[platform]['total'] += 1
+
         for batch_start in range(0, total_to_process, BATCH_SIZE):
             batch_end = min(batch_start + BATCH_SIZE, total_to_process)
             batch = filtered_accounts[batch_start:batch_end]
@@ -610,11 +623,16 @@ def refresh_project_stats(job_id: str, project_id: str, platforms: dict,
 
             for fetch_result in fetch_results:
                 processed += 1
+                account = fetch_result['account']
+                platform = account.get('platform', 'tiktok').lower()
+
+                # Обновляем счетчик processed для платформы
+                if platform in platform_stats:
+                    platform_stats[platform]['processed'] += 1
 
                 if fetch_result['success']:
                     try:
                         stats = fetch_result['stats']
-                        account = fetch_result['account']
                         username = fetch_result['username']
                         profile_link = fetch_result['profile_link']
 
@@ -646,6 +664,9 @@ def refresh_project_stats(job_id: str, project_id: str, platforms: dict,
                         )
 
                         updated += 1
+                        if platform in platform_stats:
+                            platform_stats[platform]['updated'] += 1
+
                         results.append({
                             'success': True,
                             'username': username,
@@ -657,6 +678,8 @@ def refresh_project_stats(job_id: str, project_id: str, platforms: dict,
                     except Exception as e:
                         logger.error(f"❌ [Celery] Error writing {fetch_result['username']}: {e}")
                         failed += 1
+                        if platform in platform_stats:
+                            platform_stats[platform]['failed'] += 1
                         results.append({
                             'success': False,
                             'username': fetch_result['username'],
@@ -665,6 +688,8 @@ def refresh_project_stats(job_id: str, project_id: str, platforms: dict,
                 else:
                     # Fetch failed
                     failed += 1
+                    if platform in platform_stats:
+                        platform_stats[platform]['failed'] += 1
                     results.append({
                         'success': False,
                         'username': fetch_result['username'],
@@ -673,7 +698,12 @@ def refresh_project_stats(job_id: str, project_id: str, platforms: dict,
 
             # ШАГ 3: Обновляем прогресс ОДИН РАЗ после батча (вместо 1000 раз!)
             progress_percent = int((processed / total_to_process) * 100)
-            db.update_job(job_id, progress=progress_percent, processed=processed)
+            db.update_job(
+                job_id,
+                progress=progress_percent,
+                processed=processed,
+                meta=platform_stats
+            )
 
             logger.info(f"📊 [Celery] Batch {batch_num} complete: {processed}/{total_to_process} ({progress_percent}%) | ✅ {updated} | ❌ {failed}")
 
@@ -695,7 +725,8 @@ def refresh_project_stats(job_id: str, project_id: str, platforms: dict,
             status='completed',
             progress=100,
             processed=total_to_process,
-            result=final_result
+            result=final_result,
+            meta=platform_stats
         )
 
         logger.info(f"✅ [Celery] Refresh completed: {updated} updated, {failed} failed")

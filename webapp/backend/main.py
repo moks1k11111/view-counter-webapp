@@ -1749,13 +1749,14 @@ async def get_refresh_progress(
             break
 
     if active_job:
-        progress = {
-            "status": active_job['status'],
-            "progress": active_job.get('progress', 0),
-            "processed": active_job.get('processed', 0),
-            "total": active_job.get('total', 0),
-            "job_id": active_job['id']
-        }
+        # Получаем meta с разбивкой по платформам
+        platform_stats = active_job.get('meta', {})
+
+        # Если meta пустой (старый формат или в начале), используем общие счетчики
+        if not platform_stats:
+            platform_stats = {}
+
+        progress = platform_stats
     else:
         progress = {}
 
