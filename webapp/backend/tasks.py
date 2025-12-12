@@ -240,10 +240,10 @@ def periodic_sync_all_projects():
 
     try:
         from project_manager import ProjectManager
-        from database_sqlite import SQLiteDatabase
+        from database_adapter import get_database
 
         # Инициализируем менеджер проектов
-        db = SQLiteDatabase()
+        db = get_database()
         project_manager = ProjectManager(db)
 
         # Получаем все активные проекты
@@ -307,12 +307,12 @@ def smart_sync_all_projects():
     logger.info("🔄 [Celery] Starting smart sync for all projects")
 
     try:
-        from database_sqlite import SQLiteDatabase
+        from database_adapter import get_database
         from config import DEFAULT_GOOGLE_SHEETS_NAME, GOOGLE_SHEETS_CREDENTIALS_JSON
         from smart_sync import sync_all_projects_standalone
 
         # Initialize database
-        db = SQLiteDatabase()
+        db = get_database()
 
         # Run smart sync
         result = sync_all_projects_standalone(
@@ -347,12 +347,12 @@ def smart_sync_single_project(project_id: str):
     logger.info(f"🔄 [Celery] Starting smart sync for project {project_id}")
 
     try:
-        from database_sqlite import SQLiteDatabase
+        from database_adapter import get_database
         from config import DEFAULT_GOOGLE_SHEETS_NAME, GOOGLE_SHEETS_CREDENTIALS_JSON
         from smart_sync import sync_single_project_standalone
 
         # Initialize database
-        db = SQLiteDatabase()
+        db = get_database()
 
         # Run smart sync
         result = sync_single_project_standalone(
@@ -407,7 +407,7 @@ def refresh_project_stats(job_id: str, project_id: str, platforms: dict,
     if current_dir not in sys.path:
         sys.path.insert(0, current_dir)
 
-    from database_sqlite import SQLiteDatabase
+    from database_adapter import get_database
     from project_manager import ProjectManager
     from project_sheets_manager import ProjectSheetsManager
     from config import DEFAULT_GOOGLE_SHEETS_NAME, GOOGLE_SHEETS_CREDENTIALS_JSON
@@ -422,7 +422,7 @@ def refresh_project_stats(job_id: str, project_id: str, platforms: dict,
     db = None
     try:
         # Инициализация
-        db = SQLiteDatabase()
+        db = get_database()
         project_manager = ProjectManager(db)
         project = project_manager.get_project(project_id)
 

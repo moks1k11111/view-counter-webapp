@@ -1,3 +1,9 @@
+databases:
+  - name: view-counter-postgres
+    databaseName: viewcounter
+    plan: free
+    region: frankfurt
+
 services:
   - type: web
     name: view-counter-api
@@ -7,10 +13,6 @@ services:
     rootDir: webapp/backend
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
-    disk:
-      name: view-counter-data
-      mountPath: /opt/render/project/src/webapp/backend
-      sizeGB: 1
     envVars:
       - key: TELEGRAM_TOKEN
         sync: false
@@ -26,6 +28,12 @@ services:
         sync: false
       - key: REDIS_URL
         sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: view-counter-postgres
+          property: connectionString
+      - key: PYTHONPATH
+        value: /opt/render/project/src/webapp/backend
 
   # Celery Worker для обработки фоновых задач
   - type: worker
@@ -36,10 +44,6 @@ services:
     rootDir: webapp/backend
     buildCommand: pip install -r requirements.txt
     startCommand: celery -A tasks worker --loglevel=info --concurrency=2
-    disk:
-      name: view-counter-data
-      mountPath: /opt/render/project/src/webapp/backend
-      sizeGB: 1
     envVars:
       - key: TELEGRAM_TOKEN
         sync: false
@@ -53,3 +57,9 @@ services:
         sync: false
       - key: REDIS_URL
         sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: view-counter-postgres
+          property: connectionString
+      - key: PYTHONPATH
+        value: /opt/render/project/src/webapp/backend

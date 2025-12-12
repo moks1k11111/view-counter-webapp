@@ -22,7 +22,7 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
 from database_sheets import SheetsDatabase
-from database_sqlite import SQLiteDatabase
+from database_adapter import get_database
 from project_manager import ProjectManager
 from project_sheets_manager import ProjectSheetsManager
 from cache import (
@@ -80,7 +80,7 @@ app.add_middleware(
 )
 
 # Инициализация баз данных
-db = SQLiteDatabase()
+db = get_database()
 
 # Используем GOOGLE_SHEETS_CREDENTIALS_JSON если доступна (Railway), иначе файл (локально)
 try:
