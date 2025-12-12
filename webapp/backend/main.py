@@ -1739,7 +1739,26 @@ async def get_refresh_progress(
     user: dict = Depends(get_current_user)
 ):
     """Получить текущий прогресс обновления статистики"""
-    progress = dict(refresh_progress.get(project_id, {}))
+    # Ищем активный job для этого проекта
+    existing_jobs = db.get_project_jobs(project_id, limit=5)
+    active_job = None
+
+    for job in existing_jobs:
+        if job['status'] in ('pending', 'running'):
+            active_job = job
+            break
+
+    if active_job:
+        progress = {
+            "status": active_job['status'],
+            "progress": active_job.get('progress', 0),
+            "processed": active_job.get('processed', 0),
+            "total": active_job.get('total', 0),
+            "job_id": active_job['id']
+        }
+    else:
+        progress = {}
+
     logger.info(f"📊 Get progress for project {project_id}: {progress}")
     return {
         "success": True,
