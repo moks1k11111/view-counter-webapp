@@ -41,8 +41,8 @@ if CELERY_AVAILABLE:
         else:
             broker_url = redis_url
 
-        # Используем разные DB для broker и result backend
-        result_backend = broker_url.replace('/0', '/1')
+        # Upstash поддерживает ТОЛЬКО DB 0, используем её для broker и result backend
+        result_backend = broker_url
 
         logger.info(f"📡 Using REDIS_URL from environment")
         logger.info(f"📡 Broker URL: {broker_url[:50]}...")  # Показываем первые 50 символов
