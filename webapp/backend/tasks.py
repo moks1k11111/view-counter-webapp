@@ -135,8 +135,9 @@ def sync_project_to_sheets(project_id: str, project_name: str, accounts_data: li
 
         # Создаём менеджер Google Sheets
         sheets_manager = ProjectSheetsManager(
-            DEFAULT_GOOGLE_SHEETS_NAME,
-            GOOGLE_SHEETS_CREDENTIALS_JSON
+            credentials_file="",
+            spreadsheet_name=DEFAULT_GOOGLE_SHEETS_NAME,
+            credentials_json=GOOGLE_SHEETS_CREDENTIALS_JSON
         )
 
         # Синхронизируем каждый аккаунт
@@ -196,8 +197,9 @@ def sync_account_to_sheets(project_name: str, account_data: dict):
         from config import DEFAULT_GOOGLE_SHEETS_NAME, GOOGLE_SHEETS_CREDENTIALS_JSON
 
         sheets_manager = ProjectSheetsManager(
-            DEFAULT_GOOGLE_SHEETS_NAME,
-            GOOGLE_SHEETS_CREDENTIALS_JSON
+            credentials_file="",
+            spreadsheet_name=DEFAULT_GOOGLE_SHEETS_NAME,
+            credentials_json=GOOGLE_SHEETS_CREDENTIALS_JSON
         )
 
         # Обновляем аккаунт в таблице
