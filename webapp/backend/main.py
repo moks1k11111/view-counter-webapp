@@ -1763,13 +1763,24 @@ async def refresh_project_stats(
     existing_jobs = db.get_project_jobs(project_id, limit=5)
     for job in existing_jobs:
         if job['status'] in ('pending', 'running'):
-            logger.info(f"⚠️ Job {job['id']} already {job['status']}, returning existing job_id")
-            return {
-                "success": True,
-                "message": f"Refresh already {job['status']}",
-                "job_id": job['id'],
-                "status": job['status']
-            }
+            # Проверяем не застрял ли job (старше 5 минут)
+            from datetime import datetime, timedelta
+            job_created = datetime.fromisoformat(job['created_at'].replace('Z', '+00:00'))
+            now = datetime.now(job_created.tzinfo)
+            age_minutes = (now - job_created).total_seconds() / 60
+
+            if age_minutes > 5:
+                logger.warning(f"⚠️ Job {job['id']} is stuck ({age_minutes:.1f} min old), marking as failed")
+                db.update_job(job['id'], status='failed', error='Job timed out (stuck for >5 minutes)')
+                # Continue to create new job
+            else:
+                logger.info(f"⚠️ Job {job['id']} already {job['status']}, returning existing job_id")
+                return {
+                    "success": True,
+                    "message": f"Refresh already {job['status']}",
+                    "job_id": job['id'],
+                    "status": job['status']
+                }
 
     # 🧹 REDIS CACHE: Invalidate cache for this project (stats will be updated)
     cache.invalidate_project(project_id)
