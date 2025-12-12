@@ -128,13 +128,30 @@ class ProjectManager:
             from datetime import datetime
             now = datetime.utcnow().isoformat()
 
-            # Проверяем существует ли поле last_admin_update
-            self.db.cursor.execute("PRAGMA table_info(projects)")
-            columns = [column[1] for column in self.db.cursor.fetchall()]
+            # PostgreSQL использует другой способ проверки колонок
+            # Проверяем тип БД через курсор
+            is_postgres = hasattr(self.db.cursor, '_is_postgres') and self.db.cursor._is_postgres
 
-            if 'last_admin_update' not in columns:
+            if is_postgres:
+                # PostgreSQL: проверяем через information_schema
+                self.db.cursor.execute("""
+                    SELECT column_name
+                    FROM information_schema.columns
+                    WHERE table_name='projects' AND column_name='last_admin_update'
+                """)
+                column_exists = self.db.cursor.fetchone() is not None
+            else:
+                # SQLite: используем PRAGMA
+                self.db.cursor.execute("PRAGMA table_info(projects)")
+                columns = [column[1] for column in self.db.cursor.fetchall()]
+                column_exists = 'last_admin_update' in columns
+
+            if not column_exists:
                 logger.warning(f"⚠️ Поле last_admin_update не существует, добавляем...")
-                self.db.cursor.execute('ALTER TABLE projects ADD COLUMN last_admin_update TEXT DEFAULT NULL')
+                if is_postgres:
+                    self.db.cursor.execute('ALTER TABLE projects ADD COLUMN last_admin_update TIMESTAMP DEFAULT NULL')
+                else:
+                    self.db.cursor.execute('ALTER TABLE projects ADD COLUMN last_admin_update TEXT DEFAULT NULL')
                 self.db.conn.commit()
                 logger.info("✅ Поле last_admin_update добавлено")
 
@@ -210,8 +227,9 @@ class ProjectManager:
             added_at = datetime.now().isoformat()
 
             self.db.cursor.execute('''
-                INSERT OR IGNORE INTO project_users (id, project_id, user_id, added_at)
+                INSERT INTO project_users (id, project_id, user_id, added_at)
                 VALUES (?, ?, ?, ?)
+                ON CONFLICT (project_id, user_id) DO NOTHING
             ''', (id, project_id, user_id, added_at))
 
             self.db.conn.commit()
