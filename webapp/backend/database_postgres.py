@@ -40,8 +40,8 @@ class PostgreSQLDatabase:
         self.conn = psycopg2.connect(database_url)
         self.conn.autocommit = False
 
-        # Используем DictCursor для совместимости с SQLite Row
-        real_cursor = self.conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        # Используем обычный курсор (tuple-based) для совместимости с индексным доступом
+        real_cursor = self.conn.cursor()
 
         # Оборачиваем курсор для автоконвертации ? в %s
         self.cursor = CursorWrapper(real_cursor, is_postgres=True)
