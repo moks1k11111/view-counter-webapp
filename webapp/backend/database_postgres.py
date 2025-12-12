@@ -61,7 +61,7 @@ class PostgreSQLDatabase:
                     WHERE table_name = 'stats_snapshots'
                 )
             """)
-            if not self.cursor.fetchone()['exists']:
+            if not self.cursor.fetchone()[0]:
                 logger.info("Создаю таблицу stats_snapshots...")
                 self.cursor.execute('''
                 CREATE TABLE IF NOT EXISTS stats_snapshots (
@@ -87,7 +87,7 @@ class PostgreSQLDatabase:
                     WHERE table_name = 'projects'
                 )
             """)
-            if not self.cursor.fetchone()['exists']:
+            if not self.cursor.fetchone()[0]:
                 logger.info("Создаю таблицу projects...")
                 self.cursor.execute('''
                 CREATE TABLE IF NOT EXISTS projects (
@@ -114,7 +114,7 @@ class PostgreSQLDatabase:
                     WHERE table_name = 'project_users'
                 )
             """)
-            if not self.cursor.fetchone()['exists']:
+            if not self.cursor.fetchone()[0]:
                 logger.info("Создаю таблицу project_users...")
                 self.cursor.execute('''
                 CREATE TABLE IF NOT EXISTS project_users (
@@ -140,7 +140,7 @@ class PostgreSQLDatabase:
                     WHERE table_name = 'user_context'
                 )
             """)
-            if not self.cursor.fetchone()['exists']:
+            if not self.cursor.fetchone()[0]:
                 logger.info("Создаю таблицу user_context...")
                 self.cursor.execute('''
                 CREATE TABLE IF NOT EXISTS user_context (
@@ -168,7 +168,7 @@ class PostgreSQLDatabase:
                     WHERE table_name = 'project_social_accounts'
                 )
             """)
-            if not self.cursor.fetchone()['exists']:
+            if not self.cursor.fetchone()[0]:
                 logger.info("Создаю таблицу project_social_accounts...")
                 self.cursor.execute('''
                 CREATE TABLE IF NOT EXISTS project_social_accounts (
@@ -202,7 +202,7 @@ class PostgreSQLDatabase:
                     WHERE table_name = 'account_snapshots'
                 )
             """)
-            if not self.cursor.fetchone()['exists']:
+            if not self.cursor.fetchone()[0]:
                 logger.info("Создаю таблицу account_snapshots...")
                 self.cursor.execute('''
                 CREATE TABLE IF NOT EXISTS account_snapshots (
@@ -230,7 +230,7 @@ class PostgreSQLDatabase:
                     WHERE table_name = 'account_daily_stats'
                 )
             """)
-            if not self.cursor.fetchone()['exists']:
+            if not self.cursor.fetchone()[0]:
                 logger.info("Создаю таблицу account_daily_stats...")
                 self.cursor.execute('''
                 CREATE TABLE IF NOT EXISTS account_daily_stats (
@@ -269,7 +269,7 @@ class PostgreSQLDatabase:
                     WHERE table_name = 'jobs'
                 )
             """)
-            if not self.cursor.fetchone()['exists']:
+            if not self.cursor.fetchone()[0]:
                 logger.info("Создаю таблицу jobs...")
                 self.cursor.execute('''
                 CREATE TABLE IF NOT EXISTS jobs (
@@ -312,7 +312,7 @@ class PostgreSQLDatabase:
                     WHERE table_name = '{table}' AND column_name = '{column}'
                 )
             """)
-            if not self.cursor.fetchone()['exists']:
+            if not self.cursor.fetchone()[0]:
                 logger.info(f"Добавляю поле {column} в таблицу {table}...")
                 self.cursor.execute(f'ALTER TABLE {table} ADD COLUMN {column} {definition}')
                 self.conn.commit()
