@@ -213,6 +213,7 @@ class PostgreSQLDatabase:
                     comments INTEGER DEFAULT 0,
                     videos INTEGER DEFAULT 0,
                     views INTEGER DEFAULT 0,
+                    total_videos_fetched INTEGER DEFAULT 0,
                     snapshot_time TIMESTAMP NOT NULL,
                     FOREIGN KEY (account_id) REFERENCES project_social_accounts(id)
                 )
@@ -222,6 +223,19 @@ class PostgreSQLDatabase:
                 )
                 self.conn.commit()
                 logger.info("✅ Таблица account_snapshots создана")
+
+            # Проверяем наличие колонки total_videos_fetched в account_snapshots
+            self.cursor.execute("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.columns
+                    WHERE table_name = 'account_snapshots' AND column_name = 'total_videos_fetched'
+                )
+            """)
+            if not self.cursor.fetchone()[0]:
+                logger.info("Добавляю колонку total_videos_fetched в account_snapshots...")
+                self.cursor.execute('ALTER TABLE account_snapshots ADD COLUMN total_videos_fetched INTEGER DEFAULT 0')
+                self.conn.commit()
+                logger.info("✅ Колонка total_videos_fetched добавлена")
 
             # Проверяем наличие таблицы account_daily_stats
             self.cursor.execute("""
