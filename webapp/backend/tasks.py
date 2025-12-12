@@ -394,8 +394,16 @@ def refresh_project_stats(job_id: str, project_id: str, platforms: dict,
     Returns:
         dict: Результаты выполнения
     """
+    import sys
+    import os
     import time
     from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    # Добавляем текущую директорию в sys.path для импорта локальных модулей
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    if current_dir not in sys.path:
+        sys.path.insert(0, current_dir)
+
     from database_sqlite import SQLiteDatabase
     from project_manager import ProjectManager
     from project_sheets_manager import ProjectSheetsManager
