@@ -1210,32 +1210,27 @@ function connectToProgressStream(projectId) {
 
             if (response && response.progress) {
                 const progressKeys = Object.keys(response.progress);
-                console.log(`✅ [Poll #${pollCount}] Got progress object with keys:`, progressKeys);
+                console.log(`✅ [Poll #${pollCount}] Got progress for platforms:`, progressKeys);
 
-                // Проверяем, есть ли вообще данные о платформах
-                if (progressKeys.length === 0) {
-                    console.log(`⏳ [Poll #${pollCount}] Progress is empty {}, waiting for worker to update meta...`);
-                } else {
-                    // Обновляем прогресс-бары
-                    for (const [platform, stats] of Object.entries(response.progress)) {
-                        console.log(`🔄 [Poll #${pollCount}] Updating ${platform}:`, stats);
-                        updateProgressBar(platform, stats);
-                    }
+                // Обновляем прогресс-бары
+                for (const [platform, stats] of Object.entries(response.progress)) {
+                    console.log(`🔄 [Poll #${pollCount}] Updating ${platform}:`, stats);
+                    updateProgressBar(platform, stats);
+                }
 
-                    // Проверяем завершение
-                    const allDone = Object.values(response.progress).every(
-                        stats => stats.processed >= stats.total && stats.total > 0
-                    );
+                // Проверяем завершение
+                const allDone = Object.values(response.progress).every(
+                    stats => stats.processed >= stats.total && stats.total > 0
+                );
 
-                    console.log(`🎯 [Poll #${pollCount}] All done check:`, allDone);
+                console.log(`🎯 [Poll #${pollCount}] All done check:`, allDone);
 
-                    if (allDone) {
-                        console.log('✅✅✅ All platforms completed! Stopping polling.');
-                        if (pollInterval) clearInterval(pollInterval);
+                if (allDone && progressKeys.length > 0) {
+                    console.log('✅✅✅ All platforms completed! Stopping polling.');
+                    if (pollInterval) clearInterval(pollInterval);
 
-                        // Показываем финальный экран с результатами
-                        showCompletionScreen(projectId, response.progress);
-                    }
+                    // Показываем финальный экран с результатами
+                    showCompletionScreen(projectId, response.progress);
                 }
             } else {
                 console.warn(`⚠️ [Poll #${pollCount}] No progress data yet`);
