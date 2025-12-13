@@ -1218,14 +1218,16 @@ function connectToProgressStream(projectId) {
                     updateProgressBar(platform, stats);
                 }
 
-                // Проверяем завершение
-                const allDone = Object.values(response.progress).every(
-                    stats => stats.processed >= stats.total && stats.total > 0
+                // Проверяем завершение - смотрим на UPDATED counter, а не на processed!
+                // Задача завершена когда (updated + failed) === total для всех платформ
+                const allDone = progressKeys.length > 0 && Object.values(response.progress).every(
+                    stats => (stats.updated + stats.failed) >= stats.total && stats.total > 0
                 );
 
-                console.log(`🎯 [Poll #${pollCount}] All done check:`, allDone);
+                console.log(`🎯 [Poll #${pollCount}] All done check:`, allDone,
+                    'Keys:', progressKeys.length);
 
-                if (allDone && progressKeys.length > 0) {
+                if (allDone) {
                     console.log('✅✅✅ All platforms completed! Stopping polling.');
                     if (pollInterval) clearInterval(pollInterval);
 
