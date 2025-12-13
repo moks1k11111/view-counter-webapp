@@ -618,17 +618,31 @@ def refresh_project_stats(job_id: str, project_id: str, platforms: dict,
 
             logger.info(f"✅ [Celery] Batch {batch_num}: Fetched {len(fetch_results)} accounts")
 
-            # ШАГ 2: Последовательная ЗАПИСЬ (в главном потоке, БЕЗ потоков!)
+            # ШАГ 2: ОБНОВЛЯЕМ ПРОГРЕСС ДО ЗАПИСИ (чтобы бот успел показать)
+            # Обновляем счетчик processed для каждой платформы
+            for fetch_result in fetch_results:
+                account = fetch_result['account']
+                platform = account.get('platform', 'tiktok').lower()
+                if platform in platform_stats:
+                    platform_stats[platform]['processed'] += 1
+
+            # Сохраняем прогресс в БД СРАЗУ после fetch
+            progress_percent = int((processed + len(fetch_results)) / total_to_process * 100)
+            logger.info(f"🔍 [Celery] Updating progress after fetch: {platform_stats}")
+            db.update_job(
+                job_id,
+                progress=progress_percent,
+                processed=processed + len(fetch_results),
+                meta=platform_stats
+            )
+
+            # ШАГ 3: Последовательная ЗАПИСЬ (в главном потоке, БЕЗ потоков!)
             logger.info(f"💾 [Celery] Batch {batch_num}: Writing to DB/Sheets...")
 
             for fetch_result in fetch_results:
                 processed += 1
                 account = fetch_result['account']
                 platform = account.get('platform', 'tiktok').lower()
-
-                # Обновляем счетчик processed для платформы
-                if platform in platform_stats:
-                    platform_stats[platform]['processed'] += 1
 
                 if fetch_result['success']:
                     try:
@@ -696,9 +710,9 @@ def refresh_project_stats(job_id: str, project_id: str, platforms: dict,
                         'error': fetch_result.get('error', 'Unknown error')
                     })
 
-            # ШАГ 3: Обновляем прогресс ОДИН РАЗ после батча (вместо 1000 раз!)
+            # ШАГ 4: Обновляем прогресс после записи (обновляем updated/failed счетчики)
             progress_percent = int((processed / total_to_process) * 100)
-            logger.info(f"🔍 [Celery] Updating job with platform_stats: {platform_stats}")
+            logger.info(f"🔍 [Celery] Updating job after write with platform_stats: {platform_stats}")
             db.update_job(
                 job_id,
                 progress=progress_percent,
