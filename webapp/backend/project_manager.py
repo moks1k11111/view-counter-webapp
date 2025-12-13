@@ -1278,10 +1278,12 @@ class ProjectManager:
             if not history:
                 logger.info(f"📊 [User History] No data in account_daily_stats, trying account_snapshots...")
 
+                # Берем последний snapshot за день по времени (не MAX views!)
                 query = f'''
-                    SELECT date, SUM(max_views) as total_views
-                    FROM (
-                        SELECT account_id, DATE(snapshot_time) as date, MAX(views) as max_views
+                    SELECT DATE(s1.snapshot_time) as date, SUM(s1.views) as total_views
+                    FROM account_snapshots s1
+                    INNER JOIN (
+                        SELECT account_id, DATE(snapshot_time) as date, MAX(snapshot_time) as max_time
                         FROM account_snapshots
                         WHERE account_id IN ({placeholders})
                 '''
@@ -1295,11 +1297,26 @@ class ProjectManager:
                     query += ' AND DATE(snapshot_time) <= ?'
                     params.append(end_date)
 
-                query += '''
+                query += f'''
                         GROUP BY account_id, DATE(snapshot_time)
-                    )
-                    GROUP BY date ORDER BY date ASC
+                    ) s2 ON s1.account_id = s2.account_id
+                        AND DATE(s1.snapshot_time) = s2.date
+                        AND s1.snapshot_time = s2.max_time
+                    WHERE s1.account_id IN ({placeholders})
                 '''
+
+                # Добавляем те же account_ids для второго WHERE
+                params.extend(account_ids)
+
+                if start_date:
+                    query += ' AND DATE(s1.snapshot_time) >= ?'
+                    params.append(start_date)
+
+                if end_date:
+                    query += ' AND DATE(s1.snapshot_time) <= ?'
+                    params.append(end_date)
+
+                query += ' GROUP BY DATE(s1.snapshot_time) ORDER BY DATE(s1.snapshot_time) ASC'
 
                 self.db.cursor.execute(query, params)
                 rows = self.db.cursor.fetchall()
