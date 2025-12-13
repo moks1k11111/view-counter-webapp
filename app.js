@@ -1278,10 +1278,14 @@ function updateProgressBar(platform, stats) {
     }
 
     // Обновляем счетчики успеха/ошибок
+    // Показываем processed пока запись идёт, потом updated когда готово
     const successEl = document.getElementById(`progress-success-${platform}`);
     if (successEl) {
-        successEl.textContent = updated;
-        console.log(`✅ Updated success count for ${platform}: ${updated}`);
+        // Если updated > 0, значит запись началась - показываем updated
+        // Иначе показываем processed (fetch завершен, но запись ещё не началась)
+        const successCount = (updated + failed) > 0 ? updated : processed;
+        successEl.textContent = successCount;
+        console.log(`✅ Updated success count for ${platform}: ${successCount} (updated=${updated}, processed=${processed})`);
     } else {
         console.error(`❌ Element not found: progress-success-${platform}`);
     }
