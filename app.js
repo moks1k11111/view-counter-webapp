@@ -770,8 +770,14 @@ async function deleteProject(id) {
         if (response.success) {
             showSuccess('Проект удален');
             closeProjectDetails();
-            // Reload page to refresh project list
-            setTimeout(() => window.location.reload(), 1000);
+            // Обновляем список проектов в управлении проектами (без полной перезагрузки)
+            if (projectOpenedFrom === 'project-management-page') {
+                // Перезагружаем только список проектов в управлении
+                setTimeout(() => openProjectManagement(), 500);
+            } else {
+                // Если открыли из другой страницы, делаем полную перезагрузку
+                setTimeout(() => window.location.reload(), 1000);
+            }
         } else {
             showError(response.message || 'Не удалось удалить проект');
         }
