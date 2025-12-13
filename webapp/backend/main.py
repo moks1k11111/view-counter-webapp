@@ -1046,7 +1046,9 @@ async def get_project_analytics(
         logger.info(f"📊 Loaded real history: {len(history)} days, growth_24h: {growth_24h}")
 
         # Если последняя точка НЕ сегодня - добавляем сегодняшнюю динамическую точку из Google Sheets
-        if history and history[-1]['date'] != today and total_views > 0:
+        # Преобразуем last_date в строку для корректного сравнения (может быть datetime.date объект из БД)
+        last_date = str(history[-1]['date']) if history else None
+        if history and last_date != today and total_views > 0:
             # Вычисляем прирост за 24ч как разницу между сегодня и последней точкой
             last_day_views = history[-1]['views']
             growth_24h = total_views - last_day_views
@@ -1057,6 +1059,8 @@ async def get_project_analytics(
             })
 
             logger.info(f"📊 Added today's dynamic point: {today} with {total_views} views (growth: +{growth_24h})")
+        else:
+            logger.info(f"📊 NOT adding dynamic point: last_date={last_date}, today={today}, equal={last_date == today}")
 
     # График показывает кумулятивные (накопительные) значения для страницы проекта
     # chart_data = history (формат: [{date, views}, ...] где views - это накопительная сумма)
@@ -1266,7 +1270,9 @@ async def get_my_analytics(
             growth_24h = 0  # Нет истории = нет прироста
         else:
             # Если последняя точка НЕ сегодня - добавляем сегодняшнюю динамическую точку
-            if history and history[-1]['date'] != today and total_views > 0:
+            # Преобразуем last_date в строку для корректного сравнения (может быть datetime.date объект из БД)
+            last_date = str(history[-1]['date']) if history else None
+            if history and last_date != today and total_views > 0:
                 last_day_views = history[-1]['views']
                 growth_24h = total_views - last_day_views
 
@@ -1276,6 +1282,8 @@ async def get_my_analytics(
                 })
 
                 logger.info(f"📊 [My Analytics] Added today's dynamic point: {today} with {total_views} views")
+            else:
+                logger.info(f"📊 [My Analytics] NOT adding dynamic point: last_date={last_date}, today={today}, equal={last_date == today}")
 
         # Вычисляем ежедневный прирост для графика на карточках (столбики)
         daily_growth = []
