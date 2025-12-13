@@ -607,34 +607,35 @@ def refresh_project_stats(job_id: str, project_id: str, platforms: dict,
 
             logger.info(f"🔄 [Celery] Batch {batch_num}: Fetching stats for accounts {batch_start+1}-{batch_end}")
 
-            # ШАГ 1: Параллельный FETCH (в потоках)
+            # ШАГ 1: Параллельный FETCH (в потоках) с РЕАЛ-ТАЙМ обновлением прогресса
             fetch_results = []
             with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
                 futures = [executor.submit(fetch_account_stats, acc) for acc in batch]
 
+                # Обновляем прогресс по мере завершения каждого fetch
                 for future in as_completed(futures):
                     fetch_result = future.result()
                     fetch_results.append(fetch_result)
 
+                    # Обновляем счётчик для платформы СРАЗУ
+                    account = fetch_result['account']
+                    platform = account.get('platform', 'tiktok').lower()
+                    if platform in platform_stats:
+                        platform_stats[platform]['processed'] += 1
+
+                    # Сохраняем прогресс после КАЖДОГО fetch для реал-тайм обновления
+                    current_processed = processed + len(fetch_results)
+                    progress_percent = int(current_processed / total_to_process * 100)
+                    logger.info(f"🔄 [Celery] Updated progress: {platform} {platform_stats[platform]['processed']}/{platform_stats[platform]['total']}")
+                    db.update_job(
+                        job_id,
+                        progress=progress_percent,
+                        processed=current_processed,
+                        meta=platform_stats
+                    )
+
             logger.info(f"✅ [Celery] Batch {batch_num}: Fetched {len(fetch_results)} accounts")
-
-            # ШАГ 2: ОБНОВЛЯЕМ ПРОГРЕСС ДО ЗАПИСИ (чтобы бот успел показать)
-            # Обновляем счетчик processed для каждой платформы
-            for fetch_result in fetch_results:
-                account = fetch_result['account']
-                platform = account.get('platform', 'tiktok').lower()
-                if platform in platform_stats:
-                    platform_stats[platform]['processed'] += 1
-
-            # Сохраняем прогресс в БД СРАЗУ после fetch
-            progress_percent = int((processed + len(fetch_results)) / total_to_process * 100)
-            logger.info(f"🔍 [Celery] Updating progress after fetch: {platform_stats}")
-            db.update_job(
-                job_id,
-                progress=progress_percent,
-                processed=processed + len(fetch_results),
-                meta=platform_stats
-            )
+            logger.info(f"🔍 [Celery] Final progress after batch fetch: {platform_stats}")
 
             # ШАГ 3: Последовательная ЗАПИСЬ (в главном потоке, БЕЗ потоков!)
             logger.info(f"💾 [Celery] Batch {batch_num}: Writing to DB/Sheets...")
@@ -689,6 +690,15 @@ def refresh_project_stats(job_id: str, project_id: str, platforms: dict,
 
                         logger.info(f"✅ [Celery] Wrote {username}: {stats.get('total_views', 0)} views")
 
+                        # Обновляем прогресс после каждого успешного write для реал-тайм обновления
+                        progress_percent = int((processed / total_to_process) * 100)
+                        db.update_job(
+                            job_id,
+                            progress=progress_percent,
+                            processed=processed,
+                            meta=platform_stats
+                        )
+
                     except Exception as e:
                         logger.error(f"❌ [Celery] Error writing {fetch_result['username']}: {e}")
                         failed += 1
@@ -699,6 +709,15 @@ def refresh_project_stats(job_id: str, project_id: str, platforms: dict,
                             'username': fetch_result['username'],
                             'error': f'Write failed: {str(e)}'
                         })
+
+                        # Обновляем прогресс после failed write
+                        progress_percent = int((processed / total_to_process) * 100)
+                        db.update_job(
+                            job_id,
+                            progress=progress_percent,
+                            processed=processed,
+                            meta=platform_stats
+                        )
                 else:
                     # Fetch failed
                     failed += 1
@@ -709,6 +728,15 @@ def refresh_project_stats(job_id: str, project_id: str, platforms: dict,
                         'username': fetch_result['username'],
                         'error': fetch_result.get('error', 'Unknown error')
                     })
+
+                    # Обновляем прогресс после failed fetch
+                    progress_percent = int((processed / total_to_process) * 100)
+                    db.update_job(
+                        job_id,
+                        progress=progress_percent,
+                        processed=processed,
+                        meta=platform_stats
+                    )
 
             # ШАГ 4: Обновляем прогресс после записи (обновляем updated/failed счетчики)
             progress_percent = int((processed / total_to_process) * 100)
