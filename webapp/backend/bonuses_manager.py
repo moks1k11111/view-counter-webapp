@@ -1,6 +1,6 @@
 """
 Bonuses Manager
-Управление бонусами пользователей через Google Sheets (MainBD -> Bonuses)
+Управление бонусами пользователей через Google Sheets (PostBD -> Bonuses)
 """
 
 import gspread
@@ -23,11 +23,11 @@ class BonusesManager:
 
     def __init__(self, credentials_file, spreadsheet_name, credentials_json=""):
         """
-        Инициализация подключения к Google Sheets (MainBD)
+        Инициализация подключения к Google Sheets (PostBD)
 
         Args:
             credentials_file: путь к файлу credentials (для локальной разработки)
-            spreadsheet_name: название Google Sheets (MainBD)
+            spreadsheet_name: название Google Sheets (PostBD)
             credentials_json: JSON-строка с credentials (для Render)
         """
         self.scope = [
@@ -264,7 +264,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
     # Используйте ваши реальные credentials для теста
-    # manager = BonusesManager("credentials.json", "MainBD")
+    # manager = BonusesManager("credentials.json", "PostBD")
     # manager.add_bonus("123456", "testuser", 50.0, "admin", "За отличную работу")
     # bonuses = manager.get_user_bonuses("123456")
     # print(bonuses)

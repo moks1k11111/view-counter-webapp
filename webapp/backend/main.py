@@ -112,8 +112,8 @@ try:
         sys.path.insert(0, backend_dir)
 
     from bonuses_manager import BonusesManager
-    bonuses_manager = BonusesManager(GOOGLE_SHEETS_CREDENTIALS, "MainBD", GOOGLE_SHEETS_CREDENTIALS_JSON)
-    logger.info("✅ Bonuses Manager initialized successfully")
+    bonuses_manager = BonusesManager(GOOGLE_SHEETS_CREDENTIALS, "PostBD", GOOGLE_SHEETS_CREDENTIALS_JSON)
+    logger.info("✅ Bonuses Manager initialized successfully (PostBD)")
 except Exception as e:
     logger.error(f"⚠️ Bonuses Manager не подключен: {e}")
     import traceback
