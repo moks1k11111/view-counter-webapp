@@ -1385,7 +1385,12 @@ class ProjectManager:
                 DELETE FROM project_users WHERE project_id = ?
             ''', (project_id,))
 
-            # 6. Удаляем сам проект
+            # 6. Удаляем все jobs проекта (чтобы избежать foreign key constraint)
+            self.db.cursor.execute('''
+                DELETE FROM jobs WHERE project_id = ?
+            ''', (project_id,))
+
+            # 7. Удаляем сам проект
             self.db.cursor.execute('''
                 DELETE FROM projects WHERE id = ?
             ''', (project_id,))
